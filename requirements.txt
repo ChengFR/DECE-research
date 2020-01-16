@@ -1,6 +1,5 @@
-numpy==1.16.0
+numpy>=1.17.0
 scikit-learn
 pandas
-tensorflow==1.13.0rc1
 h5py
 xgboost
