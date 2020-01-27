@@ -3,3 +3,4 @@ scikit-learn
 pandas
 h5py
 xgboost
+tensorflow
