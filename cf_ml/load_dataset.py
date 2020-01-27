@@ -6,11 +6,11 @@ import pandas as pd
 from data import Dataset
 
 def load_HELOC_dataset():
-    df = pd.read_csv('./data/FICO/heloc_dataset_v1.csv')
+    df = pd.read_csv('../data/HELOC/heloc_dataset_v2.csv')
     data = df.to_numpy()
     x = data[:, 1:]
     y = data[:, 0]
-    dd = pd.read_csv('./data/FICO/description.csv')
+    dd = pd.read_csv('../data/HELOC/description.csv')
     attr_disc = dd.to_dict('records')
     return Dataset(attr_disc=attr_disc, name='HELOC', x=x, y=y)
 
