@@ -7,8 +7,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 
 class MLPConfig():
-    """
-    """
+    """A class of MLP configuration"""
+
     def __init__(self, shape=[23, 64, 32, 1], loss="binary_crossentropy", optimizer="rmsprop", metrics=['accuracy']):
         self._shape = shape
         self._loss = loss
@@ -36,8 +36,8 @@ class MLPConfig():
 
 
 class TensorflowModel():
-    """
-    """
+    """A class of keras (tensorflow) MLP model."""
+    
     def __init__(self, config=MLPConfig()):
         self._config = config
         self._model = Sequential()
@@ -69,6 +69,9 @@ class TensorflowModel():
 
     def evaluate(self, x_test, y_test, batch_size=128):
         return self._model.evaluate(x_test, y_test, batch_size=batch_size)
+
+    def get_output(self, input_tensor):
+        return self._model(input_tensor)
 
 
 if __name__ == '__main__':
