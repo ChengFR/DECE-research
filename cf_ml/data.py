@@ -18,9 +18,9 @@ class Dataset:
         # initialize attribute and target discription
         self._attr_disc = OrderedDict()
         for attr in attr_disc[:-1]:
-            self._attr_disc[attr['name']] == attr
+            self._attr_disc[attr['name']] = attr
         self._target_disc = OrderedDict() # reserverd for dummy columns
-        self._target_disc[attr_disc[-1]['name']] == attr_disc[-1]
+        self._target_disc[attr_disc[-1]['name']] = attr_disc[-1]
 
         # initialize normalizer
         if normalizer is None:
@@ -45,7 +45,7 @@ class Dataset:
         self._y = np.array(y)
         if len(self._y) > 0:
             # fit one_hot_encoder with x
-            self.dummy_attr = self._one_hot_encoder.fit(self._x, [attr['type'] in ['categorical'] for attr in self._attr_disc])
+            self.dummy_attr = self._one_hot_encoder.fit(self._x, [attr['type'] in ['categorical'] for attr in self._attr_disc.values()])
             # fit normalizer with x
             self._normalizer.fit(self._x)
         self.split_data(train_size, random_state)
