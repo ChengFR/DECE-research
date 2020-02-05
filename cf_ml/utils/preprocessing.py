@@ -59,7 +59,7 @@ class OneHotEncodder:
         if self._mask.shape[0] != raw_data.shape[1]:
             raise ValueError('Attribute mask.shape({},) is inconsistent with data.shape(,{}).'.format(self._mask.shape[0], data.shape[1]))
         
-        for index in range(raw_data.shape[0]):
+        for index in range(raw_data.shape[1]):
             if not mask[index]:
                 self._categories.append([])
             elif index in category_dict.keys():
