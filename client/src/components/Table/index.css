@@ -1,0 +1,18 @@
+.table-container .cell {
+  position: absolute;
+  border: 0;
+}
+
+.table-header {
+  position: relative;
+}
+
+.table-content {
+  position: relative;
+}
+
+.table-container .cell .content {
+  background: #fff;
+  border-bottom: 1px solid rgba(36,41,46,.04);
+  border-right: 1px solid rgba(36,41,46,.04)
+}

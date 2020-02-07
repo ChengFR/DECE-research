@@ -10,7 +10,7 @@ export default class DataTable {
 
   private data: Row[] = [];
 
-  constructor ({data, columns}) {
+  constructor ({data, columns}: {data: Row[], columns: Column[]}) {
     this.data = data;
     this.columns = columns;
   }

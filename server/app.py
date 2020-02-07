@@ -26,6 +26,7 @@ def create_app(config=None):
 def add_arguments_server(parser):
 
     parser.add_argument('--model_dir', default='.', type=str, help="The path of the model")
+    parser.add_argument('--data_dir', default='data/processed', type=str, help="The path of available datasets")
     # API flag
     parser.add_argument('--host', default='0.0.0.0', help='The host to run the server')
     parser.add_argument('--port', default=7777, help='The port to run the server')
@@ -34,7 +35,7 @@ def add_arguments_server(parser):
 
 def start_server(args):
 
-    app = create_app()
+    app = create_app(dict(DATA_DIR=args.data_dir, MODEL_DIR=args.model_dir))
 
     app.run(
         debug=args.debug,
