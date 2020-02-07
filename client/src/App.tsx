@@ -12,6 +12,7 @@ import { getData, getDataMeta } from "./api";
 import "./App.css";
 import Table from "./components/Table";
 import { DataMeta } from "./typings";
+import Panel from "./components/Panel";
 
 export interface IAppProps {
   dataId: string;
@@ -45,7 +46,11 @@ export class App extends React.Component<IAppProps, IAppState> {
   public render() {
     const { dataset } = this.state;
     return (
-      <div className="App">{dataset && <Table dataFrame={dataset} />}</div>
+      <div className="App">
+        <Panel>
+          {dataset && <Table dataFrame={dataset} />}
+        </Panel>
+      </div>
     );
   }
 }
