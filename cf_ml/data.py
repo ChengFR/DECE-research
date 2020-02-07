@@ -1,8 +1,10 @@
+import json
 import numpy as np 
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from collections import OrderedDict
 
-from utils.preprocessing import Normalizer, OneHotEncodder
+from .utils.preprocessing import Normalizer, OneHotEncodder
 
 
 class Dataset:
@@ -112,6 +114,29 @@ class Dataset:
         return self._y_test
 
     # def normalize(self):
+
+
+class DataMeta(object):
+
+    def __init__(self, features, target):
+        self.features = features
+        self.target = target
+
+    @classmethod
+    def from_csv(cls, filename):
+        df = pd.read_csv(filename)
+        dd = df.to_dict('records')
+        return cls(dd[:-1], dd[-1])
+
+    @classmethod
+    def from_json(cls, filename):
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        return cls(data['features'], data['target'])
+
+    def to_json(self, filename):
+        with open(filename, 'w') as f:
+            json.dump(dict(features=self.features, target=self.target), f)
 
 if __name__ == '__main__':
     dataset = Dataset(attr_disc=[])
