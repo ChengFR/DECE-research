@@ -1,11 +1,13 @@
 import * as React from "react";
 // import Moveable from "moveable";
-import {Rnd} from 'react-rnd';
+import { Rnd } from "react-rnd";
 
-import './index.css';
+import "./index.css";
 import PanelHeader from "./Header";
 
 export interface IPanelProps {
+  initialWidth: number;
+  initialHeight: number;
   width?: number;
   height?: number;
   x?: number;
@@ -24,7 +26,10 @@ export interface IPanelState {
 }
 
 export default class Panel extends React.Component<IPanelProps, IPanelState> {
-  static getDerivedStateFromProps(nextProps: IPanelProps, prevState: IPanelState) {
+  static getDerivedStateFromProps(
+    nextProps: IPanelProps,
+    prevState: IPanelState
+  ) {
     const newState: Partial<IPanelState> = {};
     let flag = false;
     if (nextProps.x && nextProps.x !== prevState.x) {
@@ -46,20 +51,27 @@ export default class Panel extends React.Component<IPanelProps, IPanelState> {
     if (flag) return newState;
     return null;
   }
+
+  static defaultProps = {
+    initialWidth: 800,
+    initialHeight: 600
+  };
+
   private ref: React.RefObject<HTMLDivElement> = React.createRef();
+
   constructor(props: IPanelProps) {
     super(props);
 
     this.state = {
-      width: props.width || 600,
-      height: props.height || 400,
+      width: props.initialWidth,
+      height: props.initialHeight,
       x: props.x || 0,
-      y: props.y || 0,
+      y: props.y || 0
     };
   }
 
   public render() {
-    const {title} = this.props;
+    const { title } = this.props;
     const { x, y, width, height } = this.state;
     return (
       <Rnd
@@ -68,29 +80,29 @@ export default class Panel extends React.Component<IPanelProps, IPanelState> {
           x: 150,
           y: 205,
           width: 500,
-          height: 190,
+          height: 190
         }}
-        size={{ width,  height }}
+        size={{ width, height }}
         position={{ x, y }}
         minWidth={500}
         minHeight={190}
         bounds="window"
         disableDragging={false}
-        onDragStop={(e, d) => { this.setState({ x: d.x, y: d.y }) }}
+        onDragStop={(e, d) => {
+          this.setState({ x: d.x, y: d.y });
+        }}
         onResize={(e, direction, ref, delta, position) => {
           this.setState({
             width: ref.offsetWidth,
             height: ref.offsetHeight,
-            ...position,
+            ...position
           });
         }}
         cancel=".panel-body"
-        style={{cursor: 'inherit'}}
+        style={{ cursor: "inherit" }}
       >
         <PanelHeader title={title} />
-        <PanelContent>
-          {this.props.children}
-        </PanelContent>
+        <PanelContent>{this.props.children}</PanelContent>
       </Rnd>
       // <div className="panel-wrapper" ref={this.ref} style={{width, height, transform}}>
       //   {this.props.children}
@@ -100,13 +112,9 @@ export default class Panel extends React.Component<IPanelProps, IPanelState> {
 }
 
 interface IPanelContentProps {
-  children?: React.ReactNode
+  children?: React.ReactNode;
 }
 
-function PanelContent (props: IPanelContentProps) {
-  return (
-    <div className="panel-body">
-      {props.children}
-    </div>
-  );
+function PanelContent(props: IPanelContentProps) {
+  return <div className="panel-body">{props.children}</div>;
 }
