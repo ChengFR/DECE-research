@@ -1,5 +1,203 @@
+import * as d3 from "d3";
+// import {scaleOrdinal, scaleLinear} from 'd3-scale';
+import * as React from "react";
+import { MarginType, getMargin, CSSPropertiesFn, ChartOptions } from "./common";
+import "./histogram.css";
 
-
-export function histogram() {
-
+export interface IHistogramOptions extends ChartOptions {
+  innerPadding: number;
+  rectClass?: string;
+  rectStyle?: CSSPropertiesFn<SVGRectElement, d3.Bin<number, number>>;
+  onRectMouseOver?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
+  onRectMouseMove?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
+  onRectMouseLeave?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
 }
+
+export const defaultOptions: IHistogramOptions = {
+  width: 300,
+  height: 200,
+  margin: 3,
+  innerPadding: 1
+};
+
+function getNBinsRange(width: number): [number, number] {
+  return [Math.floor(width / 10), Math.ceil(width / 5)];
+}
+
+function getChildOrAppend<
+  GElement extends d3.BaseType,
+  PElement extends d3.BaseType
+>(root: d3.Selection<PElement, any, any, any>, tag: string, className: string) {
+  return root
+    .selectAll(`${tag}.${className}`)
+    .data([tag])
+    .enter()
+    .append<GElement>(tag)
+    .attr("class", className);
+}
+
+export function drawHistogram(
+  svg: SVGElement,
+  data: ArrayLike<number>,
+  options?: Partial<IHistogramOptions>
+) {
+  const opts = { ...defaultOptions, ...options };
+  const {
+    width,
+    height,
+    rectClass,
+    rectStyle,
+    innerPadding,
+    onRectMouseOver,
+    onRectMouseMove,
+    onRectMouseLeave
+  } = opts;
+  const margin = getMargin(opts.margin);
+
+  const xRange = [0, width - margin.right - margin.left];
+  const yRange = [height - margin.top - margin.bottom, 0];
+
+  // X axis: scale and draw:
+  const dataExtent = d3.extent(data);
+  if (dataExtent[0] === undefined) {
+    throw dataExtent;
+  }
+  const x = d3
+    .scaleLinear()
+    .domain(dataExtent)
+    .nice()
+    .range(xRange);
+
+  const root = d3.select(svg);
+
+  // const xAxis = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "x-axis");
+  // xAxis.attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
+
+  // set the parameters for the histogram
+  // const histogramThreshold = d3.thresholdScott(
+  //   data,
+  //   ...getNBinsRange(xRange[1] - xRange[0])
+  // );
+  const histogram = d3.histogram().domain(x.domain() as [number, number]);
+  // .thresholds(histogramThreshold);
+
+  const bins = histogram(data);
+
+  // Y axis: scale and draw:
+  const y = d3.scaleLinear().range(yRange);
+
+  y.domain([
+    0,
+    d3.max(bins, function(d) {
+      return d.length;
+    }) as number
+  ]); // d3.hist has to be called before the Y axis obviously
+
+  // const yAxis = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "y-axis");
+  // yAxis.call(d3.axisLeft(y));
+
+  // append the bar rectangles to the svg element
+  const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "rects").attr(
+    "transform",
+    `translate(${margin.left}, ${margin.top})`
+  );
+  const merged = g
+    .selectAll("rect")
+    .data(bins)
+    .join(enter =>
+      enter
+        .append("rect")
+        .attr("x", innerPadding)
+        .attr("class", (rectClass || null) as string)
+    )
+    .attr("transform", function(d) {
+      return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
+    })
+    .attr("width", function(d) {
+      return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
+    })
+    .attr("height", function(d) {
+      return yRange[0] - y(d.length);
+    })
+    .on("mouseover", (onRectMouseOver || null) as null)
+    .on("mousemove", (onRectMouseMove || null) as null)
+    .on("mouseleave", (onRectMouseLeave || null) as null);
+
+  if (rectStyle) {
+    Object.keys(rectStyle).forEach(key => {
+      merged.style(
+        key,
+        (rectStyle[key as keyof typeof rectStyle] || null) as null
+      );
+    });
+  }
+}
+
+export interface IHistogramProps extends IHistogramOptions {
+  data: ArrayLike<number>;
+  style?: React.CSSProperties;
+  className?: string;
+}
+
+export interface IHistogramState {}
+
+export class Histogram extends React.Component<
+  IHistogramProps,
+  IHistogramState
+> {
+  static defaultProps = { ...defaultOptions };
+  private ref: React.RefObject<SVGSVGElement> = React.createRef();
+  constructor(props: IHistogramProps) {
+    super(props);
+
+    this.state = {};
+    this.paint = this.paint.bind(this);
+  }
+
+  public paint(svg: SVGSVGElement | null = this.ref.current) {
+    if (svg) {
+      const { data, ...rest } = this.props;
+      drawHistogram(svg, data, rest);
+    }
+  }
+
+  public componentDidMount() {
+    this.paint();
+  }
+
+  public componentDidUpdate(
+    prevProps: IHistogramProps,
+    prevState: IHistogramState
+  ) {
+    const { data, width, height, innerPadding, rectClass, rectStyle, onRectMouseLeave, onRectMouseMove, onRectMouseOver } = this.props;
+    if (
+      prevProps.data !== data ||
+      prevProps.width !== width ||
+      prevProps.height !== height ||
+      prevProps.innerPadding !== innerPadding ||
+      prevProps.rectClass !== rectClass ||
+      prevProps.rectStyle !== rectStyle ||
+      prevProps.onRectMouseMove !== onRectMouseMove ||
+      prevProps.onRectMouseOver !== onRectMouseOver ||
+      prevProps.onRectMouseLeave !== onRectMouseLeave
+    ) {
+      console.log("repainting histogram");
+      this.paint();
+    }
+  }
+
+  public render() {
+    const { style, className, width, height } = this.props;
+    return (
+      <svg
+        ref={this.ref}
+        style={style}
+        className={(className || "") + " histogram"}
+        width={width}
+        height={height}
+      />
+    );
+  }
+}
+
+export default Histogram;

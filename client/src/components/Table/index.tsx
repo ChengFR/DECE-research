@@ -1,6 +1,6 @@
 import * as React from "react";
-import { IDataFrame } from "data-forge";
-import { Grid, AutoSizer, ScrollParams } from "react-virtualized";
+import { IDataFrame, ISeries } from "data-forge";
+import { AutoSizer, ScrollParams } from "react-virtualized";
 import { getTextWidth } from "../../common/utils";
 import Header from "./Header";
 import TableGrid from "./TableGrid";
@@ -9,7 +9,6 @@ import "./index.css";
 export interface ITableProps {
   dataFrame: IDataFrame;
   onScroll?: (params: ScrollParams) => any;
-  width?: number;
   style?: React.CSSProperties;
   rowHeight: number;
 }
@@ -20,7 +19,7 @@ interface ITableState {
   columnWidths: number[];
   scrollTop: number;
   scrollLeft: number;
-  columns: { name: string, type: string }[]
+  columns: {name: string, type: string, series: ISeries}[]
 }
 
 function initColumnWidths(columns: string[], padding: number = 10) {
@@ -36,10 +35,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     if (nextProps.dataFrame !== prevState.dataFrame) {
       const columns = nextProps.dataFrame
         .getColumns()
-        .toArray()
-        .map(({ name, type }) => {
-          return { name, type };
-        });
+        .toArray();
       const data = nextProps.dataFrame.getColumns().toArray()
         .map(column => column.series.toArray());
       return {
@@ -84,7 +80,9 @@ export default class Table extends React.Component<ITableProps, ITableState> {
                 className="table-header"
                 columns={columns}
                 columnWidth={getColumnWidth}
-                height={30}
+                height={90}
+                chartHeight={60}
+                hasChart={true}
                 width={width}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}
@@ -94,7 +92,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
                 data={data}
                 columnWidth={getColumnWidth}
                 rowHeight={rowHeight}
-                height={height - 30}
+                height={height - 90}
                 width={width}
                 onScroll={this._onScroll}
                 scrollLeft={scrollLeft}
