@@ -1,10 +1,8 @@
 import * as React from 'react';
 import * as d3 from 'd3';
 import _ from 'lodash';
-import { AutoSizer, Grid, GridCellProps, Index, ScrollParams } from 'react-virtualized';
-import { IDataFrame, DataFrame } from 'data-forge';
-
-import { cumsum } from '../../common/math';
+import { Grid, GridCellProps, Index, ScrollParams } from 'react-virtualized';
+import { IDataFrame } from 'data-forge';
 
 export interface ITableGridProps {
   data: Array<Array<number | string>>;
@@ -70,14 +68,12 @@ export default class TableGrid extends React.Component<ITableGridProps, ITableGr
   //   );
   // }
   public render() {
-    const {data, style} = this.props;
-    const noContentRenderer = () => {
-      return <div className="cell-empty">No cells</div>;
-    };
+    const {data, style, className, ...rest} = this.props;
 
     return (
       <Grid
-        {...this.props}
+        {...rest}
+        className={`${className} scrollbar fixed-scrollbar`}
         cellRenderer={this._cellRenderer}
         columnCount={data.length}
         // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
@@ -95,7 +91,7 @@ export default class TableGrid extends React.Component<ITableGridProps, ITableGr
     const {rowIndex, columnIndex, key, style} = cellProps;
     
     return (
-      <div className={`row-${rowIndex} col-${columnIndex}`} key={key} style={style}>
+      <div className={`cell row-${rowIndex} col-${columnIndex}`} key={key} style={style}>
         {this.props.data[columnIndex][rowIndex]}
       </div>
     );

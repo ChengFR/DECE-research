@@ -47,7 +47,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     const { dataset } = this.state;
     return (
       <div className="App">
-        <Panel>
+        <Panel title="Table View" width={800} height={600}>
           {dataset && <Table dataFrame={dataset} />}
         </Panel>
       </div>

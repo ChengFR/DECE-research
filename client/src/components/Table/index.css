@@ -3,21 +3,43 @@
   width: 100%;
 }
 
-.table-container .cell {
-  position: absolute;
-  border: 0;
-}
-
-.table-header {
-  position: relative;
-}
-
 .table-content {
   position: relative;
 }
 
-.table-container .cell .content {
-  background: #fff;
+.table-container .cell {
   border-bottom: 1px solid rgba(36,41,46,.04);
   border-right: 1px solid rgba(36,41,46,.04)
+}
+
+
+.table-header {
+  position: relative;
+  border-bottom: 1px solid rgba(36,41,46,.2);
+}
+
+.table-header .cell {
+  margin: auto;
+  /* line-height: 30px; */
+}
+
+
+/* Custom scrollbars are not supported in Firefox or IE/Edge. */
+.invisible-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+  -webkit-border-radius: 4px;
+  border-radius: 4px;
+  background-color: #ccc;
+  /* -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.5);  */
+}
+
+
+.fixed-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+  border: 0.5px solid #eee;
+  /* background-color: #aaa; */
 }
