@@ -30,14 +30,17 @@ export default class Header extends React.Component<
 > {
   static defaultProps = {
     height: 20,
-    chartHeight: 60,
+    chartHeight: 60
   };
 
-  static getDerivedStateFromProps(nextProps: IHeaderProps, prevState: IHeaderState) {
+  static getDerivedStateFromProps(
+    nextProps: IHeaderProps,
+    prevState: IHeaderState
+  ) {
     if (nextProps.columns !== prevState.columns) {
-      const {columns} = nextProps;
-      const columnData = columns.map(c => c.series.toArray())
-      return {columns, columnData};
+      const { columns } = nextProps;
+      const columnData = columns.map(c => c.series.toArray());
+      return { columns, columnData };
     }
     return null;
   }
@@ -50,7 +53,7 @@ export default class Header extends React.Component<
       columns: [],
       scrollLeft: 0,
       scrollTop: 0,
-      columnData: [],
+      columnData: []
     };
     this._titleCellRenderer = this._titleCellRenderer.bind(this);
     this._chartCellRenderer = this._chartCellRenderer.bind(this);
@@ -75,9 +78,19 @@ export default class Header extends React.Component<
   // }
 
   public render() {
-    const { height, width, style, columns, scrollLeft, onScroll, className, hasChart, chartHeight } = this.props;
+    const {
+      height,
+      width,
+      style,
+      columns,
+      scrollLeft,
+      onScroll,
+      className,
+      hasChart,
+      chartHeight
+    } = this.props;
 
-    const titleHeight = hasChart ? (height - chartHeight) : height;
+    const titleHeight = hasChart ? height - chartHeight : height;
     const titleGrid = (
       <Grid
         cellRenderer={this._titleCellRenderer}
@@ -100,7 +113,7 @@ export default class Header extends React.Component<
 
     if (hasChart) {
       chartGrid = (
-        <Grid 
+        <Grid
           cellRenderer={this._chartCellRenderer}
           className={`${className} header-chart invisible-scrollbar`}
           columnCount={columns.length}
@@ -136,11 +149,18 @@ export default class Header extends React.Component<
 
   _titleCellRenderer(cellProps: GridCellProps) {
     const { columnIndex, key, style, ...rest } = cellProps;
-    const { columns } = this.props;
+    const { columns, height, chartHeight, hasChart } = this.props;
 
     return (
-      <div className={`cell row-title col-${columnIndex}`} key={key} style={style}>
-        {columns[columnIndex].name}
+      <div
+        className={`cell row-title col-${columnIndex}`}
+        key={key}
+        style={{
+          ...style,
+          lineHeight: `${hasChart ? height - chartHeight : height}px`
+        }}
+      >
+        <span>{columns[columnIndex].name}</span>
       </div>
     );
   }
@@ -150,10 +170,17 @@ export default class Header extends React.Component<
     const { columnWidth, chartHeight } = this.props;
     const data = this.state.columnData[columnIndex];
     // console.log(data);
-    const width = typeof columnWidth === 'number' ? columnWidth : columnWidth({index: columnIndex});
+    const width =
+      typeof columnWidth === "number"
+        ? columnWidth
+        : columnWidth({ index: columnIndex });
     return (
-      <div className={`cell row-chart col-${columnIndex}`} key={key} style={style}>
-        <Histogram data={data} width={width} height={chartHeight}/>
+      <div
+        className={`cell row-chart col-${columnIndex}`}
+        key={key}
+        style={style}
+      >
+        <Histogram data={data} width={width} height={chartHeight} />
       </div>
     );
   }
