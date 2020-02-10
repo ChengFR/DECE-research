@@ -7,7 +7,7 @@ from sklearn.model_selection import ShuffleSplit
 from counterfactual import linear_explanation, plot_coefficients
 
 
-dataset = ['HELOC', 'adult'][1]
+dataset = ['HELOC', 'adult'][0]
 data_dir = './data/'
 cf_data_dir = './output_data/'
 
@@ -85,9 +85,9 @@ normed_scores = [1/(math.exp(s)+1) for s in scores]
 frame['Score'] = normed_scores
 frame.to_csv(os.path.join(cf_data_dir, dataset, 'pred_linear_{:.3f}_{}.csv'.format(test_accuracy, dataset)), index=False)
 
-explanations = exp.explain_set(inputs.values, 12)
-exp2 = pd.DataFrame(explanations, columns=[
-                    cl.name for cl in exp.cox]+['Score', 'OriginIndex'])
-exp2.to_csv(os.path.join(cf_data_dir, dataset, 'cf_linear_{}.csv'.format(dataset)), index=False)
+# explanations = exp.explain_set(inputs.values, 12)
+# exp2 = pd.DataFrame(explanations, columns=[
+#                     cl.name for cl in exp.cox]+['Score', 'OriginIndex'])
+# exp2.to_csv(os.path.join(cf_data_dir, dataset, 'cf_linear_{}.csv'.format(dataset)), index=False)
 
 exit()
