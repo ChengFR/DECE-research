@@ -93,42 +93,6 @@ class OneHotEncodder:
     def get_categories(self):
         return self._categories
 
-
-# def cat2num(data, where=True):
-#     """
-#     param where: bool or array_like of bool, ture indicates that the corresponding attribute needs to be transformed to numerical data
-#     """
-#     raw_data = np.array(data)
-#     where = np.array(where)
-#     if raw_data.ndim == 1:
-#         new_col, symbol_dict = _cat2num(raw_data)
-#         # if type(data) == list:
-#         #     new_col = new_col.tolist()
-#         return new_col, symbol_dict
-#     elif raw_data.ndim == 2:
-#         assert(raw_data.shape[1] == where.shape[0])
-#         symbol_dict_list = []
-#         for col_index in range(raw_data.shape[1]):
-#             if where[col_index] == False:
-#                 symbol_dict_list.append({})
-#             else:
-#                 new_col, symbol_dict = _cat2num(raw_data[:, col_index])
-#                 raw_data[:, col_index] = new_col
-#                 symbol_dict_list.append(symbol_dict)
-#         # if type(data) == list:
-#         #     raw_data = raw_data.tolist()
-#         return raw_data, symbol_dict_list
-        
-# def _cat2num(column):
-#     raw_column = np.array(column)
-#     symbols = np.unique(raw_column)
-#     symbol_dict = {}
-#     reverse_dict = {}
-#     for i, s in enumerate(symbols):
-#         symbol_dict[i] = s
-#         reverse_dict[s] = i
-#     return np.array([reverse_dict[s] for s in raw_column]), symbol_dict
-
 if __name__ == '__main__':
     one_hot = OneHotEncodder()
     print(one_hot.fit_transform([['abc', 1], ['d', 3]], [True, False]))
