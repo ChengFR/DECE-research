@@ -30,3 +30,17 @@ export interface ChartOptions {
   height: number;
   margin: MarginType;
 }
+
+export function getChildOrAppend<
+  GElement extends d3.BaseType,
+  PElement extends d3.BaseType
+>(root: d3.Selection<PElement, any, any, any>, tag: string, className: string) {
+  const node = root
+    .selectAll(`${tag}.${className}`);
+
+  node.data([tag]).enter()
+    .append<GElement>(tag)
+    .attr("class", className);
+
+  return root.select<SVGGElement>(`${tag}.${className}`);
+}

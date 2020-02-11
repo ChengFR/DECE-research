@@ -1,5 +1,5 @@
 import * as React from "react";
-import { IDataFrame, ISeries } from "data-forge";
+import { IDataFrame, Series, IColumn } from "../../data";
 import { AutoSizer, ScrollParams } from "react-virtualized";
 import { getTextWidth } from "../../common/utils";
 import Header from "./Header";
@@ -19,7 +19,7 @@ interface ITableState {
   columnWidths: number[];
   scrollTop: number;
   scrollLeft: number;
-  columns: {name: string, type: string, series: ISeries}[]
+  columns: IColumn[];
 }
 
 function initColumnWidths(columns: string[], padding: number = 10) {
@@ -30,14 +30,10 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   static defaultProps = {
     rowHeight: 20
   };
-
   static getDerivedStateFromProps(nextProps: ITableProps, prevState: ITableState) {
     if (nextProps.dataFrame !== prevState.dataFrame) {
-      const columns = nextProps.dataFrame
-        .getColumns()
-        .toArray();
-      const data = nextProps.dataFrame.getColumns().toArray()
-        .map(column => column.series.toArray());
+      const columns = nextProps.dataFrame.columns;
+      const data = nextProps.dataFrame.toColumns();
       return {
         dataFrame: nextProps.dataFrame,
         columns, data
@@ -59,13 +55,16 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     this._onScroll = this._onScroll.bind(this);
     this._onScrollLeft = this._onScrollLeft.bind(this);
     this._onScrollTop = this._onScrollTop.bind(this);
+    this.onChangeColumnWidth = this.onChangeColumnWidth.bind(this);
   }
 
   public render() {
+    console.debug("render table");
     const { dataFrame, style, rowHeight } = this.props;
     const { columnWidths, scrollLeft, scrollTop, columns, data } = this.state;
-    const getColumnWidth = ({ index }: { index: number }) =>
-      columnWidths[index];
+    // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
+
+    console.log(columns);
     // console.log(dataFrame.getColumns().toArray());
     const containerStyle = {
       overflow: "visible",
@@ -79,18 +78,19 @@ export default class Table extends React.Component<ITableProps, ITableState> {
               <Header
                 className="table-header"
                 columns={columns}
-                columnWidth={getColumnWidth}
+                columnWidths={columnWidths}
                 height={90}
                 chartHeight={60}
                 hasChart={true}
                 width={width}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}
+                onChangeColumnWidth={this.onChangeColumnWidth}
               />
               <TableGrid
                 className="table-grid"
                 data={data}
-                columnWidth={getColumnWidth}
+                columnWidths={columnWidths}
                 rowHeight={rowHeight}
                 height={height - 90}
                 width={width}
@@ -133,5 +133,13 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     if (onScroll) {
       onScroll(scrollInfo);
     }
+  }
+
+  onChangeColumnWidth({index, width}: {index: number, width: number}) {
+    const {columnWidths} = this.state;
+    columnWidths.splice(index, 1, width);
+    // console.log(`change column ${index} width to ${width}`);
+
+    this.setState({columnWidths: [...columnWidths]});
   }
 }
