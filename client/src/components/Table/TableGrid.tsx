@@ -7,7 +7,7 @@ import { IDataFrame } from 'data-forge';
 export interface ITableGridProps {
   data: Array<Array<number | string>>;
   // columnWidths: number[];
-  columnWidth: number | ((params: Index) => number);
+  columnWidths: number[];
   rowHeight: number;
   height: number;
   width: number;
@@ -35,7 +35,7 @@ export default class TableGrid extends React.Component<ITableGridProps, ITableGr
     rowHeight: 20
   };
   // private divRef: React.RefObject<HTMLDivElement> = React.createRef();
-  private _ref: React.LegacyRef<Grid> = React.createRef();
+  private _ref: React.RefObject<Grid> = React.createRef();
 
   constructor(props: ITableGridProps) {
     super(props);
@@ -43,6 +43,14 @@ export default class TableGrid extends React.Component<ITableGridProps, ITableGr
     this.state = {
     };
     this._cellRenderer = this._cellRenderer.bind(this);
+  }
+
+  componentDidUpdate(prevProps: ITableGridProps) {
+    if (prevProps.columnWidths !== this.props.columnWidths) {
+      const grid = this._ref.current;
+      if (grid)
+        grid.recomputeGridSize();
+    }
   }
 
   // public componentDidMount() {
@@ -68,11 +76,13 @@ export default class TableGrid extends React.Component<ITableGridProps, ITableGr
   //   );
   // }
   public render() {
-    const {data, style, className, ...rest} = this.props;
+    const {data, style, className, columnWidths, ...rest} = this.props;
 
+    const columnWidth = ({ index }: { index: number }) => columnWidths[index];
     return (
       <Grid
         {...rest}
+        columnWidth={columnWidth}
         className={`${className} scrollbar fixed-scrollbar`}
         cellRenderer={this._cellRenderer}
         columnCount={data.length}

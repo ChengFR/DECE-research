@@ -22,4 +22,4 @@ NumRevolvingTradesWBalance,Number Revolving Trades with Balance,numerical
 NumInstallTradesWBalance,Number Installment Trades with Balance,numerical
 NumBank2NatlTradesWHighUtilization,Number Bank/Natl Trades w high utilization ratio,numerical
 PercentTradesWBalance,Percent Trades with Balance,numerical
-RiskPerformance,Paid as negotiated flag (12-36 Months). 0 is for Good and 1 is for Bad,numerical
+RiskPerformance,Paid as negotiated flag (12-36 Months). 0 is for Good and 1 is for Bad,categorical

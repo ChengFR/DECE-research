@@ -43,3 +43,13 @@
   border: 0.5px solid #eee;
   /* background-color: #aaa; */
 }
+
+.col-resizer {
+  cursor: col-resize;
+  position: absolute;
+  user-select: none;
+  height: 100%;
+  right: -3px;
+  width: 6px;
+  top: 0px
+}

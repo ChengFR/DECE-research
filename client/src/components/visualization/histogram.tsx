@@ -1,7 +1,7 @@
 import * as d3 from "d3";
 // import {scaleOrdinal, scaleLinear} from 'd3-scale';
 import * as React from "react";
-import { MarginType, getMargin, CSSPropertiesFn, ChartOptions } from "./common";
+import { getMargin, CSSPropertiesFn, ChartOptions, getChildOrAppend } from "./common";
 import "./histogram.css";
 
 export interface IHistogramOptions extends ChartOptions {
@@ -24,18 +24,6 @@ function getNBinsRange(width: number): [number, number] {
   return [Math.floor(width / 10), Math.ceil(width / 5)];
 }
 
-function getChildOrAppend<
-  GElement extends d3.BaseType,
-  PElement extends d3.BaseType
->(root: d3.Selection<PElement, any, any, any>, tag: string, className: string) {
-  return root
-    .selectAll(`${tag}.${className}`)
-    .data([tag])
-    .enter()
-    .append<GElement>(tag)
-    .attr("class", className);
-}
-
 export function drawHistogram(
   svg: SVGElement,
   data: ArrayLike<number>,
@@ -56,6 +44,7 @@ export function drawHistogram(
 
   const xRange = [0, width - margin.right - margin.left];
   const yRange = [height - margin.top - margin.bottom, 0];
+  console.debug("Rendering histogram", xRange, yRange);
 
   // X axis: scale and draw:
   const dataExtent = d3.extent(data);
@@ -74,12 +63,12 @@ export function drawHistogram(
   // xAxis.attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
 
   // set the parameters for the histogram
-  // const histogramThreshold = d3.thresholdScott(
-  //   data,
-  //   ...getNBinsRange(xRange[1] - xRange[0])
-  // );
-  const histogram = d3.histogram().domain(x.domain() as [number, number]);
-  // .thresholds(histogramThreshold);
+  const nBins = d3.thresholdSturges(data);
+  const [min, max] = getNBinsRange(width);
+  const ticks = x.ticks(Math.min(Math.max(min, nBins), max));
+
+  const histogram = d3.histogram().domain(x.domain() as [number, number])
+    .thresholds(ticks);
 
   const bins = histogram(data);
 
@@ -104,19 +93,21 @@ export function drawHistogram(
   const merged = g
     .selectAll("rect")
     .data(bins)
-    .join(enter =>
-      enter
-        .append("rect")
-        .attr("x", innerPadding)
-        .attr("class", (rectClass || null) as string)
+    .join<SVGRectElement>(
+      enter => {
+        return enter.append("rect")
+          .attr("x", innerPadding)
+          .attr("class", (rectClass || null) as string);
+      },
     )
-    .attr("transform", function(d) {
+    .attr("transform", (d) => {
       return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
     })
-    .attr("width", function(d) {
+    .attr("width", (d) => {
+      // console.debug("update width to", x(d.x1 as number) - x(d.x0 as number) - 1);
       return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
     })
-    .attr("height", function(d) {
+    .attr("height", (d) => {
       return yRange[0] - y(d.length);
     })
     .on("mouseover", (onRectMouseOver || null) as null)
@@ -141,12 +132,13 @@ export interface IHistogramProps extends IHistogramOptions {
 
 export interface IHistogramState {}
 
-export class Histogram extends React.Component<
+export class Histogram extends React.PureComponent<
   IHistogramProps,
   IHistogramState
 > {
   static defaultProps = { ...defaultOptions };
   private ref: React.RefObject<SVGSVGElement> = React.createRef();
+  private shouldPaint: boolean = false;
   constructor(props: IHistogramProps) {
     super(props);
 
@@ -158,6 +150,7 @@ export class Histogram extends React.Component<
     if (svg) {
       const { data, ...rest } = this.props;
       drawHistogram(svg, data, rest);
+      this.shouldPaint = false;
     }
   }
 
@@ -169,21 +162,25 @@ export class Histogram extends React.Component<
     prevProps: IHistogramProps,
     prevState: IHistogramState
   ) {
-    const { data, width, height, innerPadding, rectClass, rectStyle, onRectMouseLeave, onRectMouseMove, onRectMouseOver } = this.props;
-    if (
-      prevProps.data !== data ||
-      prevProps.width !== width ||
-      prevProps.height !== height ||
-      prevProps.innerPadding !== innerPadding ||
-      prevProps.rectClass !== rectClass ||
-      prevProps.rectStyle !== rectStyle ||
-      prevProps.onRectMouseMove !== onRectMouseMove ||
-      prevProps.onRectMouseOver !== onRectMouseOver ||
-      prevProps.onRectMouseLeave !== onRectMouseLeave
-    ) {
-      console.log("repainting histogram");
-      this.paint();
+    // const { data, width, height, innerPadding, rectClass, rectStyle, onRectMouseLeave, onRectMouseMove, onRectMouseOver } = this.props;
+    // if (
+    //   prevProps.data !== data ||
+    //   prevProps.width !== width ||
+    //   prevProps.height !== height ||
+    //   prevProps.innerPadding !== innerPadding ||
+    //   prevProps.rectClass !== rectClass ||
+    //   prevProps.rectStyle !== rectStyle ||
+    //   prevProps.onRectMouseMove !== onRectMouseMove ||
+    //   prevProps.onRectMouseOver !== onRectMouseOver ||
+    //   prevProps.onRectMouseLeave !== onRectMouseLeave
+    // ) {
+    
+    this.shouldPaint = true;
+    const delayedPaint = () => {
+      if (this.shouldPaint) this.paint();
     }
+    window.setTimeout(delayedPaint, 200);
+    // }
   }
 
   public render() {

@@ -5,13 +5,12 @@ import {
   Route,
   useParams
 } from "react-router-dom";
-import { DataFrame } from "data-forge";
 
-import { getData, getDataMeta } from "./api";
+import { getDataset } from "./api";
+import { Dataset } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import Table from "./components/Table";
-import { DataMeta } from "./typings";
 import Panel from "./components/Panel";
 
 export interface IAppProps {
@@ -20,8 +19,7 @@ export interface IAppProps {
 }
 
 export interface IAppState {
-  dataset?: DataFrame;
-  dataMeta?: DataMeta;
+  dataset?: Dataset;
 }
 
 export class App extends React.Component<IAppProps, IAppState> {
@@ -37,10 +35,9 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public async updateData() {
     const { dataId, modelId } = this.props;
-    const dataset = await getData({ dataId });
-    const dataMeta = await getDataMeta({ dataId });
+    const dataset = await getDataset({ dataId });
     console.log(dataset);
-    this.setState({ dataset, dataMeta });
+    this.setState({ dataset });
   }
 
   public render() {
@@ -48,7 +45,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     return (
       <div className="App">
         <Panel title="Table View" initialWidth={800} initialHeight={600}>
-          {dataset && <Table dataFrame={dataset} />}
+          {dataset && <Table dataFrame={dataset.dataFrame} />}
         </Panel>
       </div>
     );

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",  
+  "compilerOptions": {
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+"exclude": ["**/*.test.ts", "*.test.tsx"]
+}
