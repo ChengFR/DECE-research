@@ -37,7 +37,7 @@ export default class DataFrame implements IDataFrame {
     return data;
   }
   constructor ({data, columnSpecs}: {data: string[][], columnSpecs: ColumnSpec[]}) {
-    this.data = data;
+    this.data = DataFrame.validateData(data, columnSpecs);
     this.columns = columnSpecs.map((c, i) => {
       return {
         description: "",

@@ -1,0 +1,25 @@
+﻿name,description,type
+RiskPerformance,Paid as negotiated flag (12-36 Months). 0 is for Good and 1 is for Bad,categorical
+ExternalRiskEstimate,Consolidated version of risk markers,numerical
+MSinceOldestTradeOpen,Months Since Oldest Trade Open,numerical
+MSinceMostRecentTradeOpen,Months Since Most Recent Trade Open,numerical
+AverageMInFile,Average Months in File,numerical
+NumSatisfactoryTrades,Number Satisfactory Trades,numerical
+NumTrades60Ever2DerogPubRec,Number Trades 60+ Ever,numerical
+NumTrades90Ever2DerogPubRec,Number Trades 90+ Ever,numerical
+PercentTradesNeverDelq,Percent Trades Never Delinquent,numerical
+MSinceMostRecentDelq,Months Since Most Recent Delinquency,numerical
+MaxDelq2PublicRecLast12M,"Max Delq/Public Records Last 12 Months. See tab ""MaxDelq"" for each category",numerical
+MaxDelqEver,"Max Delinquency Ever. See tab ""MaxDelq"" for each category",numerical
+NumTotalTrades,Number of Total Trades (total number of credit accounts),numerical
+NumTradesOpeninLast12M,Number of Trades Open in Last 12 Months,numerical
+PercentInstallTrades,Percent Installment Trades,numerical
+MSinceMostRecentInqexcl7days,Months Since Most Recent Inq excl 7days,numerical
+NumInqLast6M,Number of Inq Last 6 Months,numerical
+NumInqLast6Mexcl7days,Number of Inq Last 6 Months excl 7days. Excluding the last 7 days removes inquiries that are likely due to price comparision shopping.,numerical
+NetFractionRevolvingBurden,Net Fraction Revolving Burden. This is revolving balance divided by credit limit,numerical
+NetFractionInstallBurden,Net Fraction Installment Burden. This is installment balance divided by original loan amount,numerical
+NumRevolvingTradesWBalance,Number Revolving Trades with Balance,numerical
+NumInstallTradesWBalance,Number Installment Trades with Balance,numerical
+NumBank2NatlTradesWHighUtilization,Number Bank/Natl Trades w high utilization ratio,numerical
+PercentTradesWBalance,Percent Trades with Balance,numerical

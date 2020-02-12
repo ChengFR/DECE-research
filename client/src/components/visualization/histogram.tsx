@@ -162,18 +162,6 @@ export class Histogram extends React.PureComponent<
     prevProps: IHistogramProps,
     prevState: IHistogramState
   ) {
-    // const { data, width, height, innerPadding, rectClass, rectStyle, onRectMouseLeave, onRectMouseMove, onRectMouseOver } = this.props;
-    // if (
-    //   prevProps.data !== data ||
-    //   prevProps.width !== width ||
-    //   prevProps.height !== height ||
-    //   prevProps.innerPadding !== innerPadding ||
-    //   prevProps.rectClass !== rectClass ||
-    //   prevProps.rectStyle !== rectStyle ||
-    //   prevProps.onRectMouseMove !== onRectMouseMove ||
-    //   prevProps.onRectMouseOver !== onRectMouseOver ||
-    //   prevProps.onRectMouseLeave !== onRectMouseLeave
-    // ) {
     
     this.shouldPaint = true;
     const delayedPaint = () => {

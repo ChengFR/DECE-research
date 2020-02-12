@@ -17,10 +17,12 @@
 }
 
 .panel-body {
-  height: calc(100% - 30px);
+  height: calc(100% - 38px);
+  margin: 4px;
 }
 
 span.panel-title {
   float: left;
   margin-left: 10px;
+  font-weight: bold;
 }

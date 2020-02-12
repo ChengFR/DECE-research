@@ -1,10 +1,13 @@
 import * as React from "react";
 import { Grid, GridCellProps, Index, ScrollParams } from "react-virtualized";
-import { Resizable } from "re-resizable";
+import memoize from "fast-memoize";
+
 import { IColumn } from "../../data";
 
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
+import ColResizer from "./ColResizer";
+import { getFixedGridWidth } from "./helpers";
 
 export interface IHeaderProps {
   columns: IColumn[];
@@ -14,17 +17,19 @@ export interface IHeaderProps {
   height: number;
   width: number;
   style?: React.CSSProperties;
+  styleLeftGrid?: React.CSSProperties;
+  styleRightGrid?: React.CSSProperties;
   scrollLeft?: number;
   className?: string;
   onScroll?: (params: ScrollParams) => any;
   hasChart?: boolean;
   chartHeight: number;
+  fixedColumns: number;
 }
 
 export interface IHeaderState {
   columns: IColumn[];
   scrollLeft: number;
-  scrollTop: number;
   columnData: Array<number>[];
 }
 
@@ -34,21 +39,23 @@ export default class Header extends React.Component<
 > {
   static defaultProps = {
     height: 20,
-    chartHeight: 60
+    chartHeight: 60,
+    fixedColumns: 0
   };
 
   static getDerivedStateFromProps(
     nextProps: IHeaderProps,
     prevState: IHeaderState
   ) {
+    let newState: Partial<IHeaderState> = {};
     if (nextProps.columns !== prevState.columns) {
-      const { columns } = nextProps;
-      const columnData = columns.map(c => c.series.toArray());
-      return { columns, columnData };
+      newState.columns = nextProps.columns;
+      newState.columnData = newState.columns.map(c => c.series.toArray());
     }
-    return null;
+    return newState;
   }
-  private _gridRef: React.RefObject<Grid> = React.createRef();
+  private leftGridRef: React.RefObject<Grid> = React.createRef();
+  private rightGridRef: React.RefObject<Grid> = React.createRef();
   private columnWidth: any;
 
   constructor(props: IHeaderProps) {
@@ -57,19 +64,19 @@ export default class Header extends React.Component<
     this.state = {
       columns: [],
       scrollLeft: 0,
-      scrollTop: 0,
       columnData: []
     };
     this._titleCellRenderer = this._titleCellRenderer.bind(this);
     this._chartCellRenderer = this._chartCellRenderer.bind(this);
     this.renderCell = this.renderCell.bind(this);
+    this.renderCellLeft = this.renderCellLeft.bind(this);
+    this.renderCellRight = this.renderCellRight.bind(this);
   }
 
   componentDidUpdate(prevProps: IHeaderProps) {
     if (prevProps.columnWidths !== this.props.columnWidths) {
-      const grid = this._gridRef.current;
-      if (grid)
-        grid.recomputeGridSize();
+      if (this.leftGridRef.current) this.leftGridRef.current.recomputeGridSize();
+      if (this.rightGridRef.current) this.rightGridRef.current.recomputeGridSize();
     }
   }
 
@@ -85,74 +92,122 @@ export default class Header extends React.Component<
       hasChart,
       chartHeight,
       columnWidths,
+      fixedColumns,
+      styleLeftGrid,
+      styleRightGrid
     } = this.props;
     console.debug("render table header");
 
-    const columnWidth = ({ index }: { index: number }) => columnWidths[index];
-
     const titleHeight = hasChart ? height - chartHeight : height;
-    const rowHeight = (p: {index: number}) => (p.index === 0 ? titleHeight : chartHeight);
+    const rowHeight = (p: { index: number }) =>
+      p.index === 0 ? titleHeight : chartHeight;
+
+    const leftGridWidth = getFixedGridWidth(fixedColumns, columnWidths);
+    const leftGrid = fixedColumns ? (
+      <div
+        className="left-grid-wrapper"
+        style={{
+          ...this._leftGridStyle(styleLeftGrid),
+          width: leftGridWidth,
+          height: height
+        }}
+      >
+        <Grid
+          cellRenderer={this.renderCellLeft}
+          className={`invisible-scrollbar`}
+          columnCount={fixedColumns}
+          columnWidth={({ index }: { index: number }) => columnWidths[index]}
+          height={height}
+          rowHeight={hasChart ? rowHeight : height}
+          ref={this.rightGridRef}
+          rowCount={hasChart ? 2 : 1}
+          tabIndex={null}
+          width={leftGridWidth}
+          style={styleLeftGrid}
+        />
+      </div>
+    ) : null;
+    const rightGridWidth = width - leftGridWidth;
     const grid = (
-      <Grid
-        cellRenderer={this.renderCell}
-        className={`${className} header-title invisible-scrollbar`}
-        columnCount={columns.length}
-        columnWidth={columnWidth}
-        height={height}
-        rowHeight={hasChart ? rowHeight : height}
-        onScroll={onScroll}
-        ref={this._gridRef}
-        rowCount={hasChart ? 2 : 1}
-        scrollLeft={scrollLeft}
-        style={{ ...style, left: 0 }}
-        tabIndex={null}
-        width={width}
-      />
+      <div
+        className="right-grid-wrapper"
+        style={{
+          ...this._rightGridStyle(leftGridWidth, styleRightGrid),
+          width: rightGridWidth,
+          height: height
+        }}
+      >
+        <Grid
+          cellRenderer={this.renderCellRight}
+          className={`invisible-scrollbar`}
+          columnCount={columns.length - fixedColumns}
+          columnWidth={({ index }: { index: number }) =>
+            columnWidths[index + fixedColumns]
+          }
+          height={height}
+          rowHeight={hasChart ? rowHeight : height}
+          onScroll={onScroll}
+          ref={this.leftGridRef}
+          rowCount={hasChart ? 2 : 1}
+          scrollLeft={scrollLeft}
+          tabIndex={null}
+          width={rightGridWidth}
+          style={styleRightGrid}
+        />
+      </div>
     );
 
     return (
       <div
-        className={`${className}-ScrollWrapper`}
-        style={{
-          ...style,
-          height,
-          width,
-          overflowX: "hidden"
-        }}
+        className={`table-header ${className}`}
+        style={{ ...style, left: 0, height, width }}
       >
+        {leftGrid}
         {grid}
       </div>
     );
   }
 
   renderCell(cellProps: GridCellProps) {
-    const {rowIndex} = cellProps;
+    const { rowIndex } = cellProps;
+    // console.log(`Render ${rowIndex} ${cellProps.columnIndex}`);
+
     if (rowIndex === 0) return this._titleCellRenderer(cellProps);
-    else if (this.props.hasChart && rowIndex === 1) return this._chartCellRenderer(cellProps);
+    else if (this.props.hasChart && rowIndex === 1)
+      return this._chartCellRenderer(cellProps);
+  }
+
+  renderCellLeft(cellProps: GridCellProps) {
+    return this.renderCell(cellProps);
+  }
+
+  renderCellRight(cellProps: GridCellProps) {
+    const { columnIndex, ...rest } = cellProps;
+    return this.renderCell({
+      ...rest,
+      columnIndex: columnIndex + this.props.fixedColumns
+    });
   }
 
   _titleCellRenderer(cellProps: GridCellProps) {
     const { columnIndex, key, style, ...rest } = cellProps;
     const {
       columns,
-      height,
-      chartHeight,
-      hasChart,
       onChangeColumnWidth,
       columnWidths
     } = this.props;
     const width = columnWidths[columnIndex];
-   
+
     return (
       <div
         className={`cell row-title col-${columnIndex}`}
         key={key}
         style={{
           ...style,
-          lineHeight: `${hasChart ? height - chartHeight : height}px`
+          lineHeight: style.height && `${style.height}px`
         }}
       >
-        <span className="cell-content">{columns[columnIndex].name}</span>
+        <div className="cell-content">{columns[columnIndex].name}</div>
         {onChangeColumnWidth && (
           <ColResizer
             x={width}
@@ -169,80 +224,49 @@ export default class Header extends React.Component<
     const { columnIndex, key, style, ...rest } = cellProps;
     const { columnWidths, chartHeight, columns } = this.props;
     const data = this.state.columnData[columnIndex];
-    // console.log(data);
     const width = columnWidths[columnIndex];
-   
+
     return (
       <div
         className={`cell row-chart col-${columnIndex}`}
         key={key}
         style={style}
       >
-        {columns[columnIndex].type === 'numerical'
-          ? <Histogram data={data} width={width} height={chartHeight} />
-          : <BarChart data={data} width={width} height={chartHeight} />
-        }
+        {columns[columnIndex].type === "numerical" ? (
+          <Histogram data={data} width={width} height={chartHeight} />
+        ) : (
+          <BarChart data={data} width={width} height={chartHeight} />
+        )}
       </div>
     );
   }
-}
 
-interface IColResizerProps {
-  className?: string;
-  x: number;
-  onChangeX: (x: number) => void;
-  style?: React.CSSProperties;
-  snap: number;
-}
-
-interface IColResizerState {}
-
-class ColResizer extends React.Component<IColResizerProps, IColResizerState> {
-  static defaultProps = {
-    snap: 1
-  };
-  constructor(props: IColResizerProps) {
-    super(props);
-    this.state = {};
-    this.handleStart = this.handleStart.bind(this);
-  }
-  render() {
-    const { className, x, style } = this.props;
-    let classes = ["col-resizer"];
-    if (className) classes.push(className);
-
-    return (
-      <div
-        className={classes.join(" ")}
-        style={{ ...style}}
-        onMouseDown={this.handleStart}
-      />
-    );
-  }
-
-  handleStart = (event: React.MouseEvent) => {
-    event.preventDefault();
-    const dragStartMouseX = Math.round(event.pageX);
-    const { onChangeX, snap } = this.props;
-    const initialX = this.props.x;
-    let prevX = initialX;
-
-    window.addEventListener("mousemove", handleResize);
-    window.addEventListener("mouseup", stopResize);
-
-    function handleResize(event: MouseEvent): void {
-      const delta = event.pageX - dragStartMouseX;
-      const newX = Math.round(initialX + Math.round(delta / snap) * snap);
-      // console.log(newX);
-      if (newX !== prevX) {
-        onChangeX(newX);
-        prevX = newX;
-      }
+  _leftGridStyle = memoize(
+    (leftGridStyle?: React.CSSProperties): React.CSSProperties => {
+      return {
+        left: 0,
+        overflowX: "hidden",
+        overflowY: "hidden",
+        position: "absolute",
+        top: 0,
+        ...leftGridStyle
+      };
     }
+  );
 
-    function stopResize(event: MouseEvent): void {
-      window.removeEventListener("mousemove", handleResize);
-      window.removeEventListener("mouseup", stopResize);
+  _rightGridStyle = memoize(
+    (
+      left: number,
+      rightGridStyle?: React.CSSProperties
+    ): React.CSSProperties => {
+      return {
+        left,
+        overflowX: "hidden",
+        overflowY: "hidden",
+        position: "absolute",
+        top: 0,
+        ...rightGridStyle
+      };
     }
-  };
+  );
 }

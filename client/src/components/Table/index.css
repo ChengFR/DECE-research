@@ -8,14 +8,37 @@
 }
 
 .table-container .cell {
-  border-bottom: 1px solid rgba(36,41,46,.04);
-  border-right: 1px solid rgba(36,41,46,.04)
+  border-bottom: 1px solid rgba(36,41,46,.07);
+  border-right: 1px solid rgba(36,41,46,.07);
+  display: table;
+
+}
+
+.table-container .left-grid-wrapper {
+  border-right: 2px solid rgba(100, 100, 100, 0.2);
+}
+
+.table-grid .cell {
+  font-size: 12px;
+}
+
+.cell .cell-content {
+  display: table-cell;
+  vertical-align: middle;
+}
+
+.cell .content.align-left {
+  vertical-align: left;
+}
+
+.cell .content.align-right {
+  vertical-align: right;
 }
 
 
 .table-header {
   position: relative;
-  border-bottom: 1px solid rgba(36,41,46,.2);
+  border-bottom: 2px solid rgba(100, 100, 100, 0.2);
 }
 
 .table-header .cell {

@@ -14,7 +14,7 @@ pip install -r server-requirements.txt
 
 Preprocess dataset
 ```
-python data_processing/heloc.py
+python -m data_processing.heloc
 ```
 
 Start server:

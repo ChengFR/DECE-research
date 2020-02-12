@@ -102,7 +102,7 @@ export default class Panel extends React.Component<IPanelProps, IPanelState> {
         style={{ cursor: "inherit" }}
       >
         <PanelHeader title={title} />
-        <PanelContent>{this.props.children}</PanelContent>
+        <PanelBody>{this.props.children}</PanelBody>
       </Rnd>
       // <div className="panel-wrapper" ref={this.ref} style={{width, height, transform}}>
       //   {this.props.children}
@@ -115,6 +115,6 @@ interface IPanelContentProps {
   children?: React.ReactNode;
 }
 
-function PanelContent(props: IPanelContentProps) {
+function PanelBody(props: IPanelContentProps) {
   return <div className="panel-body">{props.children}</div>;
 }

@@ -118,25 +118,44 @@ class Dataset:
 
 class DataMeta(object):
 
-    def __init__(self, features, target):
+    def __init__(self, features, target, prediction=None):
         self.features = features
         self.target = target
+        self.prediction = prediction
 
     @classmethod
-    def from_csv(cls, filename):
+    def from_csv(cls, filename, feature_indices=None, target_index=None, prediction_index=None):
         df = pd.read_csv(filename)
         dd = df.to_dict('records')
-        return cls(dd[:-1], dd[-1])
+        return cls.from_records(dd, feature_indices, target_index, prediction_index)
+
+    @classmethod
+    def from_records(cls, records, feature_indices=None, target_index=None, prediction_index=None):
+        for i, d in enumerate(records):
+            d["index"] = i
+        target = None if target_index is None else records[target_index]
+        prediction = None if prediction_index is None else records[prediction_index]
+        features = records
+        if feature_indices is not None:
+            features = [records[i] for i in feature_indices]
+        # make sure no column is used twice
+        features = [f for f in features if f is not target and f is not prediction]
+        assert len(features) + (int(target is not None) + int(prediction is not None)) == len(records)
+        return cls(features, target, prediction)
+
 
     @classmethod
     def from_json(cls, filename):
         with open(filename, 'r') as f:
             data = json.load(f)
-        return cls(data['features'], data['target'])
+        return cls(data['features'], data['target'], data.get('prediction', None))
 
     def to_json(self, filename):
+        data = dict(features=self.features, target=self.target)
+        if self.prediction:
+            data['prediction'] = self.prediction
         with open(filename, 'w') as f:
-            json.dump(dict(features=self.features, target=self.target), f)
+            json.dump(data, f)
 
 if __name__ == '__main__':
     dataset = Dataset(attr_disc=[])
