@@ -21,7 +21,7 @@ export const defaultOptions: IHistogramOptions = {
 };
 
 function getNBinsRange(width: number): [number, number] {
-  return [Math.floor(width / 10), Math.ceil(width / 5)];
+  return [Math.ceil(width / 9), Math.floor(width / 6)];
 }
 
 export function drawHistogram(

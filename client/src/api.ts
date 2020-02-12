@@ -30,7 +30,7 @@ export async function getDataMeta(params: {
   const url = `${API}/data_meta`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
-  return new DataMeta(data.features, data.target);
+  return new DataMeta(data);
 }
 
 export async function getDataset(params: {
@@ -45,7 +45,7 @@ export async function getDataset(params: {
   if (dataMeta.target.type === "categorical") {
     categoricalColumns.push(columnNames[0]);
   }
-  const columnSpecs = columnNames.map((name, i) => {
+  const columns = columnNames.map((name, i) => {
     const columnDisc = dataMeta.getColumnDisc(name);
     return {
       name,
@@ -53,8 +53,9 @@ export async function getDataset(params: {
       type: columnDisc?.type || "unknown"
     };
   });
-  const dataFrame = new DataFrame({ data, columnSpecs });
-  return { dataFrame, dataMeta };
+  const dataFrame = new DataFrame({ data, columns });
+  console.debug(dataFrame);
+  return new Dataset(dataFrame, dataMeta);
 }
 
 export interface CFResponse {
