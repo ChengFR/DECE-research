@@ -1,8 +1,18 @@
-import * as React from 'react';
-import * as d3 from 'd3';
-import _ from 'lodash';
-import { Grid, GridCellProps, Index, ScrollParams } from 'react-virtualized';
-import { IDataFrame } from 'data-forge';
+import * as React from "react";
+import * as d3 from "d3";
+import memoize from "fast-memoize";
+
+import _ from "lodash";
+import { Grid, GridCellProps, Index, ScrollParams } from "react-virtualized";
+import { getFixedGridWidth } from "./helpers";
+
+export interface CellProps {
+  columnIndex: number;
+  rowIndex: number;
+  width: number;
+  height: number;
+  data: any;
+}
 
 export interface ITableGridProps {
   data: Array<Array<number | string>>;
@@ -11,168 +21,199 @@ export interface ITableGridProps {
   rowHeight: number;
   height: number;
   width: number;
+  fixedColumns: number;
   className?: string;
   style?: React.CSSProperties;
+  styleLeftGrid?: React.CSSProperties;
+  styleRightGrid?: React.CSSProperties;
   scrollLeft?: number;
   scrollTop?: number;
   onScroll?: (params: ScrollParams) => any;
+  cellRenderer: (props: CellProps) => React.ReactNode;
 }
 
-export interface ITableGridState {
-}
+export interface ITableGridState {}
 
-const config = {
-    height: 300,
-    overscanColumnCount: 0,
-    overscanRowCount: 10,
-    scrollToColumn: undefined,
-    scrollToRow: undefined,
-    useDynamicRowHeight: false,
-}
-
-export default class TableGrid extends React.Component<ITableGridProps, ITableGridState> {
+export default class TableGrid extends React.Component<
+  ITableGridProps,
+  ITableGridState
+> {
   static defaultProps = {
-    rowHeight: 20
+    rowHeight: 20,
+    fixedColumns: 0,
+    cellRenderer: (props: CellProps): React.ReactNode => {
+      const { rowIndex, columnIndex, data } = props;
+      return (
+        <div className="cell-content">{data}</div>
+      );
+    }
   };
   // private divRef: React.RefObject<HTMLDivElement> = React.createRef();
-  private _ref: React.RefObject<Grid> = React.createRef();
+  private rightGridRef: React.RefObject<Grid> = React.createRef();
+  private leftGridRef: React.RefObject<Grid> = React.createRef();
 
   constructor(props: ITableGridProps) {
     super(props);
 
-    this.state = {
-    };
-    this._cellRenderer = this._cellRenderer.bind(this);
+    this.state = {};
+    this.renderCell = this.renderCell.bind(this);
+    this.renderCellLeft = this.renderCellLeft.bind(this);
+    this.renderCellRight = this.renderCellRight.bind(this);
   }
 
   componentDidUpdate(prevProps: ITableGridProps) {
     if (prevProps.columnWidths !== this.props.columnWidths) {
-      const grid = this._ref.current;
-      if (grid)
-        grid.recomputeGridSize();
+      if (this.leftGridRef.current) this.leftGridRef.current.recomputeGridSize();
+      if (this.rightGridRef.current) this.rightGridRef.current.recomputeGridSize();
     }
   }
 
-  // public componentDidMount() {
-  //   this.paint();
-  // }
-
-  // public componentDidUpdate() {
-  //   this.paint();
-  // }
-
-  // public paint() {
-  //   if (this.divRef.current) {
-  //     const {columnWidths, rowHeight} = this.props;
-  //     const xs = [0, ...cumsum(columnWidths)];
-  //     const colParams = columnWidths.map((width, i) => ({width, x: xs[i]}));
-  //     renderCells(this.divRef.current, this.props.dataFrame, {colParams, rowHeight, rowRange: [0, 30]});
-  //   }
-  // }
-
-  // public render() {
-  //   return (
-  //     <div className="table-content" ref={this.divRef} />
-  //   );
-  // }
   public render() {
-    const {data, style, className, columnWidths, ...rest} = this.props;
+    const {
+      data,
+      style,
+      width,
+      className,
+      columnWidths,
+      fixedColumns,
+      styleLeftGrid,
+      styleRightGrid,
+      onScroll,
+      scrollLeft,
+      scrollTop,
+      height,
+      ...rest
+    } = this.props;
 
-    const columnWidth = ({ index }: { index: number }) => columnWidths[index];
-    return (
+    const leftGridWidth = getFixedGridWidth(fixedColumns, columnWidths);
+    const rightGridWidth = width - leftGridWidth;
+    const leftGrid = fixedColumns ? (
+      <div
+        className="left-grid-wrapper"
+        style={{
+          ...this._leftGridStyle(styleLeftGrid),
+          width: leftGridWidth,
+          height: height
+        }}
+      >
+        <Grid
+          {...rest}
+          cellRenderer={this.renderCellLeft}
+          className={`invisible-scrollbar`}
+          columnCount={fixedColumns}
+          columnWidth={({ index }: { index: number }) => columnWidths[index]}
+          ref={this.leftGridRef}
+          rowCount={data[0].length}
+          tabIndex={null}
+          width={leftGridWidth}
+          height={height}
+          style={styleLeftGrid}
+          scrollTop={scrollTop}
+          onScroll={onScroll && ((params) => onScroll({...params, scrollLeft: (this.props.scrollLeft || 0)}))}
+        />
+      </div>
+    ) : null;
+
+    const rightGrid = (
+      <div 
+        className="right-grid-wrapper" 
+        style={{
+          ...this._rightGridStyle(leftGridWidth, styleRightGrid),
+          width: rightGridWidth,
+          height: height
+        }}>
       <Grid
         {...rest}
-        columnWidth={columnWidth}
-        className={`${className} scrollbar fixed-scrollbar`}
-        cellRenderer={this._cellRenderer}
-        columnCount={data.length}
+        columnWidth={({ index }: { index: number }) => columnWidths[index+fixedColumns]}
+        className={`scrollbar fixed-scrollbar`}
+        cellRenderer={this.renderCell}
+        columnCount={data.length - fixedColumns}
         // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
-        ref={this._ref}
+        ref={this.rightGridRef}
         rowCount={data[0].length}
+        tabIndex={null}
+        height={height}
+        width={rightGridWidth}
+        scrollLeft={scrollLeft}
+        scrollTop={scrollTop}
+        onScroll={onScroll}
         // scrollToColumn={scrollToColumn - fixedColumnCount}
         // scrollToRow={scrollToRow - fixedRowCount}
-        style={{...style}}
+        style={styleRightGrid}
       />
-    );
-  }
+      </div>
+    )
 
-
-  public _cellRenderer(cellProps: GridCellProps) {
-    const {rowIndex, columnIndex, key, style} = cellProps;
-    
     return (
-      <div className={`cell row-${rowIndex} col-${columnIndex}`} key={key} style={style}>
-        {this.props.data[columnIndex][rowIndex]}
+      <div className="table-grid" style={{...style, width, height, position: 'relative'}}>
+        {leftGrid}
+        {rightGrid}
       </div>
     );
   }
 
-}
-
-export interface ColumnParam {
-  width: number;
-  x: number;
-}
-
-interface RenderCellOptions {
-  colRange?: [number, number];
-  rowRange?: [number, number];
-  colParams: ColumnParam[];
-  rowHeight: number;
-}
-
-function renderCells(rootElement: HTMLDivElement, dataFrame: IDataFrame, options: RenderCellOptions) {
-
-  const {colRange, rowRange, colParams, rowHeight} = options;
-  let filteredDF = dataFrame;
-  
-  if (rowRange) {
-    filteredDF = filteredDF.skip(rowRange[0]).take(rowRange[1] - rowRange[0]);
+  public renderCellRight(cellProps: GridCellProps) {
+    const { columnIndex, ...rest } = cellProps;
+    return this.renderCell({ ...rest, columnIndex: columnIndex + 1 });
   }
 
-  if (colRange) {
-    filteredDF = filteredDF.subset(filteredDF.getColumnNames().slice(...colRange));
-    // filteredDF = filteredDF.map(row => row.slice(colRange[0], colRange[1]));
+  public renderCellLeft(cellProps: GridCellProps) {
+    return this.renderCell(cellProps);
   }
 
-  const filteredData = filteredDF.toRows();
+  public renderCell(cellProps: GridCellProps) {
+    const { rowIndex, columnIndex, key, style } = cellProps;
+    const props = {
+      width: style.width as number,
+      height: style.width as number,
+      rowIndex, columnIndex,
+      data: this.props.data[columnIndex][rowIndex],
+    };
+    return (
+      <div
+        className={`cell row-${rowIndex} col-${columnIndex}`}
+        key={key}
+        style={style}
+      >
+        {this.props.cellRenderer(props)}
+        {/* <div className="cell-content">{this.props.data[columnIndex][rowIndex]}</div> */}
+      </div>
+    );
+  }
 
-  const rowStart = rowRange ? rowRange[0] : 0;
-  const colStart = colRange ? colRange[0] : 0;
+  public defaultCellRenderer(cellProps: CellProps) {
+    const { rowIndex, columnIndex } = cellProps;
+    return (
+      <div className="cell-content">{this.props.data[columnIndex][rowIndex]}</div>
+    );
+  }
 
-  const mappedData = _.flatten(filteredData.map((r, i) => {
-    return r.map((value, j) => {
-      const row = i + rowStart;
-      const col = j + colStart;
+  _leftGridStyle = memoize(
+    (leftGridStyle?: React.CSSProperties): React.CSSProperties => {
       return {
-        value, row, col,
-        y: row * rowHeight,
-        x: colParams[col].x,
-        width: colParams[col].width
+        left: 0,
+        overflowX: "hidden",
+        overflowY: "hidden",
+        position: "absolute",
+        top: 0,
+        ...leftGridStyle
       };
-    })
-  }));
+    }
+  );
 
-  const root = d3.select(rootElement);
-  const cell = root.selectAll<HTMLDivElement, null>('div.cell')
-    .data(mappedData, function(d) { return d ? `c-${d.row}-${d.col}` : this.id; });
-
-  cell.join(
-    enter => {
-      const div = enter.append('div')
-        .attr('class', e => `cell col-${e.col} row-${e.row}`)
-        .style('left', e => `${e.x}px`)
-        .style('top', e => `${e.y}px`)
-        .style('width', e => `${e.width}px`)
-        .style('height', `${rowHeight}px`);
-
-      div.append('div').attr('class', 'content');
-      return div;
-    },
-    update => {
-      return update.style('width', e => `${e.width}px`);
-    },
-
-  ).select('div.content').text(e => e.value);
-  
+  _rightGridStyle = memoize(
+    (
+      left: number,
+      rightGridStyle?: React.CSSProperties
+    ): React.CSSProperties => {
+      return {
+        left,
+        overflowX: "hidden",
+        overflowY: "hidden",
+        position: "absolute",
+        top: 0,
+        ...rightGridStyle
+      };
+    }
+  );
 }

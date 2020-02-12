@@ -11,6 +11,7 @@ export interface ITableProps {
   onScroll?: (params: ScrollParams) => any;
   style?: React.CSSProperties;
   rowHeight: number;
+  fixedColumns: number;
 }
 
 interface ITableState {
@@ -28,20 +29,20 @@ function initColumnWidths(columns: string[], padding: number = 10) {
 
 export default class Table extends React.Component<ITableProps, ITableState> {
   static defaultProps = {
-    rowHeight: 20
+    rowHeight: 20,
+    fixedColumns: 1
   };
   static getDerivedStateFromProps(nextProps: ITableProps, prevState: ITableState) {
+    let newState: Partial<ITableState> = {};
     if (nextProps.dataFrame !== prevState.dataFrame) {
-      const columns = nextProps.dataFrame.columns;
-      const data = nextProps.dataFrame.toColumns();
-      return {
-        dataFrame: nextProps.dataFrame,
-        columns, data
-      };
+      newState.dataFrame = nextProps.dataFrame;
+      newState.columns = nextProps.dataFrame.columns;
+      newState.data = nextProps.dataFrame.toColumns();
     }
-
-    return null;
+    return newState;
   }
+
+  private _leftGridWidth: number | null = null;
 
   constructor(props: ITableProps) {
     super(props);
@@ -58,23 +59,38 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     this.onChangeColumnWidth = this.onChangeColumnWidth.bind(this);
   }
 
+  _getLeftGridWidth() {
+    const {fixedColumns} = this.props;
+    const {columnWidths} = this.state;
+
+    if (this._leftGridWidth == null) {
+        let leftGridWidth = 0;
+
+        for (let index = 0; index < fixedColumns; index++) {
+          leftGridWidth += columnWidths[index];
+        }
+        this._leftGridWidth = leftGridWidth;
+    }
+
+    return this._leftGridWidth;
+  }
+
   public render() {
     console.debug("render table");
-    const { dataFrame, style, rowHeight } = this.props;
+    const { style, rowHeight, fixedColumns } = this.props;
     const { columnWidths, scrollLeft, scrollTop, columns, data } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
 
-    console.log(columns);
     // console.log(dataFrame.getColumns().toArray());
     const containerStyle = {
       overflow: "visible",
       ...style
     };
     return (
-      <div className="table-container">
+      <div className="table-container" style={containerStyle}>
         <AutoSizer>
           {({ width, height }) => (
-            <div style={containerStyle}>
+            <div style={{overflow: "visible"}}>
               <Header
                 className="table-header"
                 columns={columns}
@@ -83,6 +99,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
                 chartHeight={60}
                 hasChart={true}
                 width={width}
+                fixedColumns={fixedColumns}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}
                 onChangeColumnWidth={this.onChangeColumnWidth}
@@ -94,6 +111,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
                 rowHeight={rowHeight}
                 height={height - 90}
                 width={width}
+                fixedColumns={fixedColumns}
                 onScroll={this._onScroll}
                 scrollLeft={scrollLeft}
                 scrollTop={scrollTop}
@@ -104,6 +122,38 @@ export default class Table extends React.Component<ITableProps, ITableState> {
       </div>
     );
   }
+
+  // _renderFixedBar() {
+  //   const { dataFrame, style, rowHeight, fixedColumns } = this.props;
+  //   const { columnWidths, scrollLeft, scrollTop, columns, data } = this.state;
+  //   return (
+  //     <div className="table-fixedbar">
+  //       <Header
+  //         className="table-header"
+  //         columns={columns}
+  //         columnWidths={columnWidths}
+  //         height={90}
+  //         chartHeight={60}
+  //         hasChart={true}
+  //         width={width}
+  //         onScroll={this._onScrollLeft}
+  //         scrollLeft={scrollLeft}
+  //         onChangeColumnWidth={this.onChangeColumnWidth}
+  //       />
+  //       <TableGrid
+  //         className="table-grid"
+  //         data={data}
+  //         columnWidths={columnWidths}
+  //         rowHeight={rowHeight}
+  //         height={height - 90}
+  //         width={width}
+  //         onScroll={this._onScroll}
+  //         scrollLeft={scrollLeft}
+  //         scrollTop={scrollTop}
+  //       />
+  //     </div>
+  //   );
+  // }
 
   _onScrollLeft(scrollInfo: ScrollParams) {
     const { scrollLeft, scrollTop, ...rest } = scrollInfo;

@@ -26,8 +26,8 @@ export const defaultOptions: IBarChartOptions = {
   width: 300,
   height: 200,
   margin: 3,
-  innerPadding: 0.2,
-  maxStep: 40
+  innerPadding: 0.25,
+  maxStep: 35
 };
 
 function getOuterPadding(

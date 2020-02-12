@@ -6,6 +6,7 @@ export interface FeatureDisc {
   name: string;
   description?: string;
   type: FeatureType;
+  index: number;
 }
 
 export class DataMeta {
