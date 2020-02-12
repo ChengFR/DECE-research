@@ -34,6 +34,11 @@ export interface ITableGridProps {
 
 export interface ITableGridState {}
 
+function number2string(x: number): string {
+  if (Number.isInteger(x)) return x.toFixed(0);
+  return x.toPrecision(4);
+}
+
 export default class TableGrid extends React.Component<
   ITableGridProps,
   ITableGridState
@@ -44,7 +49,7 @@ export default class TableGrid extends React.Component<
     cellRenderer: (props: CellProps): React.ReactNode => {
       const { rowIndex, columnIndex, data } = props;
       return (
-        <div className="cell-content">{data}</div>
+        <div className="cell-content">{typeof data === 'string' ? data : number2string(data)}</div>
       );
     }
   };
@@ -126,7 +131,7 @@ export default class TableGrid extends React.Component<
         {...rest}
         columnWidth={({ index }: { index: number }) => columnWidths[index+fixedColumns]}
         className={`scrollbar fixed-scrollbar`}
-        cellRenderer={this.renderCell}
+        cellRenderer={this.renderCellRight}
         columnCount={data.length - fixedColumns}
         // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
         ref={this.rightGridRef}
@@ -154,7 +159,7 @@ export default class TableGrid extends React.Component<
 
   public renderCellRight(cellProps: GridCellProps) {
     const { columnIndex, ...rest } = cellProps;
-    return this.renderCell({ ...rest, columnIndex: columnIndex + 1 });
+    return this.renderCell({ ...rest, columnIndex: columnIndex + this.props.fixedColumns });
   }
 
   public renderCellLeft(cellProps: GridCellProps) {

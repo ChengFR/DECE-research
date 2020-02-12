@@ -35,17 +35,18 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public async updateData() {
     const { dataId, modelId } = this.props;
-    const dataset = await getDataset({ dataId });
+    const dataset = await getDataset({ dataId, modelId });
     console.log(dataset);
     this.setState({ dataset });
   }
 
   public render() {
     const { dataset } = this.state;
+    const fixedColumns = Number(Boolean(dataset?.dataMeta.prediction)) + Number(Boolean(dataset?.dataMeta.target));
     return (
       <div className="App">
         <Panel title="Table View" initialWidth={800} initialHeight={600}>
-          {dataset && <Table dataFrame={dataset.dataFrame} />}
+          {dataset && <Table dataFrame={dataset.reorderedDataFrame()} fixedColumns={fixedColumns}/>}
         </Panel>
       </div>
     );

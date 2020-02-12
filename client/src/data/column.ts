@@ -15,17 +15,14 @@ export const featureTypeMapper = {
 
 export type FeatureType = keyof FeatureTypeMap;
 
-export interface IColumn<T = any> {
-  name: string;
-  description: string;
-  type: FeatureType;
-  series: ISeries<T>;
-}
-
 export interface ColumnSpec {
   name: string;
   description?: string;
   type: FeatureType;
+}
+
+export interface IColumn<T = any> extends ColumnSpec {
+  series: ISeries<T>;
 }
 
 export interface ISeries<T = any> {
