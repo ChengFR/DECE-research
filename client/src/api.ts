@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from "axios";
 import * as d3 from "d3";
-import { IDataFrame, DataFrame, DataMeta, Dataset } from "./data";
+import { DataFrame, DataMeta, Dataset } from "./data";
 import { ROOT_URL, DEV_MODE } from "./env";
 
 const API = `${ROOT_URL}/api`;
@@ -54,7 +54,7 @@ export async function getDataset(params: {
     };
   });
   const dataFrame = new DataFrame({ data, columns });
-  console.debug(dataFrame);
+  // console.debug(dataFrame);
   return new Dataset(dataFrame, dataMeta);
 }
 
@@ -63,19 +63,26 @@ export interface CFResponse {
   counterfactuals: Array<(string | number)[]>;
 }
 
+export async function getCF(params: {
+  dataId: string;
+  modelId: string;
+  index: number;
+}): Promise<CFResponse> {
+  const url = `${API}/cf`;
+  const response = await axios.get(url, { params });
+  const data = checkResponse(response, []);
+  return data;
+
+}
+
 export async function getCFs(params: {
   dataId: string;
   modelId: string;
-  index?: number;
-  indexRange?: [number, number];
-}): Promise<CFResponse> {
+  startIndex: number;
+  stopIndex: number;
+}): Promise<CFResponse[]> {
   const url = `${API}/cf`;
-  if (params.index || params.indexRange) {
-    const response = await axios.get(url, { params });
-    const data = checkResponse(response, []);
-    return data;
-  } else {
-    throw "One of index and indexRange should be supplied!";
-  }
-
+  const response = await axios.get(url, { params });
+  const data = checkResponse(response, []);
+  return data;
 }

@@ -1,7 +1,12 @@
 import * as d3 from "d3";
 // import {scaleOrdinal, scaleLinear} from 'd3-scale';
 import * as React from "react";
-import { getMargin, CSSPropertiesFn, ChartOptions, getChildOrAppend } from "./common";
+import {
+  getMargin,
+  CSSPropertiesFn,
+  ChartOptions,
+  getChildOrAppend
+} from "./common";
 import "./histogram.css";
 
 export interface IHistogramOptions extends ChartOptions {
@@ -44,7 +49,7 @@ export function drawHistogram(
 
   const xRange = [0, width - margin.right - margin.left];
   const yRange = [height - margin.top - margin.bottom, 0];
-  console.debug("Rendering histogram", xRange, yRange);
+  // console.debug("Rendering histogram", xRange, yRange);
 
   // X axis: scale and draw:
   const dataExtent = d3.extent(data);
@@ -67,7 +72,9 @@ export function drawHistogram(
   const [min, max] = getNBinsRange(width);
   const ticks = x.ticks(Math.min(Math.max(min, nBins), max));
 
-  const histogram = d3.histogram().domain(x.domain() as [number, number])
+  const histogram = d3
+    .histogram()
+    .domain(x.domain() as [number, number])
     .thresholds(ticks);
 
   const bins = histogram(data);
@@ -93,21 +100,20 @@ export function drawHistogram(
   const merged = g
     .selectAll("rect")
     .data(bins)
-    .join<SVGRectElement>(
-      enter => {
-        return enter.append("rect")
-          .attr("x", innerPadding)
-          .attr("class", (rectClass || null) as string);
-      },
-    )
-    .attr("transform", (d) => {
+    .join<SVGRectElement>(enter => {
+      return enter
+        .append("rect")
+        .attr("x", innerPadding)
+        .attr("class", (rectClass || null) as string);
+    })
+    .attr("transform", d => {
       return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
     })
-    .attr("width", (d) => {
+    .attr("width", d => {
       // console.debug("update width to", x(d.x1 as number) - x(d.x0 as number) - 1);
       return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
     })
-    .attr("height", (d) => {
+    .attr("height", d => {
       return yRange[0] - y(d.length);
     })
     .on("mouseover", (onRectMouseOver || null) as null)
@@ -137,7 +143,7 @@ export class Histogram extends React.PureComponent<
   IHistogramState
 > {
   static defaultProps = { ...defaultOptions };
-  private ref: React.RefObject<SVGSVGElement> = React.createRef();
+  private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
   private shouldPaint: boolean = false;
   constructor(props: IHistogramProps) {
     super(props);
@@ -146,7 +152,7 @@ export class Histogram extends React.PureComponent<
     this.paint = this.paint.bind(this);
   }
 
-  public paint(svg: SVGSVGElement | null = this.ref.current) {
+  public paint(svg: SVGSVGElement | null = this.svgRef.current) {
     if (svg) {
       const { data, ...rest } = this.props;
       drawHistogram(svg, data, rest);
@@ -162,11 +168,10 @@ export class Histogram extends React.PureComponent<
     prevProps: IHistogramProps,
     prevState: IHistogramState
   ) {
-    
     this.shouldPaint = true;
     const delayedPaint = () => {
       if (this.shouldPaint) this.paint();
-    }
+    };
     window.setTimeout(delayedPaint, 200);
     // }
   }
@@ -174,13 +179,11 @@ export class Histogram extends React.PureComponent<
   public render() {
     const { style, className, width, height } = this.props;
     return (
-      <svg
-        ref={this.ref}
-        style={style}
-        className={(className || "") + " histogram"}
-        width={width}
-        height={height}
-      />
+      <div className={(className || "") + " histogram"}>
+        <svg ref={this.svgRef} style={style} width={width} height={height} />
+        <div className="info">
+        </div>
+      </div>
     );
   }
 }

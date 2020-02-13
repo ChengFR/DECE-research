@@ -1,10 +1,8 @@
 import * as React from "react";
-import * as d3 from "d3";
 import memoize from "fast-memoize";
 
-import _ from "lodash";
-import { Grid, GridCellProps, Index, ScrollParams } from "react-virtualized";
-import { getFixedGridWidth } from "./helpers";
+import { Grid, GridCellProps, ScrollParams, SectionRenderedParams } from "react-virtualized";
+import { getFixedGridWidth, IndexWidth } from "./helpers";
 
 export interface CellProps {
   columnIndex: number;
@@ -13,6 +11,8 @@ export interface CellProps {
   height: number;
   data: any;
 }
+
+export type CellRenderer = (props: CellProps) => React.ReactNode;
 
 export interface ITableGridProps {
   data: Array<Array<number | string>>;
@@ -29,7 +29,9 @@ export interface ITableGridProps {
   scrollLeft?: number;
   scrollTop?: number;
   onScroll?: (params: ScrollParams) => any;
-  cellRenderer: (props: CellProps) => React.ReactNode;
+  cellRenderer: CellRenderer;
+  showIndex: boolean;
+  onSectionRendered?: (params: SectionRenderedParams) => any;
 }
 
 export interface ITableGridState {}
@@ -39,19 +41,24 @@ function number2string(x: number): string {
   return x.toPrecision(4);
 }
 
-export default class TableGrid extends React.Component<
+export const defaultCellRenderer: CellRenderer = props => {
+  const { data } = props;
+  return (
+    <div className="cell-content">
+      {typeof data === "string" ? data : number2string(data)}
+    </div>
+  );
+};
+
+export default class TableGrid extends React.PureComponent<
   ITableGridProps,
   ITableGridState
 > {
   static defaultProps = {
     rowHeight: 20,
     fixedColumns: 0,
-    cellRenderer: (props: CellProps): React.ReactNode => {
-      const { rowIndex, columnIndex, data } = props;
-      return (
-        <div className="cell-content">{typeof data === 'string' ? data : number2string(data)}</div>
-      );
-    }
+    cellRenderer: defaultCellRenderer,
+    showIndex: false
   };
   // private divRef: React.RefObject<HTMLDivElement> = React.createRef();
   private rightGridRef: React.RefObject<Grid> = React.createRef();
@@ -64,12 +71,15 @@ export default class TableGrid extends React.Component<
     this.renderCell = this.renderCell.bind(this);
     this.renderCellLeft = this.renderCellLeft.bind(this);
     this.renderCellRight = this.renderCellRight.bind(this);
+    this.renderCellIndex = this.renderCellIndex.bind(this);
   }
 
   componentDidUpdate(prevProps: ITableGridProps) {
     if (prevProps.columnWidths !== this.props.columnWidths) {
-      if (this.leftGridRef.current) this.leftGridRef.current.recomputeGridSize();
-      if (this.rightGridRef.current) this.rightGridRef.current.recomputeGridSize();
+      if (this.leftGridRef.current)
+        this.leftGridRef.current.recomputeGridSize();
+      if (this.rightGridRef.current)
+        this.rightGridRef.current.recomputeGridSize();
     }
   }
 
@@ -87,10 +97,14 @@ export default class TableGrid extends React.Component<
       scrollLeft,
       scrollTop,
       height,
-      ...rest
+      showIndex,
+      rowHeight,
+      onSectionRendered,
     } = this.props;
 
-    const leftGridWidth = getFixedGridWidth(fixedColumns, columnWidths);
+    const leftGridWidth =
+      getFixedGridWidth(fixedColumns, columnWidths) +
+      (showIndex ? IndexWidth : 0);
     const rightGridWidth = width - leftGridWidth;
     const leftGrid = fixedColumns ? (
       <div
@@ -102,11 +116,16 @@ export default class TableGrid extends React.Component<
         }}
       >
         <Grid
-          {...rest}
           cellRenderer={this.renderCellLeft}
           className={`invisible-scrollbar`}
-          columnCount={fixedColumns}
-          columnWidth={({ index }: { index: number }) => columnWidths[index]}
+          columnCount={fixedColumns + Number(showIndex)}
+          columnWidth={
+            showIndex
+              ? ({ index }) =>
+                  index === 0 ? IndexWidth : columnWidths[index - 1]
+              : ({ index }) => columnWidths[index]
+          }
+          rowHeight={rowHeight}
           ref={this.leftGridRef}
           rowCount={data[0].length}
           tabIndex={null}
@@ -114,43 +133,54 @@ export default class TableGrid extends React.Component<
           height={height}
           style={styleLeftGrid}
           scrollTop={scrollTop}
-          onScroll={onScroll && ((params) => onScroll({...params, scrollLeft: (this.props.scrollLeft || 0)}))}
+          onScroll={
+            onScroll &&
+            (params =>
+              onScroll({ ...params, scrollLeft: this.props.scrollLeft || 0 }))
+          }
         />
       </div>
     ) : null;
 
     const rightGrid = (
-      <div 
-        className="right-grid-wrapper" 
+      <div
+        className="right-grid-wrapper"
         style={{
           ...this._rightGridStyle(leftGridWidth, styleRightGrid),
           width: rightGridWidth,
           height: height
-        }}>
-      <Grid
-        {...rest}
-        columnWidth={({ index }: { index: number }) => columnWidths[index+fixedColumns]}
-        className={`scrollbar fixed-scrollbar`}
-        cellRenderer={this.renderCellRight}
-        columnCount={data.length - fixedColumns}
-        // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
-        ref={this.rightGridRef}
-        rowCount={data[0].length}
-        tabIndex={null}
-        height={height}
-        width={rightGridWidth}
-        scrollLeft={scrollLeft}
-        scrollTop={scrollTop}
-        onScroll={onScroll}
-        // scrollToColumn={scrollToColumn - fixedColumnCount}
-        // scrollToRow={scrollToRow - fixedRowCount}
-        style={styleRightGrid}
-      />
+        }}
+      >
+        <Grid
+          columnWidth={({ index }: { index: number }) =>
+            columnWidths[index + fixedColumns]
+          }
+          rowHeight={rowHeight}
+          className={`scrollbar fixed-scrollbar`}
+          cellRenderer={this.renderCellRight}
+          columnCount={data.length - fixedColumns}
+          // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
+          ref={this.rightGridRef}
+          rowCount={data[0].length}
+          tabIndex={null}
+          height={height}
+          width={rightGridWidth}
+          scrollLeft={scrollLeft}
+          scrollTop={scrollTop}
+          onScroll={onScroll}
+          onSectionRendered={onSectionRendered}
+          // scrollToColumn={scrollToColumn - fixedColumnCount}
+          // scrollToRow={scrollToRow - fixedRowCount}
+          style={styleRightGrid}
+        />
       </div>
-    )
+    );
 
     return (
-      <div className="table-grid" style={{...style, width, height, position: 'relative'}}>
+      <div
+        className={className ? `${className} table-grid` : "table-grid"}
+        style={{ ...style, width, height, position: "relative" }}
+      >
         {leftGrid}
         {rightGrid}
       </div>
@@ -159,11 +189,30 @@ export default class TableGrid extends React.Component<
 
   public renderCellRight(cellProps: GridCellProps) {
     const { columnIndex, ...rest } = cellProps;
-    return this.renderCell({ ...rest, columnIndex: columnIndex + this.props.fixedColumns });
+    return this.renderCell({
+      ...rest,
+      columnIndex: columnIndex + this.props.fixedColumns
+    });
   }
 
   public renderCellLeft(cellProps: GridCellProps) {
-    return this.renderCell(cellProps);
+    if (this.props.showIndex) {
+      const {columnIndex} = cellProps;
+      if (columnIndex === 0) return this.renderCellIndex(cellProps);
+      return this.renderCell({...cellProps, columnIndex: columnIndex - 1});
+
+    } else {
+      return this.renderCell(cellProps);
+    }
+  };
+
+  public renderCellIndex(cellProps: GridCellProps) {
+    const { rowIndex, key, style } = cellProps;
+    return (
+      <div className={`cell row-${rowIndex} col-index`} key={key} style={style}>
+        <span className='cell-content'>{rowIndex}</span>
+      </div>
+    );
   }
 
   public renderCell(cellProps: GridCellProps) {
@@ -171,8 +220,9 @@ export default class TableGrid extends React.Component<
     const props = {
       width: style.width as number,
       height: style.width as number,
-      rowIndex, columnIndex,
-      data: this.props.data[columnIndex][rowIndex],
+      rowIndex,
+      columnIndex,
+      data: this.props.data[columnIndex][rowIndex]
     };
     return (
       <div
@@ -189,7 +239,9 @@ export default class TableGrid extends React.Component<
   public defaultCellRenderer(cellProps: CellProps) {
     const { rowIndex, columnIndex } = cellProps;
     return (
-      <div className="cell-content">{this.props.data[columnIndex][rowIndex]}</div>
+      <div className="cell-content">
+        {this.props.data[columnIndex][rowIndex]}
+      </div>
     );
   }
 

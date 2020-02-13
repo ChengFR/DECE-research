@@ -3,7 +3,7 @@
 
 import memoizeOne from 'memoize-one';
 import * as _ from 'lodash';
-import { IColumn, Series, FeatureType, FeatureTypeMap, ColumnSpec, featureTypeMapper } from './column';
+import { IColumn, Series, FeatureType, ColumnSpec } from './column';
 
 export type Row<T> = T[];
 

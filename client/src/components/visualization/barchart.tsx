@@ -65,7 +65,6 @@ export function drawBarChart(
 
   const xRange: [number, number] = [0, width - margin.right - margin.left];
   const yRange: [number, number] = [height - margin.top - margin.bottom, 0];
-  console.debug("Rendering histogram", xRange, yRange);
 
   // X axis: scale and draw:
   const counter = _.countBy(data);
@@ -82,7 +81,6 @@ export function drawBarChart(
     .paddingInner(innerPadding)
     .paddingOuter(outerPadding)
     .rangeRound(xRange);
-  console.log(domain.length, innerPadding, outerPadding, x.bandwidth(), x.step());
 
   const root = d3.select(svg);
 

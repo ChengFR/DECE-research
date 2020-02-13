@@ -6,12 +6,11 @@ import {
   useParams
 } from "react-router-dom";
 
-import { getDataset } from "./api";
+import { getDataset, getCFs } from "./api";
 import { Dataset } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
-import Table from "./components/Table";
-import Panel from "./components/Panel";
+import CFTableView from "./components/CFTableView";
 
 export interface IAppProps {
   dataId: string;
@@ -36,18 +35,23 @@ export class App extends React.Component<IAppProps, IAppState> {
   public async updateData() {
     const { dataId, modelId } = this.props;
     const dataset = await getDataset({ dataId, modelId });
-    console.log(dataset);
+    // console.log(dataset);
     this.setState({ dataset });
   }
 
   public render() {
+    const { dataId, modelId } = this.props;
     const { dataset } = this.state;
-    const fixedColumns = Number(Boolean(dataset?.dataMeta.prediction)) + Number(Boolean(dataset?.dataMeta.target));
     return (
       <div className="App">
-        <Panel title="Table View" initialWidth={800} initialHeight={600}>
-          {dataset && <Table dataFrame={dataset.reorderedDataFrame()} fixedColumns={fixedColumns}/>}
-        </Panel>
+        {dataset && modelId && (
+          <CFTableView
+            dataset={dataset}
+            getCFs={({ startIndex, stopIndex }) =>
+              getCFs({ dataId, modelId, startIndex, stopIndex })
+            }
+          />
+        )}
       </div>
     );
   }

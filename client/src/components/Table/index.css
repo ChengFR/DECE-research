@@ -35,6 +35,9 @@
   vertical-align: right;
 }
 
+.table-grid .cell.col-index {
+  cursor: e-resize;
+}
 
 .table-header {
   position: relative;

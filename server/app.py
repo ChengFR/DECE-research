@@ -1,23 +1,25 @@
 import os
 import argparse
-from flask import Flask
+from flask import Flask, send_from_directory, safe_join
 from flask_cors import CORS, cross_origin
 
 from .api import api
+from .page import page
+
+SERVER_ROOT = os.path.dirname(os.path.abspath(os.path.join(__file__, '..')))
+CLIENT_ROOT = os.path.join(SERVER_ROOT, 'client/build')
+STATIC_FOLDER = os.path.join(CLIENT_ROOT, 'static')
 
 
 def create_app(config=None):
     """Create and configure an instance of the Flask application."""
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder=CLIENT_ROOT)
 
     if config is not None:
         for key, val in config.items():
             app.config[key] = val
 
-    @app.route('/')
-    def hello():
-        return 'Hello, World!'
-
+    app.register_blueprint(page)
     app.register_blueprint(api, url_prefix='/api')
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     return app
@@ -35,7 +37,7 @@ def add_arguments_server(parser):
 
 def start_server(args):
 
-    app = create_app(dict(DATA_DIR=args.data_dir, MODEL_DIR=args.model_dir))
+    app = create_app(dict(DATA_DIR=args.data_dir, MODEL_DIR=args.model_dir, STATIC_FOLDER=STATIC_FOLDER))
 
     app.run(
         debug=args.debug,
