@@ -7,7 +7,7 @@ import { IColumn } from "../../data";
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth } from "./helpers";
+import { getFixedGridWidth, IndexWidth } from './helpers';
 
 export interface IHeaderProps {
   columns: IColumn[];
@@ -40,7 +40,7 @@ export default class Header extends React.Component<
   static defaultProps = {
     height: 20,
     chartHeight: 60,
-    fixedColumns: 0
+    fixedColumns: 0,
   };
 
   static getDerivedStateFromProps(
@@ -94,7 +94,7 @@ export default class Header extends React.Component<
       columnWidths,
       fixedColumns,
       styleLeftGrid,
-      styleRightGrid
+      styleRightGrid,
     } = this.props;
     console.debug("render table header");
 
@@ -160,7 +160,7 @@ export default class Header extends React.Component<
     return (
       <div
         className={`table-header ${className}`}
-        style={{ ...style, left: 0, height, width }}
+        style={{ left: 0, height, width, ...style  }}
       >
         {leftGrid}
         {grid}
@@ -233,7 +233,7 @@ export default class Header extends React.Component<
         style={style}
       >
         {columns[columnIndex].type === "numerical" ? (
-          <Histogram data={data} width={width} height={chartHeight} />
+          <Histogram data={data} width={width} height={chartHeight} margin={{left: 10, right: 10, top:3, bottom: 3}} />
         ) : (
           <BarChart data={data} width={width} height={chartHeight} />
         )}

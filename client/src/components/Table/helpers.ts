@@ -7,3 +7,5 @@ export const getFixedGridWidth = memoize((fixedColumns: number, columnWidths: nu
   }
   return width;
 });
+
+export const IndexWidth = 25;

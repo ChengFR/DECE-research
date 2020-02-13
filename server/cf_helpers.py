@@ -30,3 +30,12 @@ def get_cf_by_index(data_dir, index):
         'index': index,
         'counterfactuals': cfs.values.tolist()
     }
+
+@functools.lru_cache(maxsize=2)
+def get_cf_all(data_dir):
+    idx2cfs = load_grouped_cf(data_dir)
+    n = len(idx2cfs)
+    return [{
+        'index': idx,
+        'counterfactuals': idx2cfs[idx].values.tolist()
+    } for idx in range(n)]

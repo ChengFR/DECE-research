@@ -20,7 +20,7 @@ export default class ColResizer extends React.Component<IColResizerProps, IColRe
     this.handleStart = this.handleStart.bind(this);
   }
   render() {
-    const { className, x, style } = this.props;
+    const { className, style } = this.props;
     let classes = ["col-resizer"];
     if (className) classes.push(className);
 

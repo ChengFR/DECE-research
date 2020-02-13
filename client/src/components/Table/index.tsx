@@ -1,10 +1,15 @@
 import * as React from "react";
-import { IDataFrame, Series, IColumn } from "../../data";
-import { AutoSizer, ScrollParams } from "react-virtualized";
+import { IDataFrame, IColumn } from "../../data";
+import {
+  AutoSizer,
+  ScrollParams,
+  SectionRenderedParams
+} from "react-virtualized";
 import { getTextWidth } from "../../common/utils";
 import Header from "./Header";
-import TableGrid from "./TableGrid";
+import TableGrid, { defaultCellRenderer, CellRenderer } from "./TableGrid";
 import "./index.css";
+import { IndexWidth } from "./helpers";
 
 export interface ITableProps {
   dataFrame: IDataFrame;
@@ -12,6 +17,9 @@ export interface ITableProps {
   style?: React.CSSProperties;
   rowHeight: number;
   fixedColumns: number;
+  cellRenderer: CellRenderer;
+  showIndex: boolean;
+  onSectionRendered?: (params: SectionRenderedParams) => any;
 }
 
 interface ITableState {
@@ -23,16 +31,31 @@ interface ITableState {
   columns: IColumn[];
 }
 
-function initColumnWidths(columns: string[], padding: number = 10) {
-  return columns.map(c => Math.ceil(getTextWidth(c) + 2 * padding));
+function initColumnWidths(
+  columns: string[],
+  padding: number = 10,
+  minWidth: number = 80,
+  maxWidth: number = 400
+) {
+  return columns.map(c =>
+    Math.min(
+      Math.max(minWidth, Math.ceil(getTextWidth(c) + 2 * padding)),
+      maxWidth
+    )
+  );
 }
 
 export default class Table extends React.Component<ITableProps, ITableState> {
   static defaultProps = {
     rowHeight: 20,
-    fixedColumns: 1
+    fixedColumns: 1,
+    cellRenderer: defaultCellRenderer,
+    showIndex: false
   };
-  static getDerivedStateFromProps(nextProps: ITableProps, prevState: ITableState) {
+  static getDerivedStateFromProps(
+    nextProps: ITableProps,
+    prevState: ITableState
+  ) {
     let newState: Partial<ITableState> = {};
     if (nextProps.dataFrame !== prevState.dataFrame) {
       newState.dataFrame = nextProps.dataFrame;
@@ -60,16 +83,16 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   }
 
   _getLeftGridWidth() {
-    const {fixedColumns} = this.props;
-    const {columnWidths} = this.state;
+    const { fixedColumns } = this.props;
+    const { columnWidths } = this.state;
 
     if (this._leftGridWidth == null) {
-        let leftGridWidth = 0;
+      let leftGridWidth = 0;
 
-        for (let index = 0; index < fixedColumns; index++) {
-          leftGridWidth += columnWidths[index];
-        }
-        this._leftGridWidth = leftGridWidth;
+      for (let index = 0; index < fixedColumns; index++) {
+        leftGridWidth += columnWidths[index];
+      }
+      this._leftGridWidth = leftGridWidth;
     }
 
     return this._leftGridWidth;
@@ -77,7 +100,14 @@ export default class Table extends React.Component<ITableProps, ITableState> {
 
   public render() {
     console.debug("render table");
-    const { style, rowHeight, fixedColumns } = this.props;
+    const {
+      style,
+      rowHeight,
+      fixedColumns,
+      cellRenderer,
+      showIndex,
+      onSectionRendered
+    } = this.props;
     const { columnWidths, scrollLeft, scrollTop, columns, data } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
 
@@ -90,31 +120,33 @@ export default class Table extends React.Component<ITableProps, ITableState> {
       <div className="table-container" style={containerStyle}>
         <AutoSizer>
           {({ width, height }) => (
-            <div style={{overflow: "visible"}}>
+            <div style={{ overflow: "visible" }}>
               <Header
-                className="table-header"
                 columns={columns}
                 columnWidths={columnWidths}
                 height={90}
                 chartHeight={60}
                 hasChart={true}
-                width={width}
+                width={width - (showIndex ? IndexWidth : 0)}
                 fixedColumns={fixedColumns}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}
                 onChangeColumnWidth={this.onChangeColumnWidth}
+                style={{ left: showIndex ? IndexWidth : 0 }}
               />
               <TableGrid
-                className="table-grid"
                 data={data}
                 columnWidths={columnWidths}
                 rowHeight={rowHeight}
                 height={height - 90}
                 width={width}
+                cellRenderer={cellRenderer}
                 fixedColumns={fixedColumns}
                 onScroll={this._onScroll}
                 scrollLeft={scrollLeft}
                 scrollTop={scrollTop}
+                showIndex={showIndex}
+                onSectionRendered={onSectionRendered}
               />
             </div>
           )}
@@ -185,11 +217,11 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     }
   }
 
-  onChangeColumnWidth({index, width}: {index: number, width: number}) {
-    const {columnWidths} = this.state;
+  onChangeColumnWidth({ index, width }: { index: number; width: number }) {
+    const { columnWidths } = this.state;
     columnWidths.splice(index, 1, width);
     // console.log(`change column ${index} width to ${width}`);
 
-    this.setState({columnWidths: [...columnWidths]});
+    this.setState({ columnWidths: [...columnWidths] });
   }
 }

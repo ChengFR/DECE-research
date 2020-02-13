@@ -5,7 +5,7 @@ import logging
 from flask.json import JSONEncoder
 from flask import request, jsonify, Blueprint, current_app, Response
 
-from .cf_helpers import get_cf_by_index
+from .cf_helpers import get_cf_by_index, get_cf_all
 
 api = Blueprint('api', __name__)
 
@@ -99,24 +99,24 @@ def get_cf():
     model_name = request.args.get('modelId', default=None)
     if model_name is None:
         raise ApiError("A modelId parameter should be supplied", 400)
-
+    
+    data_dir = get_data_dir(data_name, model_name)
     if request.method == 'POST':
         raise ApiError("POST method handling not implemented", 400)
     else:
         index = request.args.get('index', type=int)
-        index_range = request.args.getlist('indexRange', type=int)
-        if index is not None:
-            return get_cf_by_index(get_data_dir(data_name, model_name), index)
+        start_index = request.args.get('startIndex', type=int)
+        stop_index = request.args.get('stopIndex', type=int)
 
-        elif index_range is not None:
-            if len(index_range) != 2 or index_range[0] >= index_range[1]:
-                raise ApiError(
-                    "Get 'indexRange' as {}. "
-                    "'indexRange' has to be a list of two integers [a, b] and a < b!".format(index_range))
+        if index is not None:
+            return get_cf_by_index(data_dir, index)
+
+        elif start_index is not None and stop_index is not None:
             return jsonify([
-                get_cf_by_index(get_data_dir(data_name, model_name), idx)
-                for idx in range(index_range[0], index_range[1])
+                get_cf_by_index(data_dir, idx)
+                for idx in range(start_index, stop_index)
             ])
         else:
+            # return jsonify(get_cf_all(data_dir))
             raise ApiError(
                 "A index or indexRange parameter should be supplied if using GET method", 400)
