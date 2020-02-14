@@ -28,7 +28,7 @@ export class DataMeta {
   }
 
   public getColumnDisc(name: string): Readonly<FeatureDisc> | undefined {
-    if (name === this.target.name) return this.target;
+    if (this.target && name === this.target.name) return this.target;
     if (this.prediction && name === this.prediction.name) return this.prediction;
     return this.getFeatureDisc(name);
   }
@@ -50,13 +50,17 @@ export class Dataset {
     return this.dataMeta.features.map(f => this.dataFrame.columns[f.index]);
   }
 
-  public reorderedDataFrame = memoize(() => {
+  public _reorderedDataFrame = memoize(() => {
     const columns = [this.target];
     if (this.prediction) columns.push(this.prediction);
     const df = DataFrame.fromColumns([...columns, ...this.features]);
     console.debug(df);
     return df;
   })
+
+  public get reorderedDataFrame() {
+    return this._reorderedDataFrame();
+  }
 
 }
 

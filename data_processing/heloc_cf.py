@@ -13,7 +13,7 @@ dataname = 'HELOC/linear'
 def process():
 
     descriptions = pd.read_csv(path.join('./data', 'HELOC/description_v2.csv')).to_dict('records')
-    descriptions.append({'name': 'Score', 'type': 'numerical', 'description': 'Prediction Score'})
+    descriptions.append({'name': 'Score', 'type': 'numerical', 'description': 'Prediction Score', 'extent': [0.0, 1.0]})
     descriptions[0]['categories'] = ["Bad", "Good"]
 
     output_dir = path.join(DATA_OUTPUT_DIR, dataname)

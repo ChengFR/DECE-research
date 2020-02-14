@@ -1,5 +1,5 @@
 import * as React from "react";
-import Dataset from "../data/dataset";
+import Dataset, { DataMeta } from "../data/dataset";
 import Panel from "./Panel";
 import Table from "./Table";
 import {
@@ -8,14 +8,24 @@ import {
   Index,
   IndexRange
 } from "react-virtualized";
-import { CFResponse } from '../api';
+import { CFResponse } from "../api";
+import { CellProps } from "./Table/TableGrid";
+import FeatureCF from "./visualization/counterfactuals";
+import memoizeOne from "memoize-one";
+import DataFrame from '../data/data_table';
+import { defaultChartMargin } from './Table/helpers';
 
 export interface ICFTableViewProps {
   dataset: Dataset;
+  CFMeta: DataMeta;
+  rowHeight: number;
+  cfHeight: number;
   getCFs: (params: IndexRange) => Promise<CFResponse[]>;
 }
 
 export interface ICFTableViewState {
+  xScales?: d3.ScaleLinear<number, number>[];
+  columnWidths?: number[];
   // loadedCFs: (CFResponse | undefined)[];
 }
 
@@ -23,7 +33,13 @@ export default class CFTableView extends React.Component<
   ICFTableViewProps,
   ICFTableViewState
 > {
+  static defaultProps = {
+    rowHeight: 20,
+    cfHeight: 7
+  };
+
   private loadedCFs: (CFResponse | undefined)[] = [];
+  private tableRef: Table | null = null;
   constructor(props: ICFTableViewProps) {
     super(props);
 
@@ -32,6 +48,15 @@ export default class CFTableView extends React.Component<
     };
     this.isRowLoaded = this.isRowLoaded.bind(this);
     this.loadMoreRows = this.loadMoreRows.bind(this);
+    this.renderCell = this.renderCell.bind(this);
+    this.rowHeight = this.rowHeight.bind(this);
+  }
+
+  public rowHeight({ index }: Index): number {
+    const { rowHeight, cfHeight } = this.props;
+    const cfs = this.loadedCFs[index];
+    if (!cfs) return rowHeight;
+    return Math.max(rowHeight, cfs.counterfactuals[0].length * cfHeight + 4);
   }
 
   public render() {
@@ -53,7 +78,7 @@ export default class CFTableView extends React.Component<
                 rowStartIndex,
                 rowStopIndex
               }: SectionRenderedParams) => {
-                console.debug("onSectionRendered",rowStartIndex, rowStopIndex);
+                console.debug("onSectionRendered", rowStartIndex, rowStopIndex);
                 return onRowsRendered({
                   startIndex: rowStartIndex,
                   stopIndex: rowStopIndex
@@ -61,17 +86,46 @@ export default class CFTableView extends React.Component<
               };
               return (
                 <Table
-                  dataFrame={dataset.reorderedDataFrame()}
+                  dataFrame={dataset.reorderedDataFrame}
                   fixedColumns={fixedColumns}
                   showIndex={true}
+                  rowHeight={this.rowHeight}
                   onSectionRendered={onSectionRendered}
-                  ref={registerChild}
+                  ref={(child: Table | null) => {
+                    this.tableRef = child;
+                    return registerChild(child);
+                  }}
+                  cellRenderer={this.renderCell}
                 />
               );
             }}
           </InfiniteLoader>
         )}
       </Panel>
+    );
+  }
+  
+  renderCell(props: CellProps) {
+    const { columnIndex, rowIndex, width, height } = props;
+    const { CFMeta, dataset } = this.props;
+    const { dataMeta, reorderedDataFrame } = dataset;
+    if (columnIndex === dataMeta.target.index) return undefined;
+    const cfs = this.loadedCFs[rowIndex];
+    if (!cfs) return undefined;
+    // render CFs
+    const cfIndex = this.featureIdx2CFIdx(reorderedDataFrame, CFMeta)[columnIndex]!;
+    return (
+      <FeatureCF
+        baseValue={reorderedDataFrame.at(rowIndex, columnIndex) as number}
+        cfValues={
+          cfs.counterfactuals[cfIndex] as number[]
+        }
+        xScale={this.tableRef?.xScales()[columnIndex]!}
+        width={width}
+        height={this.rowHeight({index: rowIndex})}
+        margin={defaultChartMargin}
+        // style={{marginTop: 2, position: 'relative'}}
+      />
     );
   }
 
@@ -85,7 +139,12 @@ export default class CFTableView extends React.Component<
     cfs.forEach(cf => {
       this.loadedCFs[cf.index] = cf;
     });
-    console.log(this.loadedCFs);
     return cfs;
   }
+
+  featureIdx2CFIdx = memoizeOne((dataFrame: DataFrame, cfMeta: DataMeta) => {
+    return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
+  });
 }
+
+function renderCF() {}

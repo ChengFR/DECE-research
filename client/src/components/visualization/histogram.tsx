@@ -1,32 +1,36 @@
 import * as d3 from "d3";
 // import {scaleOrdinal, scaleLinear} from 'd3-scale';
 import * as React from "react";
+import * as _ from "lodash";
 import {
   getMargin,
   CSSPropertiesFn,
   ChartOptions,
-  getChildOrAppend
+  getChildOrAppend,
+  getScaleLinear
 } from "./common";
 import "./histogram.css";
+import { shallowCompare } from "../../common/utils";
+import memoizeOne from "memoize-one";
 
 export interface IHistogramOptions extends ChartOptions {
   innerPadding: number;
-  rectClass?: string;
   rectStyle?: CSSPropertiesFn<SVGRectElement, d3.Bin<number, number>>;
-  onRectMouseOver?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
-  onRectMouseMove?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
-  onRectMouseLeave?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
+  onRectMouseOver?: d3.ValueFn<any, d3.Bin<number, number>, void>;
+  onRectMouseMove?: d3.ValueFn<any, d3.Bin<number, number>, void>;
+  onRectMouseLeave?: d3.ValueFn<any, d3.Bin<number, number>, void>;
+  xScale?: d3.ScaleLinear<number, number>;
 }
 
 export const defaultOptions: IHistogramOptions = {
   width: 300,
   height: 200,
-  margin: 3,
+  margin: 0,
   innerPadding: 1
 };
 
 function getNBinsRange(width: number): [number, number] {
-  return [Math.ceil(width / 9), Math.floor(width / 6)];
+  return [Math.ceil(width / 9), Math.floor(width / 7)];
 }
 
 export function drawHistogram(
@@ -38,29 +42,22 @@ export function drawHistogram(
   const {
     width,
     height,
-    rectClass,
     rectStyle,
     innerPadding,
     onRectMouseOver,
     onRectMouseMove,
-    onRectMouseLeave
+    onRectMouseLeave,
+    xScale
   } = opts;
+
   const margin = getMargin(opts.margin);
 
-  const xRange = [0, width - margin.right - margin.left];
+  const xRange = [0, width - margin.right - margin.left] as [number, number];
   const yRange = [height - margin.top - margin.bottom, 0];
   // console.debug("Rendering histogram", xRange, yRange);
 
   // X axis: scale and draw:
-  const dataExtent = d3.extent(data);
-  if (dataExtent[0] === undefined) {
-    throw dataExtent;
-  }
-  const x = d3
-    .scaleLinear()
-    .domain(dataExtent)
-    .nice()
-    .range(xRange);
+  const x = xScale ? xScale : getScaleLinear(data, ...xRange);
 
   const root = d3.select(svg);
 
@@ -98,13 +95,13 @@ export function drawHistogram(
     `translate(${margin.left}, ${margin.top})`
   );
   const merged = g
-    .selectAll("rect")
+    .selectAll("rect.bar")
     .data(bins)
     .join<SVGRectElement>(enter => {
       return enter
         .append("rect")
         .attr("x", innerPadding)
-        .attr("class", (rectClass || null) as string);
+        .attr("class", 'bar');
     })
     .attr("transform", d => {
       return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
@@ -114,7 +111,26 @@ export function drawHistogram(
       return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
     })
     .attr("height", d => {
-      return yRange[0] - y(d.length);
+      return yRange[0] - y(d.length) + 0.01;
+    });
+
+  g.selectAll("rect.shade")
+    .data(bins)
+    .join<SVGRectElement>(enter => {
+      return enter
+        .append("rect")
+        .attr("class", 'shade')
+        .attr("y", yRange[1]);
+    })
+    .attr("x", d => {
+      return x(d.x0 as number);
+    })
+    .attr("width", d => {
+      // console.debug("update width to", x(d.x1 as number) - x(d.x0 as number) - 1);
+      return Math.max(0, x(d.x1 as number) - x(d.x0 as number));
+    })
+    .attr("height", d => {
+      return yRange[0];
     })
     .on("mouseover", (onRectMouseOver || null) as null)
     .on("mousemove", (onRectMouseMove || null) as null)
@@ -133,10 +149,14 @@ export function drawHistogram(
 export interface IHistogramProps extends IHistogramOptions {
   data: ArrayLike<number>;
   style?: React.CSSProperties;
+  svgStyle?: React.CSSProperties;
   className?: string;
 }
 
-export interface IHistogramState {}
+export interface IHistogramState {
+  hoveredBin: [number, number] | null;
+  xScale?: d3.ScaleLinear<number, number>;
+}
 
 export class Histogram extends React.PureComponent<
   IHistogramProps,
@@ -145,22 +165,27 @@ export class Histogram extends React.PureComponent<
   static defaultProps = { ...defaultOptions };
   private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
   private shouldPaint: boolean = false;
+
   constructor(props: IHistogramProps) {
     super(props);
 
-    this.state = {};
+    this.state = { hoveredBin: null };
     this.paint = this.paint.bind(this);
+    this.onMouseOverBar = this.onMouseOverBar.bind(this);
+    this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
   }
 
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
     if (svg) {
-      const { data, ...rest } = this.props;
-      drawHistogram(svg, data, rest);
+      const { data, className, style, svgStyle, height, ...rest } = this.props;
+      const xScale = this.state.xScale;
+      drawHistogram(svg, data, { xScale, height: height - 24, ...rest, onRectMouseOver: this.onMouseOverBar, onRectMouseLeave: this.onMouseLeaveBar });
       this.shouldPaint = false;
     }
   }
 
   public componentDidMount() {
+    this.setState({ xScale: this.getXscale() });
     this.paint();
   }
 
@@ -168,24 +193,62 @@ export class Histogram extends React.PureComponent<
     prevProps: IHistogramProps,
     prevState: IHistogramState
   ) {
-    this.shouldPaint = true;
-    const delayedPaint = () => {
-      if (this.shouldPaint) this.paint();
-    };
-    window.setTimeout(delayedPaint, 200);
+    const excludedProperties = new Set(["style", "svgStyle", "className"]);
+    if (!shallowCompare(this.props, prevProps, excludedProperties)) {
+      this.shouldPaint = true;
+      this.setState({ xScale: this.getXscale() });
+      const delayedPaint = () => {
+        if (this.shouldPaint) this.paint();
+      };
+      window.setTimeout(delayedPaint, 100);
+    }
+
     // }
   }
 
+  memoizedXScaler = memoizeOne(getScaleLinear);
+
+  getXscale = () => {
+    const { data, width } = this.props;
+    const margin = getMargin(this.props.margin);
+    return this.memoizedXScaler(data, 0, width - margin.left - margin.right);
+  };
+
   public render() {
-    const { style, className, width, height } = this.props;
+    const { style, svgStyle, className, width, height } = this.props;
+    const { xScale, hoveredBin } = this.state;
+    const xRange = xScale && xScale.domain();
     return (
-      <div className={(className || "") + " histogram"}>
-        <svg ref={this.svgRef} style={style} width={width} height={height} />
+      <div className={(className || "") + " histogram"} style={style}>
+        <svg
+          ref={this.svgRef}
+          style={{...svgStyle, marginTop: 4}}
+          width={width}
+          height={height - 24}
+        />
         <div className="info">
+          {hoveredBin
+            ? `${hoveredBin[0]} - ${hoveredBin[1]}`
+            : xRange && `${xRange[0]} - ${xRange[1]}`}
         </div>
       </div>
     );
   }
+
+  onMouseOverBar: NonNullable<IHistogramOptions["onRectMouseOver"]> = (
+    data,
+    index
+  ) => {
+    const {x0, x1} = data;
+    this.setState({ hoveredBin: [x0 === undefined ? -Infinity: x0, x1 === undefined ? Infinity : x1] });
+  };
+
+  onMouseLeaveBar: NonNullable<IHistogramOptions["onRectMouseOver"]> = (
+    data,
+    index
+  ) => {
+    this.setState({ hoveredBin: null });
+  };
 }
 
 export default Histogram;

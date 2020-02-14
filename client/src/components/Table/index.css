@@ -37,6 +37,7 @@
 
 .table-grid .cell.col-index {
   cursor: e-resize;
+  color: #888;
 }
 
 .table-header {
@@ -78,4 +79,11 @@
   right: -3px;
   width: 6px;
   top: 0px
+}
+
+.cell .cut-text {
+  display: block;
+  text-overflow: ellipsis;
+  overflow: hidden; 
+  white-space: nowrap;
 }

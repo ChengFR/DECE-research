@@ -9,3 +9,11 @@ export const getFixedGridWidth = memoize((fixedColumns: number, columnWidths: nu
 });
 
 export const IndexWidth = 25;
+
+
+export const defaultChartMargin = {
+  left: 10,
+  right: 10,
+  top: 2,
+  bottom: 2,
+};

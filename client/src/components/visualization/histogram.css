@@ -1,3 +1,25 @@
-.histogram rect {
+.histogram svg {
+  margin-bottom: 0;
+}
+
+.histogram svg rect {
   fill: #aaa;
+  opacity: 0.7;
+}
+
+.histogram svg rect.shade {
+  fill: #aaa;
+  opacity: 0;
+}
+
+.histogram svg rect.shade:hover {
+  opacity: 0.4;
+}
+
+.histogram .info {
+  line-height: 18px;
+  height: 18px;
+  font-size: 12px;
+  text-align: left;
+  margin-left: 6px;
 }
