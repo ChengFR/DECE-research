@@ -8,18 +8,23 @@ import {
   ChartOptions,
   getChildOrAppend
 } from "./common";
-import "./histogram.css";
+import "./barchart.css";
+import memoizeOne from "memoize-one";
+
+type Category = {
+  count: number;
+  name: string;
+};
 
 export interface IBarChartOptions extends ChartOptions {
   innerPadding: number;
   barWidth?: number;
   maxStep: number;
-  rectClass?: string;
   categories?: string[];
-  rectStyle?: CSSPropertiesFn<SVGRectElement, d3.Bin<number, number>>;
-  onRectMouseOver?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
-  onRectMouseMove?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
-  onRectMouseLeave?: d3.ValueFn<SVGRectElement, d3.Bin<number, number>, void>;
+  rectStyle?: CSSPropertiesFn<SVGRectElement, Category>;
+  onRectMouseOver?: d3.ValueFn<any, Category, void>;
+  onRectMouseMove?: d3.ValueFn<any, Category, void>;
+  onRectMouseLeave?: d3.ValueFn<any, Category, void>;
 }
 
 export const defaultOptions: IBarChartOptions = {
@@ -43,16 +48,27 @@ function getOuterPadding(
   return outerPadding;
 }
 
+function countCategories(data: Array<string | number>, categories?: string[]) {
+  const counter = _.countBy(data);
+  const domain: string[] = categories || _.keys(counter).sort();
+  const visData = domain.map(
+    (c, i): Category => ({
+      count: counter[c] || 0,
+      name: domain[i]
+    })
+  );
+  return visData;
+}
+
 export function drawBarChart(
   svg: SVGElement,
-  data: Array<number | string>,
+  data: Category[],
   options?: Partial<IBarChartOptions>
 ) {
   const opts = { ...defaultOptions, ...options };
   const {
     width,
     height,
-    rectClass,
     rectStyle,
     innerPadding,
     maxStep,
@@ -67,14 +83,14 @@ export function drawBarChart(
   const yRange: [number, number] = [height - margin.top - margin.bottom, 0];
 
   // X axis: scale and draw:
-  const counter = _.countBy(data);
-  const domain: string[] = categories || _.keys(counter).sort();
-  const visData = domain.map((c, i) => ({
-    count: counter[c] || 0,
-    category: domain[i]
-  }));
+  const domain: string[] = data.map(d => d.name);
 
-  const outerPadding = getOuterPadding(xRange[1],domain.length,innerPadding,maxStep);
+  const outerPadding = getOuterPadding(
+    xRange[1],
+    domain.length,
+    innerPadding,
+    maxStep
+  );
   const x = d3
     .scaleBand()
     .domain(domain)
@@ -87,7 +103,7 @@ export function drawBarChart(
   const y = d3
     .scaleLinear()
     .range(yRange)
-    .domain([0, d3.max(visData, d => d.count) as number]);
+    .domain([0, d3.max(data, d => d.count) as number]);
 
   // const yAxis = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "y-axis");
   // yAxis.call(d3.axisLeft(y));
@@ -98,15 +114,25 @@ export function drawBarChart(
     `translate(${margin.left + outerPadding}, ${margin.top})`
   );
   const merged = g
-    .selectAll("rect")
-    .data(visData)
+    .selectAll("rect.bar")
+    .data(data)
     .join<SVGRectElement>(enter => {
-      return enter.append("rect").attr("class", (rectClass || null) as string);
+      return enter.append("rect").attr("class", "bar");
     })
-    .attr("x", d => x(d.category) || 0)
+    .attr("x", d => x(d.name) || 0)
     .attr("width", x.bandwidth())
     .attr("y", d => y(d.count))
-    .attr("height", d => yRange[0] - y(d.count))
+    .attr("height", d => yRange[0] - y(d.count));
+
+  g.selectAll("rect.shade")
+    .data(data)
+    .join<SVGRectElement>(enter => {
+      return enter.append("rect").attr("class", "shade");
+    })
+    .attr("x", d => x(d.name) || 0)
+    .attr("width", x.bandwidth())
+    .attr("y", yRange[1])
+    .attr("height", yRange[0])
     .on("mouseover", (onRectMouseOver || null) as null)
     .on("mousemove", (onRectMouseMove || null) as null)
     .on("mouseleave", (onRectMouseLeave || null) as null);
@@ -124,10 +150,13 @@ export function drawBarChart(
 export interface IBarChartProps extends IBarChartOptions {
   data: Array<number | string>;
   style?: React.CSSProperties;
+  svgStyle?: React.CSSProperties;
   className?: string;
 }
 
-export interface IBarChartState {}
+export interface IBarChartState {
+  hoveredCategory: string | null;
+}
 
 export class BarChart extends React.PureComponent<
   IBarChartProps,
@@ -139,15 +168,25 @@ export class BarChart extends React.PureComponent<
   constructor(props: IBarChartProps) {
     super(props);
 
-    this.state = {};
+    this.state = { hoveredCategory: null };
     this.paint = this.paint.bind(this);
+    this.onMouseOverBar = this.onMouseOverBar.bind(this);
+    this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
   }
+
+  count = memoizeOne(countCategories);
 
   public paint(svg: SVGSVGElement | null = this.ref.current) {
     if (svg) {
       console.debug("rendering bar chart");
-      const { data, ...rest } = this.props;
-      drawBarChart(svg, data, rest);
+      const { data, style, svgStyle, className, height, ...rest } = this.props;
+      const barData = this.count(data);
+      drawBarChart(svg, barData, {
+        ...rest,
+        height: height - 20,
+        onRectMouseOver: this.onMouseOverBar,
+        onRectMouseLeave: this.onMouseLeaveBar
+      });
       this.shouldPaint = false;
     }
   }
@@ -169,17 +208,41 @@ export class BarChart extends React.PureComponent<
   }
 
   public render() {
-    const { style, className, width, height } = this.props;
+    const {
+      style,
+      svgStyle,
+      className,
+      width,
+      height,
+      data,
+      categories
+    } = this.props;
+    const { hoveredCategory } = this.state;
+    const barData = this.count(data, categories);
     return (
-      <svg
-        ref={this.ref}
-        style={style}
-        className={(className || "") + " histogram"}
-        width={width}
-        height={height}
-      />
+      <div className={(className || "") + " bar-chart"} style={style}>
+        <svg
+          ref={this.ref}
+          style={svgStyle}
+          width={width}
+          height={height - 20}
+        />
+        <div className="info">
+          {hoveredCategory
+            ? `${hoveredCategory}`
+            : `${barData.length} Categories`}
+        </div>
+      </div>
     );
   }
+
+  onMouseOverBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = data => {
+    this.setState({ hoveredCategory: data.name });
+  };
+
+  onMouseLeaveBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = () => {
+    this.setState({ hoveredCategory: null });
+  };
 }
 
 export default BarChart;

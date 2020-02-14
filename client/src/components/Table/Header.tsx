@@ -7,7 +7,7 @@ import { IColumn } from "../../data";
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, IndexWidth } from './helpers';
+import { getFixedGridWidth, defaultChartMargin } from './helpers';
 
 export interface IHeaderProps {
   columns: IColumn[];
@@ -25,6 +25,7 @@ export interface IHeaderProps {
   hasChart?: boolean;
   chartHeight: number;
   fixedColumns: number;
+  xScales?: (d3.ScaleLinear<number, number> | undefined)[];
 }
 
 export interface IHeaderState {
@@ -207,7 +208,7 @@ export default class Header extends React.Component<
           lineHeight: style.height && `${style.height}px`
         }}
       >
-        <div className="cell-content">{columns[columnIndex].name}</div>
+        <div className="cell-content cut-text" style={{width: width-18, height: style.height, margin: '0 9px'}}>{columns[columnIndex].name}</div>
         {onChangeColumnWidth && (
           <ColResizer
             x={width}
@@ -222,7 +223,7 @@ export default class Header extends React.Component<
 
   _chartCellRenderer(cellProps: GridCellProps) {
     const { columnIndex, key, style, ...rest } = cellProps;
-    const { columnWidths, chartHeight, columns } = this.props;
+    const { columnWidths, chartHeight, columns, xScales } = this.props;
     const data = this.state.columnData[columnIndex];
     const width = columnWidths[columnIndex];
 
@@ -233,9 +234,9 @@ export default class Header extends React.Component<
         style={style}
       >
         {columns[columnIndex].type === "numerical" ? (
-          <Histogram data={data} width={width} height={chartHeight} margin={{left: 10, right: 10, top:3, bottom: 3}} />
+          <Histogram data={data} width={width} height={chartHeight} margin={defaultChartMargin} xScale={xScales && xScales[columnIndex]} />
         ) : (
-          <BarChart data={data} width={width} height={chartHeight} />
+          <BarChart data={data} width={width} height={chartHeight} margin={defaultChartMargin} />
         )}
       </div>
     );

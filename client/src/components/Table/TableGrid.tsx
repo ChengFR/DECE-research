@@ -1,7 +1,7 @@
 import * as React from "react";
 import memoize from "fast-memoize";
 
-import { Grid, GridCellProps, ScrollParams, SectionRenderedParams } from "react-virtualized";
+import { Grid, GridCellProps, ScrollParams, SectionRenderedParams, Index } from "react-virtualized";
 import { getFixedGridWidth, IndexWidth } from "./helpers";
 
 export interface CellProps {
@@ -9,16 +9,16 @@ export interface CellProps {
   rowIndex: number;
   width: number;
   height: number;
-  data: any;
 }
 
-export type CellRenderer = (props: CellProps) => React.ReactNode;
+export type CellRenderer = (props: CellProps) => (React.ReactNode | undefined);
 
 export interface ITableGridProps {
-  data: Array<Array<number | string>>;
   // columnWidths: number[];
+  rowCount: number;
+  columnCount: number;
   columnWidths: number[];
-  rowHeight: number;
+  rowHeight: number | ((params: Index) => number);
   height: number;
   width: number;
   fixedColumns: number;
@@ -36,20 +36,6 @@ export interface ITableGridProps {
 
 export interface ITableGridState {}
 
-function number2string(x: number): string {
-  if (Number.isInteger(x)) return x.toFixed(0);
-  return x.toPrecision(4);
-}
-
-export const defaultCellRenderer: CellRenderer = props => {
-  const { data } = props;
-  return (
-    <div className="cell-content">
-      {typeof data === "string" ? data : number2string(data)}
-    </div>
-  );
-};
-
 export default class TableGrid extends React.PureComponent<
   ITableGridProps,
   ITableGridState
@@ -57,7 +43,6 @@ export default class TableGrid extends React.PureComponent<
   static defaultProps = {
     rowHeight: 20,
     fixedColumns: 0,
-    cellRenderer: defaultCellRenderer,
     showIndex: false
   };
   // private divRef: React.RefObject<HTMLDivElement> = React.createRef();
@@ -76,16 +61,12 @@ export default class TableGrid extends React.PureComponent<
 
   componentDidUpdate(prevProps: ITableGridProps) {
     if (prevProps.columnWidths !== this.props.columnWidths) {
-      if (this.leftGridRef.current)
-        this.leftGridRef.current.recomputeGridSize();
-      if (this.rightGridRef.current)
-        this.rightGridRef.current.recomputeGridSize();
+      this.recomputeGridSize();
     }
   }
 
   public render() {
     const {
-      data,
       style,
       width,
       className,
@@ -100,6 +81,8 @@ export default class TableGrid extends React.PureComponent<
       showIndex,
       rowHeight,
       onSectionRendered,
+      rowCount,
+      columnCount
     } = this.props;
 
     const leftGridWidth =
@@ -127,7 +110,7 @@ export default class TableGrid extends React.PureComponent<
           }
           rowHeight={rowHeight}
           ref={this.leftGridRef}
-          rowCount={data[0].length}
+          rowCount={rowCount}
           tabIndex={null}
           width={leftGridWidth}
           height={height}
@@ -158,10 +141,10 @@ export default class TableGrid extends React.PureComponent<
           rowHeight={rowHeight}
           className={`scrollbar fixed-scrollbar`}
           cellRenderer={this.renderCellRight}
-          columnCount={data.length - fixedColumns}
+          columnCount={columnCount - fixedColumns}
           // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
           ref={this.rightGridRef}
-          rowCount={data[0].length}
+          rowCount={rowCount}
           tabIndex={null}
           height={height}
           width={rightGridWidth}
@@ -219,10 +202,9 @@ export default class TableGrid extends React.PureComponent<
     const { rowIndex, columnIndex, key, style } = cellProps;
     const props = {
       width: style.width as number,
-      height: style.width as number,
+      height: style.height as number,
       rowIndex,
       columnIndex,
-      data: this.props.data[columnIndex][rowIndex]
     };
     return (
       <div
@@ -236,13 +218,15 @@ export default class TableGrid extends React.PureComponent<
     );
   }
 
-  public defaultCellRenderer(cellProps: CellProps) {
-    const { rowIndex, columnIndex } = cellProps;
-    return (
-      <div className="cell-content">
-        {this.props.data[columnIndex][rowIndex]}
-      </div>
-    );
+  public forceUpdate() {
+    this.leftGridRef.current?.forceUpdate();
+    this.rightGridRef.current?.forceUpdate();
+  }
+
+  public recomputeGridSize(params?: {columnIndex?: number, rowIndex?: number}) {
+    const passedDownParams = params && {rowIndex: params.rowIndex};
+    this.leftGridRef.current?.recomputeGridSize(passedDownParams);
+    this.rightGridRef.current?.recomputeGridSize(passedDownParams);
   }
 
   _leftGridStyle = memoize(

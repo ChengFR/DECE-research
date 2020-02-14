@@ -10,3 +10,17 @@ export const getTextWidth = function() {
   }
   return func;
 }();
+
+export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>) => {
+  for (let key in v) {
+    if (excludeKeys && excludeKeys.has(key)) continue;
+    if (!(key in o) || v[key] !== o[key]) return false;
+  }
+
+  for (let key in o) {
+    if (excludeKeys && excludeKeys.has(key)) continue;
+    if (!(key in v) || v[key] !== o[key]) return false;
+  }
+
+  return true;
+};

@@ -33,6 +33,16 @@ export async function getDataMeta(params: {
   return new DataMeta(data);
 }
 
+export async function getCFMeta(params: {
+  dataId: string;
+  modelId: string;
+}): Promise<DataMeta> {
+  const url = `${API}/cf_meta`;
+  const response = await axios.get(url, { params });
+  const data = checkResponse(response, []);
+  return new DataMeta(data);
+}
+
 export async function getDataset(params: {
   dataId: string;
   modelId?: string;
@@ -58,9 +68,16 @@ export async function getDataset(params: {
   return new Dataset(dataFrame, dataMeta);
 }
 
+// export interface CounterFactual {
+//   features: (string | number)[];
+//   prediction: number
+// }
+
+export type CounterFactual = (string | number)[];
+
 export interface CFResponse {
   index: number;
-  counterfactuals: Array<(string | number)[]>;
+  counterfactuals: CounterFactual[];
 }
 
 export async function getCF(params: {

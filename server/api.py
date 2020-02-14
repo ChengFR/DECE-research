@@ -92,6 +92,18 @@ def get_data_meta():
     return Response(data, mimetype="text/json")
 
 
+@api.route('/cf_meta', methods=['GET'])
+def get_cf_meta():
+    # temporary test data
+    data_name = request.args.get('dataId', default='HELOC', type=str)
+    model_name = request.args.get('modelId', default='linear', type=str)
+    meta_path = os.path.join(get_data_dir(
+        data_name, model_name), 'cf.meta.json')
+    with open(meta_path, 'r') as f:
+        data = f.read()
+    return Response(data, mimetype="text/json")
+
+
 @api.route('/cf', methods=['GET', 'POST'])
 def get_cf():
 

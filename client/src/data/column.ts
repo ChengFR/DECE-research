@@ -19,6 +19,7 @@ export interface ColumnSpec {
   name: string;
   description?: string;
   type: FeatureType;
+  extent?: [number, number];
 }
 
 export interface IColumn<T = any> extends ColumnSpec {

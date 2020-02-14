@@ -6,8 +6,8 @@ import {
   useParams
 } from "react-router-dom";
 
-import { getDataset, getCFs } from "./api";
-import { Dataset } from "./data";
+import { getDataset, getCFs, getCFMeta } from "./api";
+import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CFTableView from "./components/CFTableView";
@@ -19,6 +19,7 @@ export interface IAppProps {
 
 export interface IAppState {
   dataset?: Dataset;
+  CFMeta?: DataMeta;
 }
 
 export class App extends React.Component<IAppProps, IAppState> {
@@ -34,19 +35,24 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public async updateData() {
     const { dataId, modelId } = this.props;
-    const dataset = await getDataset({ dataId, modelId });
+    const newState: Partial<IAppState> = {};
+    newState.dataset = await getDataset({ dataId, modelId });
+    if (modelId) {
+      newState.CFMeta = await getCFMeta({ dataId, modelId });
+    }
     // console.log(dataset);
-    this.setState({ dataset });
+    this.setState(newState);
   }
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset } = this.state;
+    const { dataset, CFMeta } = this.state;
     return (
       <div className="App">
-        {dataset && modelId && (
+        {dataset && modelId && CFMeta && (
           <CFTableView
             dataset={dataset}
+            CFMeta={CFMeta}
             getCFs={({ startIndex, stopIndex }) =>
               getCFs({ dataId, modelId, startIndex, stopIndex })
             }
