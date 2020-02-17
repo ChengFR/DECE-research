@@ -36,4 +36,4 @@ Start client development server:
 yarn start
 ```
 
-Visit `localhost:3000/HELOC` for testing.
+Visit `localhost:3000/HELOC/linear` for testing.

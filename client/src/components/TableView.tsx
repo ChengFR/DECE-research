@@ -24,7 +24,7 @@ export default class TableView extends React.Component<ITableViewProps, ITableVi
 
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
-        {dataset && <Table dataFrame={dataset.reorderedDataFrame} fixedColumns={fixedColumns} showIndex={true}/>}
+        {dataset && <Table rowCount={dataset.dataFrame.length} columns={dataset.reorderedDataFrame.columns} fixedColumns={fixedColumns} showIndex={true}/>}
       </Panel>
     );
   }
