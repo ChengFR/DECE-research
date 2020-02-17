@@ -1,50 +1,52 @@
 import * as React from "react";
-import Dataset, { DataMeta } from "../data/dataset";
-import Panel from "./Panel";
-import Table from "./Table";
+import * as _ from "lodash";
+import memoizeOne from "memoize-one";
 import {
   InfiniteLoader,
   SectionRenderedParams,
   Index,
   IndexRange
 } from "react-virtualized";
-import { CFResponse } from "../api";
-import { CellProps } from "./Table/TableGrid";
-import FeatureCF from "./visualization/counterfactuals";
-import memoizeOne from "memoize-one";
-import DataFrame from '../data/data_table';
-import { defaultChartMargin } from './Table/helpers';
+import { CFResponse } from "api";
+import { Dataset, DataMeta, DataFrame } from "data";
+import Panel from "components/Panel";
+import Table, { CellProps, defaultChartMargin } from "components/Table";
+import FeatureCF from "components/visualization/counterfactuals";
+import { TableState, initTableState, RowState, RowStateType, isExpandedRow } from './table_state';
 
-export interface ICFTableViewProps {
+export interface ICompactTableProps {
   dataset: Dataset;
   CFMeta: DataMeta;
-  rowHeight: number;
   cfHeight: number;
+  rowHeight: number;
+  pixel: number;
   getCFs: (params: IndexRange) => Promise<CFResponse[]>;
 }
 
-export interface ICFTableViewState {
+export interface ICompactTableState {
   xScales?: d3.ScaleLinear<number, number>[];
   columnWidths?: number[];
+  tableState: TableState;
   // loadedCFs: (CFResponse | undefined)[];
 }
 
 export default class CFTableView extends React.Component<
-  ICFTableViewProps,
-  ICFTableViewState
+  ICompactTableProps,
+  ICompactTableState
 > {
   static defaultProps = {
+    cfHeight: 6,
     rowHeight: 20,
-    cfHeight: 7
+    pixel: 1
   };
 
   private loadedCFs: (CFResponse | undefined)[] = [];
   private tableRef: Table | null = null;
-  constructor(props: ICFTableViewProps) {
+  constructor(props: ICompactTableProps) {
     super(props);
 
     this.state = {
-      // loadedCFs: []
+      tableState: initTableState(props.dataset.dataFrame.length),
     };
     this.isRowLoaded = this.isRowLoaded.bind(this);
     this.loadMoreRows = this.loadMoreRows.bind(this);
@@ -53,14 +55,30 @@ export default class CFTableView extends React.Component<
   }
 
   public rowHeight({ index }: Index): number {
-    const { rowHeight, cfHeight } = this.props;
-    const cfs = this.loadedCFs[index];
-    if (!cfs) return rowHeight;
-    return Math.max(rowHeight, cfs.counterfactuals[0].length * cfHeight + 4);
+    return this.computeRowHeights(this.state.tableState.rows)[index];
+  }
+
+  computeRowHeights = memoizeOne((rows: RowState[]) => {
+    const { cfHeight, pixel, rowHeight } = this.props;
+    return rows.map(row => {
+      if (isExpandedRow(row)) {
+        const cfs = this.loadedCFs[row.index];
+        if (!cfs) return rowHeight;
+        return Math.max(rowHeight, cfs.counterfactuals[0].length * cfHeight + 2);
+      } else {
+        return pixel * (row.endIndex - row.startIndex);
+        
+      }
+    })
+  })
+
+  public componentDidUpdate(prevProps: ICompactTableProps) {
+
   }
 
   public render() {
     const { dataset } = this.props;
+    const { tableState } = this.state;
     const fixedColumns =
       Number(Boolean(dataset?.dataMeta.prediction)) +
       Number(Boolean(dataset?.dataMeta.target));
@@ -86,8 +104,8 @@ export default class CFTableView extends React.Component<
               };
               return (
                 <Table
+                  rowCount={tableState.rows.length}
                   columns={dataset.reorderedDataFrame.columns}
-                  rowCount={dataset.reorderedDataFrame.length}
                   fixedColumns={fixedColumns}
                   showIndex={true}
                   rowHeight={this.rowHeight}
@@ -147,5 +165,3 @@ export default class CFTableView extends React.Component<
     return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
   });
 }
-
-function renderCF() {}

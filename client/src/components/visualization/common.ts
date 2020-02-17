@@ -81,3 +81,5 @@ export function getScaleLinear(
     .nice()
     .range([x0, x1]);
 }
+
+export const DELAY_PAINT_TIME = 100;

@@ -27,10 +27,6 @@ export const defaultOptions = {
   innerPadding: 1
 };
 
-function getNBinsRange(width: number): [number, number] {
-  return [Math.ceil(width / 9), Math.floor(width / 7)];
-}
-
 export function drawCFs(
   svg: SVGElement,
   baseValue: number,
@@ -176,21 +172,6 @@ export class FeatureCF extends React.PureComponent<
         />
     );
   }
-
-  // onMouseOverBar: NonNullable<ICFOptions["onRectMouseOver"]> = (
-  //   data,
-  //   index
-  // ) => {
-  //   const {x0, x1} = data;
-  //   this.setState({ hoveredBin: [x0 === undefined ? -Infinity: x0, x1 === undefined ? Infinity : x1] });
-  // };
-
-  // onMouseLeaveBar: NonNullable<ICFOptions["onRectMouseOver"]> = (
-  //   data,
-  //   index
-  // ) => {
-  //   this.setState({ hoveredBin: null });
-  // };
 }
 
 export default FeatureCF;
