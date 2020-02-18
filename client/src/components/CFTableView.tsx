@@ -1,19 +1,16 @@
 import * as React from "react";
-import Dataset, { DataMeta } from "../data/dataset";
-import Panel from "./Panel";
-import Table from "./Table";
 import {
   InfiniteLoader,
   SectionRenderedParams,
   Index,
   IndexRange
 } from "react-virtualized";
-import { CFResponse } from "../api";
-import { CellProps } from "./Table/TableGrid";
-import FeatureCF from "./visualization/counterfactuals";
 import memoizeOne from "memoize-one";
-import DataFrame from '../data/data_table';
-import { defaultChartMargin } from './Table/helpers';
+import { Dataset, DataMeta, DataFrame } from "../data";
+import Panel from "./Panel";
+import Table, {CellProps, defaultChartMargin} from "./Table";
+import { CFResponse } from "../api";
+import FeatureCF from "./visualization/counterfactuals";
 
 export interface ICFTableViewProps {
   dataset: Dataset;
@@ -110,6 +107,7 @@ export default class CFTableView extends React.Component<
     const { columnIndex, rowIndex, width, height } = props;
     const { CFMeta, dataset } = this.props;
     const { dataMeta, reorderedDataFrame } = dataset;
+    if (columnIndex === -1) return undefined;
     if (columnIndex === dataMeta.target.index) return undefined;
     const cfs = this.loadedCFs[rowIndex];
     if (!cfs) return undefined;
@@ -121,7 +119,7 @@ export default class CFTableView extends React.Component<
         cfValues={
           cfs.counterfactuals[cfIndex] as number[]
         }
-        xScale={this.tableRef?.xScales()[columnIndex]!}
+        xScale={this.tableRef?.xScale(columnIndex) as d3.ScaleLinear<number, number>}
         width={width}
         height={this.rowHeight({index: rowIndex})}
         margin={defaultChartMargin}

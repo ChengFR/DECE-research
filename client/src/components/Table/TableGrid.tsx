@@ -2,13 +2,14 @@ import * as React from "react";
 import memoize from "fast-memoize";
 
 import { Grid, GridCellProps, ScrollParams, SectionRenderedParams, Index } from "react-virtualized";
-import { getFixedGridWidth, IndexWidth } from "./helpers";
+import { getFixedGridWidth, IndexWidth, TableColumn } from './common';
 
 export interface CellProps {
   columnIndex: number;
   rowIndex: number;
   width: number;
   height: number;
+  data?: any;
 }
 
 export type CellRenderer = (props: CellProps) => (React.ReactNode | undefined);
@@ -16,8 +17,7 @@ export type CellRenderer = (props: CellProps) => (React.ReactNode | undefined);
 export interface ITableGridProps {
   // columnWidths: number[];
   rowCount: number;
-  columnCount: number;
-  columnWidths: number[];
+  columns: TableColumn[];
   rowHeight: number | ((params: Index) => number);
   height: number;
   width: number;
@@ -60,7 +60,7 @@ export default class TableGrid extends React.PureComponent<
   }
 
   componentDidUpdate(prevProps: ITableGridProps) {
-    if (prevProps.columnWidths !== this.props.columnWidths) {
+    if (prevProps.columns !== this.props.columns) {
       this.recomputeGridSize();
     }
   }
@@ -70,7 +70,7 @@ export default class TableGrid extends React.PureComponent<
       style,
       width,
       className,
-      columnWidths,
+      columns,
       fixedColumns,
       styleLeftGrid,
       styleRightGrid,
@@ -82,11 +82,10 @@ export default class TableGrid extends React.PureComponent<
       rowHeight,
       onSectionRendered,
       rowCount,
-      columnCount
     } = this.props;
 
     const leftGridWidth =
-      getFixedGridWidth(fixedColumns, columnWidths) +
+      getFixedGridWidth(fixedColumns, columns) +
       (showIndex ? IndexWidth : 0);
     const rightGridWidth = width - leftGridWidth;
     const leftGrid = fixedColumns ? (
@@ -105,8 +104,8 @@ export default class TableGrid extends React.PureComponent<
           columnWidth={
             showIndex
               ? ({ index }) =>
-                  index === 0 ? IndexWidth : columnWidths[index - 1]
-              : ({ index }) => columnWidths[index]
+                  index === 0 ? IndexWidth : columns[index - 1].width
+              : ({ index }) => columns[index].width
           }
           rowHeight={rowHeight}
           ref={this.leftGridRef}
@@ -136,12 +135,12 @@ export default class TableGrid extends React.PureComponent<
       >
         <Grid
           columnWidth={({ index }: { index: number }) =>
-            columnWidths[index + fixedColumns]
+            columns[index + fixedColumns].width
           }
           rowHeight={rowHeight}
           className={`scrollbar fixed-scrollbar`}
           cellRenderer={this.renderCellRight}
-          columnCount={columnCount - fixedColumns}
+          columnCount={columns.length - fixedColumns}
           // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
           ref={this.rightGridRef}
           rowCount={rowCount}
@@ -191,9 +190,16 @@ export default class TableGrid extends React.PureComponent<
 
   public renderCellIndex(cellProps: GridCellProps) {
     const { rowIndex, key, style } = cellProps;
+    const props = {
+      width: style.width as number,
+      height: style.height as number,
+      rowIndex,
+      columnIndex: -1,
+      data: rowIndex + 1,
+    };
     return (
       <div className={`cell row-${rowIndex} col-index`} key={key} style={style}>
-        <span className='cell-content'>{rowIndex}</span>
+        {this.props.cellRenderer(props)}
       </div>
     );
   }

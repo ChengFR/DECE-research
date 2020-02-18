@@ -11,6 +11,8 @@ import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CFTableView from "./components/CFTableView";
+import TableView from "./components/TableView";
+import CompactTable from "./components/CompactTable";
 
 export interface IAppProps {
   dataId: string;
@@ -49,15 +51,19 @@ export class App extends React.Component<IAppProps, IAppState> {
     const { dataset, CFMeta } = this.state;
     return (
       <div className="App">
-        {dataset && modelId && CFMeta && (
-          <CFTableView
-            dataset={dataset}
-            CFMeta={CFMeta}
-            getCFs={({ startIndex, stopIndex }) =>
-              getCFs({ dataId, modelId, startIndex, stopIndex })
-            }
-          />
-        )}
+        {dataset &&
+          (modelId && CFMeta ? (
+            <CompactTable
+              dataset={dataset}
+              CFMeta={CFMeta}
+              getCFs={({ startIndex, stopIndex }) =>
+                getCFs({ dataId, modelId, startIndex, stopIndex })
+              }
+            />
+          ) : (
+            <TableView dataset={dataset} />
+            
+          ))}
       </div>
     );
   }

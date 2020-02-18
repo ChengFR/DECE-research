@@ -28,15 +28,15 @@ function validate(value: string | number, type: FeatureType) {
 export type DataFrameInput = {  
   data?: (string | number)[][];
   dataT?: (string | number)[][];
-  columns: (ColumnSpec | IColumn<string> | IColumn<number> | IColumn<string | number>)[];
+  columns: (ColumnSpec | IColumn<string> | IColumn<number>)[];
 };
 
 export default class DataFrame implements IDataFrame {
-  private _columns?: (IColumn<string> | IColumn<number> | IColumn<string | number>)[];
+  private _columns?: (IColumn<string> | IColumn<number>)[];
   private _columnSpecs: ColumnSpec[];
   private _data?: Row<string | number>[];
   private _dataT?: Array<(string | number)[]>;
-  private _name2column: {[k: string]: IColumn<string> | IColumn<number> | IColumn<string | number>};
+  private _name2column: {[k: string]: IColumn<string> | IColumn<number>};
 
   static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean=false): Row<string | number>[] {
     const featureTypes = columnSpecs.map(spec => spec.type);
@@ -56,7 +56,7 @@ export default class DataFrame implements IDataFrame {
     return data;
   }
 
-  static fromColumns(columns: (IColumn<string> | IColumn<number> | IColumn<string | number>)[]) {
+  static fromColumns(columns: (IColumn<string> | IColumn<number>)[]) {
     // console.debug(columns);
     const dataT = columns.map(c => c.series.toArray());
     const newDF = new DataFrame({dataT, columns}, false);
@@ -88,7 +88,7 @@ export default class DataFrame implements IDataFrame {
           description: "",
           ...c,
           series: new Series(this.length, j => at(j, i))
-        };
+        } as IColumn<number> | IColumn<string>;
       });
     }
     return this._columns;

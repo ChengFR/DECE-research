@@ -1,7 +1,6 @@
 import * as d3 from "d3";
 // import {scaleOrdinal, scaleLinear} from 'd3-scale';
 import * as React from "react";
-import * as _ from "lodash";
 import {
   getMargin,
   CSSPropertiesFn,

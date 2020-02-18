@@ -10,12 +10,13 @@ import memoizeOne from 'memoize-one';
 import { getTextWidth } from "../../common/utils";
 import Header from "./Header";
 import TableGrid, { CellRenderer } from "./TableGrid";
-import { IndexWidth, defaultChartMargin } from "./helpers";
 import "./index.css";
-import { getScaleLinear } from "../visualization/common";
-import { IDataFrame, IColumn } from "../../data";
+import { getScaleLinear, getScaleBand } from '../visualization/common';
+import { IDataFrame, IColumn, isNumericalColumn } from "../../data";
+import { TableColumn, CategoricalColumn, IndexWidth, defaultChartMargin } from './common';
 
 const memoizedGetScaleLinear = memoize(getScaleLinear);
+const memoizedGetScaleBand = memoize(getScaleBand);
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
@@ -32,25 +33,34 @@ export interface ITableProps {
 }
 
 interface ITableState {
-  dataFrame?: IDataFrame;
-  columnWidths: number[];
+  columns: TableColumn[];
   scrollTop: number;
   scrollLeft: number;
-  xScales: (d3.ScaleLinear<number, number> | undefined)[];
 }
 
-function initColumnWidths(
-  columns: string[],
+function initColumnWidth(
+  column: string,
   padding: number = 10,
-  minWidth: number = 80,
-  maxWidth: number = 200
+  minWidth: number = 40,
+  maxWidth: number = 100
 ) {
-  return columns.map(c =>
-    Math.min(
-      Math.max(minWidth, Math.ceil(getTextWidth(c) + 2 * padding)),
-      maxWidth
-    )
+  return Math.min(
+    Math.max(minWidth, Math.ceil(getTextWidth(column) + 2 * padding)),
+    maxWidth
   );
+}
+
+function getColumns(columns: (IColumn<string> | IColumn<number>)[], prevColumns?: TableColumn[]): TableColumn[] {
+  return columns.map((c, i) => {
+    const prevColumn = prevColumns && prevColumns[i];
+    if (prevColumn) return {
+      ...c, ...prevColumn
+    };
+    const width =  initColumnWidth(c.name);
+    if (isNumericalColumn(c))
+      return {...c, width, xScale: memoizedGetScaleLinear(c.series.toArray(), 0, width - defaultChartMargin.left - defaultChartMargin.right, c.extent)};
+    return {...c, width, xScale: memoizedGetScaleBand(c.series.toArray(), 0, width - defaultChartMargin.left - defaultChartMargin.right, c.categories)} as CategoricalColumn;
+  })
 }
 
 export default class Table extends React.Component<ITableProps, ITableState> {
@@ -77,10 +87,9 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   constructor(props: ITableProps) {
     super(props);
     this.state = {
-      columnWidths: initColumnWidths(props.columns.map(c => c.name)),
+      columns: getColumns(props.columns),
       scrollTop: 0,
       scrollLeft: 0,
-      xScales: [],
     };
     this._onScroll = this._onScroll.bind(this);
     this._onScrollLeft = this._onScrollLeft.bind(this);
@@ -90,15 +99,21 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     this.cellRenderer = this.cellRenderer.bind(this);
   }
 
+  componentDidUpdate(prevProps: ITableProps) {
+    if (prevProps.columns !== this.props.columns) {
+      this.setState({columns: getColumns(this.props.columns, this.state.columns)});
+    }
+  }
+
   _getLeftGridWidth() {
     const { fixedColumns } = this.props;
-    const { columnWidths } = this.state;
+    const { columns } = this.state;
 
     if (this._leftGridWidth == null) {
       let leftGridWidth = 0;
 
       for (let index = 0; index < fixedColumns; index++) {
-        leftGridWidth += columnWidths[index];
+        leftGridWidth += columns[index].width;
       }
       this._leftGridWidth = leftGridWidth;
     }
@@ -106,17 +121,8 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     return this._leftGridWidth;
   }
 
-  _getXScales = memoizeOne((columns: IColumn[], columnWidths: number[]) => {
-    return columns.map((col, i) => {
-      if (col.type === 'numerical')
-        return memoizedGetScaleLinear(col.series.toArray(), 0, columnWidths[i] - defaultChartMargin.left - defaultChartMargin.right, col.extent);
-      return undefined;
-    })
-  });
-
-  public xScales() {
-    const {columnWidths} = this.state;
-    return this._getXScales(this.props.columns, columnWidths);
+  public xScale(columnIndex: number) {
+    return this.state.columns[columnIndex].xScale;
   }
 
   public render() {
@@ -124,13 +130,12 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     const {
       style,
       rowHeight,
-      columns,
       fixedColumns,
       showIndex,
       rowCount,
       onSectionRendered
     } = this.props;
-    const { columnWidths, scrollLeft, scrollTop } = this.state;
+    const { columns, scrollLeft, scrollTop } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
 
     const containerStyle = {
@@ -138,17 +143,13 @@ export default class Table extends React.Component<ITableProps, ITableState> {
       ...style
     };
 
-    const xScales = this.xScales();
-    console.debug(xScales);
     return (
       <div className="table-container" style={containerStyle}>
         <AutoSizer>
           {({ width, height }) => (
             <div style={{ overflow: "visible" }}>
               <Header
-                xScales={xScales}
                 columns={columns}
-                columnWidths={columnWidths}
                 height={90}
                 chartHeight={60}
                 hasChart={true}
@@ -161,8 +162,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
               />
               <TableGrid
                 rowCount={rowCount}
-                columnCount={columns.length}
-                columnWidths={columnWidths}
+                columns={columns}
                 rowHeight={rowHeight}
                 height={height - 90}
                 width={width}
@@ -213,11 +213,11 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   }
 
   onChangeColumnWidth({ index, width }: { index: number; width: number }) {
-    const { columnWidths } = this.state;
-    columnWidths.splice(index, 1, width);
+    const { columns } = this.state;
+    columns.splice(index, 1, {...columns[index], width});
     // console.log(`change column ${index} width to ${width}`);
 
-    this.setState({ columnWidths: [...columnWidths] });
+    this.setState({ columns: [...columns] });
   }
 
   cellRenderer: CellRenderer = props => {
@@ -230,7 +230,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
 
   defaultCellRenderer: CellRenderer = props => {
     const {columnIndex, rowIndex} = props;
-    const data = this.props.columns[columnIndex].series.at(rowIndex);
+    const data = props.data || this.props.columns[columnIndex].series.at(rowIndex);
     return (
       <div className="cell-content">
         {typeof data === "string" ? data : number2string(data)}
@@ -253,4 +253,4 @@ function number2string(x: number): string {
 }
 
 export * from "./TableGrid";
-export * from "./helpers";
+export * from "./common";
