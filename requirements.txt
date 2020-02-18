@@ -4,3 +4,7 @@ scikit-learn
 tensorflow==1.13.0rc1
 h5py
 cython
+
+pyzmq
+flask>=1.1
+flask-cors
