@@ -127,7 +127,6 @@ function reduceRows(rows: RowState[], action: CollapseRows | ExpandRows) {
     case ActionType.EXPAND_ROWS:
       return expandRows(rows, action);
     default:
-      console.error("This should not happen");
       return rows;
   }
  

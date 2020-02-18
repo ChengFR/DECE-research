@@ -1,6 +1,6 @@
 import * as d3 from "d3";
+import * as _ from 'lodash';
 import { CSSProperties } from "react";
-import memoize from "fast-memoize";
 
 export interface IMargin {
   top: number;
@@ -82,4 +82,55 @@ export function getScaleLinear(
     .range([x0, x1]);
 }
 
+export function countCategories(data: Array<string | number>, categories?: string[]) {
+  const counter = _.countBy(data);
+  const domain: string[] = categories || _.keys(counter).sort();
+  return domain.map(
+    (c, i) => ({
+      count: counter[c] || 0,
+      name: domain[i]
+    })
+  );
+}
+
+function getOuterPadding(
+  width: number,
+  nBars: number,
+  innerPadding: number,
+  maxStep: number
+) {
+  const minOuterPadding = Math.round(
+    (width - maxStep * nBars + maxStep * innerPadding) / 2 / maxStep
+  );
+  let outerPadding = Math.max(minOuterPadding, innerPadding);
+  return outerPadding;
+}
+
+export function getScaleBand(
+  data: Array<string>,
+  x0: number,
+  x1: number,
+  categories?: string[],
+  innerPadding: number = 0.25,
+  maxStep = 35
+): d3.ScaleBand<string> {
+  let domain = categories || countCategories(data).map(d => d.name);
+  const outerPadding = getOuterPadding(
+    x1 - x0,
+    domain.length,
+    innerPadding,
+    maxStep
+  );
+  return d3
+    .scaleBand()
+    .domain(domain)
+    .paddingInner(innerPadding)
+    .paddingOuter(outerPadding)
+    .rangeRound([x0, x1]);
+}
+
 export const DELAY_PAINT_TIME = 100;
+
+export function isStringArray(x: number[] | string[]): x is string[] {
+  return typeof x[0] === 'string';
+}

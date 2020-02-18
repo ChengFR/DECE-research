@@ -1,7 +1,6 @@
 import memoizeOne from 'memoize-one';
 
 export interface FeatureTypeMap {
-  'mixed': string | number;
   'categorical': string;
   'numerical': number; 
   'unknown': any;
@@ -10,7 +9,6 @@ export interface FeatureTypeMap {
 export const featureTypeMapper = {
   'categorical': String,
   'numerical': Number,
-  'mixed': (x: string | number) => x,
 }
 
 export type FeatureType = keyof FeatureTypeMap;
@@ -20,10 +18,16 @@ export interface ColumnSpec {
   description?: string;
   type: FeatureType;
   extent?: [number, number];
+  categories?: string[];
 }
 
 export interface IColumn<T = any> extends ColumnSpec {
   series: ISeries<T>;
+  type: T extends string ? 'categorical' : (T extends number ? 'numerical' : 'unknown');
+}
+
+export function isNumericalColumn(column: IColumn<string> | IColumn<number>): column is IColumn<number> {
+  return column.type === 'numerical';
 }
 
 export interface ISeries<T = any> {

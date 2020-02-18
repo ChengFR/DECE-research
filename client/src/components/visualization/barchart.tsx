@@ -1,5 +1,4 @@
 import * as d3 from "d3";
-import * as _ from "lodash";
 // import {scaleOrdinal, scaleLinear} from 'd3-scale';
 import * as React from "react";
 import {
@@ -10,6 +9,7 @@ import {
 } from "./common";
 import "./barchart.css";
 import memoizeOne from "memoize-one";
+import { countCategories } from './common';
 
 type Category = {
   count: number;
@@ -35,68 +35,23 @@ export const defaultOptions: IBarChartOptions = {
   maxStep: 35
 };
 
-function getOuterPadding(
-  width: number,
-  nBars: number,
-  innerPadding: number,
-  maxStep: number
-) {
-  const minOuterPadding = Math.round(
-    (width - maxStep * nBars + maxStep * innerPadding) / 2 / maxStep
-  );
-  let outerPadding = Math.max(minOuterPadding, innerPadding);
-  return outerPadding;
-}
-
-function countCategories(data: Array<string | number>, categories?: string[]) {
-  const counter = _.countBy(data);
-  const domain: string[] = categories || _.keys(counter).sort();
-  const visData = domain.map(
-    (c, i): Category => ({
-      count: counter[c] || 0,
-      name: domain[i]
-    })
-  );
-  return visData;
-}
-
 export function drawBarChart(
   svg: SVGElement,
   data: Category[],
+  xScale: d3.ScaleBand<string>,
   options?: Partial<IBarChartOptions>
 ) {
   const opts = { ...defaultOptions, ...options };
   const {
-    width,
     height,
     rectStyle,
-    innerPadding,
-    maxStep,
-    categories,
     onRectMouseOver,
     onRectMouseMove,
     onRectMouseLeave
   } = opts;
   const margin = getMargin(opts.margin);
 
-  const xRange: [number, number] = [0, width - margin.right - margin.left];
   const yRange: [number, number] = [height - margin.top - margin.bottom, 0];
-
-  // X axis: scale and draw:
-  const domain: string[] = data.map(d => d.name);
-
-  const outerPadding = getOuterPadding(
-    xRange[1],
-    domain.length,
-    innerPadding,
-    maxStep
-  );
-  const x = d3
-    .scaleBand()
-    .domain(domain)
-    .paddingInner(innerPadding)
-    .paddingOuter(outerPadding)
-    .rangeRound(xRange);
 
   const root = d3.select(svg);
 
@@ -111,7 +66,7 @@ export function drawBarChart(
   // append the bar rectangles to the svg element
   const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "bars").attr(
     "transform",
-    `translate(${margin.left + outerPadding}, ${margin.top})`
+    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
   );
   const merged = g
     .selectAll("rect.bar")
@@ -119,8 +74,8 @@ export function drawBarChart(
     .join<SVGRectElement>(enter => {
       return enter.append("rect").attr("class", "bar");
     })
-    .attr("x", d => x(d.name) || 0)
-    .attr("width", x.bandwidth())
+    .attr("x", d => xScale(d.name) || 0)
+    .attr("width", xScale.bandwidth())
     .attr("y", d => y(d.count))
     .attr("height", d => yRange[0] - y(d.count));
 
@@ -129,8 +84,8 @@ export function drawBarChart(
     .join<SVGRectElement>(enter => {
       return enter.append("rect").attr("class", "shade");
     })
-    .attr("x", d => x(d.name) || 0)
-    .attr("width", x.bandwidth())
+    .attr("x", d => xScale(d.name) || 0)
+    .attr("width", xScale.bandwidth())
     .attr("y", yRange[1])
     .attr("height", yRange[0])
     .on("mouseover", (onRectMouseOver || null) as null)
@@ -151,6 +106,7 @@ export interface IBarChartProps extends IBarChartOptions {
   data: Array<number | string>;
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
+  xScale: d3.ScaleBand<string>;
   className?: string;
 }
 
@@ -179,9 +135,9 @@ export class BarChart extends React.PureComponent<
   public paint(svg: SVGSVGElement | null = this.ref.current) {
     if (svg) {
       console.debug("rendering bar chart");
-      const { data, style, svgStyle, className, height, ...rest } = this.props;
+      const { data, style, svgStyle, className, height, xScale, ...rest } = this.props;
       const barData = this.count(data);
-      drawBarChart(svg, barData, {
+      drawBarChart(svg, barData, xScale, {
         ...rest,
         height: height - 20,
         onRectMouseOver: this.onMouseOverBar,

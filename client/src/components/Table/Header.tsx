@@ -1,18 +1,15 @@
 import * as React from "react";
-import { Grid, GridCellProps, Index, ScrollParams } from "react-virtualized";
+import { Grid, GridCellProps, ScrollParams } from "react-virtualized";
 import memoize from "fast-memoize";
-
-import { IColumn } from "../../data";
 
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, defaultChartMargin } from './helpers';
+import { getFixedGridWidth, defaultChartMargin, TableColumn } from './common';
 
 export interface IHeaderProps {
-  columns: IColumn[];
+  columns: TableColumn[];
   // columnWidths: number[];
-  columnWidths: number[];
   onChangeColumnWidth?: (p: { index: number; width: number }) => any;
   height: number;
   width: number;
@@ -25,11 +22,10 @@ export interface IHeaderProps {
   hasChart?: boolean;
   chartHeight: number;
   fixedColumns: number;
-  xScales?: (d3.ScaleLinear<number, number> | undefined)[];
 }
 
 export interface IHeaderState {
-  columns: IColumn[];
+  columns: TableColumn[];
   scrollLeft: number;
   columnData: Array<number>[];
 }
@@ -51,7 +47,6 @@ export default class Header extends React.Component<
     let newState: Partial<IHeaderState> = {};
     if (nextProps.columns !== prevState.columns) {
       newState.columns = nextProps.columns;
-      newState.columnData = newState.columns.map(c => c.series.toArray());
     }
     return newState;
   }
@@ -75,7 +70,8 @@ export default class Header extends React.Component<
   }
 
   componentDidUpdate(prevProps: IHeaderProps) {
-    if (prevProps.columnWidths !== this.props.columnWidths) {
+    if (prevProps.columns !== this.props.columns) {
+      console.debug("recompute grid size");
       if (this.leftGridRef.current) this.leftGridRef.current.recomputeGridSize();
       if (this.rightGridRef.current) this.rightGridRef.current.recomputeGridSize();
     }
@@ -92,7 +88,6 @@ export default class Header extends React.Component<
       className,
       hasChart,
       chartHeight,
-      columnWidths,
       fixedColumns,
       styleLeftGrid,
       styleRightGrid,
@@ -103,7 +98,7 @@ export default class Header extends React.Component<
     const rowHeight = (p: { index: number }) =>
       p.index === 0 ? titleHeight : chartHeight;
 
-    const leftGridWidth = getFixedGridWidth(fixedColumns, columnWidths);
+    const leftGridWidth = getFixedGridWidth(fixedColumns, columns);
     const leftGrid = fixedColumns ? (
       <div
         className="left-grid-wrapper"
@@ -117,7 +112,7 @@ export default class Header extends React.Component<
           cellRenderer={this.renderCellLeft}
           className={`invisible-scrollbar`}
           columnCount={fixedColumns}
-          columnWidth={({ index }: { index: number }) => columnWidths[index]}
+          columnWidth={({ index }: { index: number }) => columns[index].width}
           height={height}
           rowHeight={hasChart ? rowHeight : height}
           ref={this.rightGridRef}
@@ -143,7 +138,7 @@ export default class Header extends React.Component<
           className={`invisible-scrollbar`}
           columnCount={columns.length - fixedColumns}
           columnWidth={({ index }: { index: number }) =>
-            columnWidths[index + fixedColumns]
+            columns[index + fixedColumns].width
           }
           height={height}
           rowHeight={hasChart ? rowHeight : height}
@@ -191,13 +186,12 @@ export default class Header extends React.Component<
   }
 
   _titleCellRenderer(cellProps: GridCellProps) {
-    const { columnIndex, key, style, ...rest } = cellProps;
+    const { columnIndex, key, style } = cellProps;
     const {
       columns,
       onChangeColumnWidth,
-      columnWidths
     } = this.props;
-    const width = columnWidths[columnIndex];
+    const width = columns[columnIndex].width;
 
     return (
       <div
@@ -222,10 +216,10 @@ export default class Header extends React.Component<
   }
 
   _chartCellRenderer(cellProps: GridCellProps) {
-    const { columnIndex, key, style, ...rest } = cellProps;
-    const { columnWidths, chartHeight, columns, xScales } = this.props;
-    const data = this.state.columnData[columnIndex];
-    const width = columnWidths[columnIndex];
+    const { columnIndex, key, style } = cellProps;
+    const { chartHeight, columns } = this.props;
+    const column = this.state.columns[columnIndex];
+    const width = columns[columnIndex].width;
 
     return (
       <div
@@ -233,10 +227,10 @@ export default class Header extends React.Component<
         key={key}
         style={style}
       >
-        {columns[columnIndex].type === "numerical" ? (
-          <Histogram data={data} width={width} height={chartHeight} margin={defaultChartMargin} xScale={xScales && xScales[columnIndex]} />
+        {column.type === "numerical" ? (
+          <Histogram data={column.series.toArray()} width={width} height={chartHeight} margin={defaultChartMargin} xScale={column.xScale} />
         ) : (
-          <BarChart data={data} width={width} height={chartHeight} margin={defaultChartMargin} />
+          <BarChart data={column.series.toArray()} width={width} height={chartHeight} margin={defaultChartMargin} xScale={column.xScale} />
         )}
       </div>
     );
