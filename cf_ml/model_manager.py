@@ -50,35 +50,74 @@ class PytorchModel(nn.Module):
 
 class PytorchModelManager(ModelManager):
     """Model manager of a pytorch model"""
-    def __init__(self, dataset, model=None):
+    def __init__(self, dataset, model_name='MLP', model=None):
         ModelManager.__init__(self)
         self.dataset = dataset
-        feature_names = self.dataset.get_feature_names()
-        class_names = self.dataset.get_target_names()
+        self.model_name = model_name
+        self.feature_names = self.dataset.get_feature_names()
+        self.target_names = self.dataset.get_target_names()
         if model is None:
-            self.model = PytorchModel(feature_num=len(feature_names), class_num=len(class_names))
+            self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
         else:
             self.model = model
 
         train_dataset = self.dataset.get_train_dataset()
         test_dataset = self.dataset.get_test_dataset()
-        train_x = torch.from_numpy(train_dataset[feature_names].values).float()
-        train_y = torch.from_numpy(train_dataset[class_names].values).float()
-        test_x = torch.from_numpy(test_dataset[feature_names].values).float()
-        test_y = torch.from_numpy(test_dataset[class_names].values).float()
+        train_x = torch.from_numpy(train_dataset[self.feature_names].values).float()
+        train_y = torch.from_numpy(train_dataset[self.target_names].values).float()
+        test_x = torch.from_numpy(test_dataset[self.feature_names].values).float()
+        test_y = torch.from_numpy(test_dataset[self.target_names].values).float()
         self.train_dataset = TensorDataset(train_x, train_y)
         self.test_dataset = TensorDataset(test_x, test_y)
 
-    def load_model(self):
-        return
+        self.train_accuracy = 0
+        self.test_accuracy = 0
 
-    def forward(self):
+    def load_model(self, path):
+        self.model.load_state_dict(torch.load(path))
+
+    def forward(self, x):
         self.model.eval()
-        return
+        return self.model(x)
+
+    def predict(self, x):
+        self.model.eval()
+        if type(x) is type(pd.DataFrame()):
+            if len(x.columns) == len(self.dataset.get_columns(preprocess=False)):
+                x = self.dataset.preprocess(x)
+            x = torch.from_numpy(x[self.feature_names].values).float()
+        pred = self.model(x).detach().numpy()
+        output_df = pd.DataFrame(np.concatenate((x, pred), axis=1), \
+            columns=self.feature_names+self.target_names)
+        output_df = self.dataset.depreprocess(output_df)
+        origin_target_name = self.dataset.get_target_names(preprocess=False)
+        origin_feature_names = self.dataset.get_feature_names(preprocess=False)
+        output_df['{}_pred'.format(origin_target_name)] = output_df[origin_target_name]
+        output_df['score'] = pred.max(axis=1)
+        return output_df[origin_feature_names+['{}_pred'.format(origin_target_name), 'score']]
+
+    def predict_instance(self, index):
+        x = self.dataset.get_sample(index)[self.feature_names].values
+        x = torch.from_numpy(x).float()
+        origin_target_name = self.dataset.get_target_names(preprocess=False)
+        target = self.dataset.get_sample(index, preprocess=False)[origin_target_name]
+        output_df = self.predict(x)
+        output_df[origin_target_name] = target
+        return output_df
+
+    def fix_model(self):
+        for param in self.model.parameters():
+            param.requires_grad = False
+        self.model.eval()
+        
+    def release_model(self):
+        for param in self.model.parameters():
+            param.requires_grad = True
 
     def train(self, batch_size=32, epoch=40, lr=0.002, verbose=True):
         data_loader = DataLoader(dataset=self.train_dataset, batch_size=batch_size, shuffle=True)
         criterion = nn.BCELoss()
+        self.release_model()
         # optimizer = optim.SGD(self.model.parameters(), lr=lr)
         optimizer = optim.RMSprop(self.model.parameters(), lr=lr)
         for e in range(epoch):
@@ -93,6 +132,8 @@ class PytorchModelManager(ModelManager):
                 optimizer.step()
             if verbose:
                 print("Epoch: {}, loss={:.3f}, train_accuracy={:.3f}, test_accuracy={:.3f}".format(e, loss, self.evaluate('train'), self.evaluate('test')))
+        self.train_accuracy = self.evaluate('train')
+        self.test_accuracy = self.evaluate('test')
 
 
     def evaluate(self, dataset='test', batch_size=128):
@@ -114,8 +155,9 @@ class PytorchModelManager(ModelManager):
             pred_class = np.concatenate((pred_class, pred))
         return (target_class == pred_class).mean()
 
-    def save_model(self):
-        return
+    def save_model(self, dirpath):
+        "A tmp implementation"
+        torch.save(self.model.state_dict(), os.path.join(dirpath, '{}_test_accuracy_{:.2f}'.format(self.model_name, self.test_accuracy)))
 
 
 if __name__ == '__main__':
@@ -123,3 +165,4 @@ if __name__ == '__main__':
     dataset = load_HELOC_dataset()
     mm = PytorchModelManager(dataset)
     mm.train()
+    mm.save_model('../model/HELOC/')
