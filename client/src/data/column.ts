@@ -26,7 +26,7 @@ export interface IColumn<T = any> extends ColumnSpec {
   type: T extends string ? 'categorical' : (T extends number ? 'numerical' : 'unknown');
 }
 
-export function isNumericalColumn(column: IColumn<string> | IColumn<number>): column is IColumn<number> {
+export function isColumnNumerical(column: IColumn<string> | IColumn<number>): column is IColumn<number> {
   return column.type === 'numerical';
 }
 
@@ -42,6 +42,7 @@ export class Series<T = string | number> implements ISeries<T> {
   constructor(length: number, accessor: (n: number) => T) {
     this.length = length;
     this.accessor = accessor;
+    this.at = this.at.bind(this);
   }
   at(n: number) {
     return this.accessor(n);

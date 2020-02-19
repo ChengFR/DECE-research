@@ -1,11 +1,12 @@
 import * as React from "react";
+import { Icon } from "antd";
 import { Grid, GridCellProps, ScrollParams } from "react-virtualized";
 import memoize from "fast-memoize";
 
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, defaultChartMargin, TableColumn } from './common';
+import { getFixedGridWidth, columnMargin, TableColumn } from "./common";
 
 export interface IHeaderProps {
   columns: TableColumn[];
@@ -22,6 +23,8 @@ export interface IHeaderProps {
   hasChart?: boolean;
   chartHeight: number;
   fixedColumns: number;
+  onSort?: (columnIndex: number, order: "descend" | "ascend") => any;
+  onSearch?: (columnIndex: number, order: "descend" | "ascend") => any;
 }
 
 export interface IHeaderState {
@@ -37,7 +40,7 @@ export default class Header extends React.Component<
   static defaultProps = {
     height: 20,
     chartHeight: 60,
-    fixedColumns: 0,
+    fixedColumns: 0
   };
 
   static getDerivedStateFromProps(
@@ -72,8 +75,10 @@ export default class Header extends React.Component<
   componentDidUpdate(prevProps: IHeaderProps) {
     if (prevProps.columns !== this.props.columns) {
       console.debug("recompute grid size");
-      if (this.leftGridRef.current) this.leftGridRef.current.recomputeGridSize();
-      if (this.rightGridRef.current) this.rightGridRef.current.recomputeGridSize();
+      if (this.leftGridRef.current)
+        this.leftGridRef.current.recomputeGridSize();
+      if (this.rightGridRef.current)
+        this.rightGridRef.current.recomputeGridSize();
     }
   }
 
@@ -90,7 +95,7 @@ export default class Header extends React.Component<
       chartHeight,
       fixedColumns,
       styleLeftGrid,
-      styleRightGrid,
+      styleRightGrid
     } = this.props;
     console.debug("render table header");
 
@@ -156,7 +161,7 @@ export default class Header extends React.Component<
     return (
       <div
         className={`table-header ${className}`}
-        style={{ left: 0, height, width, ...style  }}
+        style={{ left: 0, height, width, ...style }}
       >
         {leftGrid}
         {grid}
@@ -187,31 +192,18 @@ export default class Header extends React.Component<
 
   _titleCellRenderer(cellProps: GridCellProps) {
     const { columnIndex, key, style } = cellProps;
-    const {
-      columns,
-      onChangeColumnWidth,
-    } = this.props;
-    const width = columns[columnIndex].width;
+    const { columns } = this.props;
 
     return (
-      <div
+      <ColumnTitle
         className={`cell row-title col-${columnIndex}`}
         key={key}
         style={{
           ...style,
           lineHeight: style.height && `${style.height}px`
         }}
-      >
-        <div className="cell-content cut-text" style={{width: width-18, height: style.height, margin: '0 9px'}}>{columns[columnIndex].name}</div>
-        {onChangeColumnWidth && (
-          <ColResizer
-            x={width}
-            onChangeX={width =>
-              onChangeColumnWidth({ index: columnIndex, width })
-            }
-          />
-        )}
-      </div>
+        column={columns[columnIndex]}
+      />
     );
   }
 
@@ -220,7 +212,7 @@ export default class Header extends React.Component<
     const { chartHeight, columns } = this.props;
     const column = this.state.columns[columnIndex];
     const width = columns[columnIndex].width;
-
+    console.debug("render chart cell");
     return (
       <div
         className={`cell row-chart col-${columnIndex}`}
@@ -228,9 +220,21 @@ export default class Header extends React.Component<
         style={style}
       >
         {column.type === "numerical" ? (
-          <Histogram data={column.series.toArray()} width={width} height={chartHeight} margin={defaultChartMargin} xScale={column.xScale} />
+          <Histogram
+            data={column.series.toArray()}
+            width={width}
+            height={chartHeight}
+            margin={columnMargin}
+            xScale={column.xScale}
+          />
         ) : (
-          <BarChart data={column.series.toArray()} width={width} height={chartHeight} margin={defaultChartMargin} xScale={column.xScale} />
+          <BarChart
+            data={column.series.toArray()}
+            width={width}
+            height={chartHeight}
+            margin={columnMargin}
+            xScale={column.xScale}
+          />
         )}
       </div>
     );
@@ -265,3 +269,38 @@ export default class Header extends React.Component<
     }
   );
 }
+
+interface IColumnTitleProps {
+  className?: string;
+  style?: React.CSSProperties;
+  column: TableColumn;
+}
+
+const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
+  props: IColumnTitleProps
+) => {
+  const { column, style, ...rest } = props;
+  const { width, onChangeColumnWidth } = column;
+  const { onSort, sorted, name } = column;
+  return (
+    <div style={style} {...props}>
+      <div
+        className="cell-content cut-text"
+        style={{ width: width - 18, height: "100%", margin: "0 9px" }}
+      >
+        {name}
+      </div>
+      {onSort && (
+        <Icon
+          type="arrow-up"
+          style={{ position: "absolute", top: 0, height: "100%", right: 3 }}
+          className={(sorted ? `arrow sorted ${sorted}` : "arrow")}
+          onClick={() => onSort(column.sorted === "descend" ? "ascend" : "descend")}
+        />
+      )}
+      {onChangeColumnWidth && (
+        <ColResizer x={width} onChangeX={width => onChangeColumnWidth(width)} />
+      )}
+    </div>
+  );
+};
