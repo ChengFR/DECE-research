@@ -66,7 +66,7 @@ export function getChildOrAppend<
     .append<GElement>(tag)
     .attr("class", className);
 
-  return root.select<SVGGElement>(`${tag}.${className}`);
+  return root.select<GElement>(`${tag}.${className}`);
 }
 
 export function getScaleLinear(

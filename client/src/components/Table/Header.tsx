@@ -226,6 +226,9 @@ export default class Header extends React.Component<
             height={chartHeight}
             margin={columnMargin}
             xScale={column.xScale}
+            onSelectRange={column.onFilter}
+            selectedRange={column.filter}
+            allData={column.prevSeries?.toArray()}
           />
         ) : (
           <BarChart

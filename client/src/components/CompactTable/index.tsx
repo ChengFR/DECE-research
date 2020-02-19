@@ -36,6 +36,7 @@ export interface ICompactTableProps {
 export interface ICompactTableState {
   columns: TableColumn[];
   dataFrame: DataFrame;
+  prevDataFrame?: DataFrame;
   tableState: TableState;
   // loadedCFs: (CFResponse | undefined)[];
 }
@@ -73,6 +74,7 @@ export default class CFTableView extends React.Component<
     const c = createColumn(column);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) => this.onChangeColumnWidth(c.name, width);
+    c.onFilter = (filter: any) => this.onChangeFilter(c.name, filter);
     return c;
   }
 
@@ -126,12 +128,14 @@ export default class CFTableView extends React.Component<
       Number(Boolean(dataset?.dataMeta.prediction)) +
       Number(Boolean(dataset?.dataMeta.target));
 
+    const rowCount = dataFrame.length;
+
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
         <InfiniteLoader
           isRowLoaded={this.isRowLoaded}
           loadMoreRows={this.loadMoreRows}
-          rowCount={dataFrame.length}
+          rowCount={rowCount}
         >
           {({ onRowsRendered, registerChild }) => {
             const onSectionRendered = ({
@@ -179,6 +183,27 @@ export default class CFTableView extends React.Component<
     if (newState) {
       newState.columns.forEach(c => (c.sorted = c.name === columnName ? order : null));
       this.setState(newState);
+    }
+  }
+
+  onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
+    console.debug("onChangeFilter", columnName, filter);
+    const { columns } = this.state;
+    const baseDataFrame = this.state.prevDataFrame || this.state.dataFrame;
+    const index = columns.findIndex(c => c.name === columnName);
+    const column = columns[index];
+    columns.splice(index, 1, {...column, filter} as TableColumn);
+    const filters: {columnName: string, filter: string[] | [number, number]}[] = [];
+    columns.forEach(c => {
+      c.filter && filters.push({columnName: c.name, filter: c.filter});
+    })
+    console.debug("onChangeFilter", filters);
+
+    const newState = this.changeDataFrame(baseDataFrame.filterBy(filters));
+    if (newState) {
+      newState.columns.forEach((c, i) => c.prevSeries = baseDataFrame.columns[i].series);
+      console.log(newState);
+      this.setState({...newState, prevDataFrame: baseDataFrame});
     }
   }
 
