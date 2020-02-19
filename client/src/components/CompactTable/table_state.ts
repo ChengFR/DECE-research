@@ -129,7 +129,6 @@ function reduceRows(rows: RowState[], action: CollapseRows | ExpandRows) {
     default:
       return rows;
   }
- 
 }
 
 export const reducer = combineReducers({

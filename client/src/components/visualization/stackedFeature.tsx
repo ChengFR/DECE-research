@@ -208,7 +208,7 @@ export class StackedFeature extends React.PureComponent<
           // Set `large` for large data amount
           large: true,
           itemStyle: {
-            color: "rgb(155, 179, 206)"
+            color: "rgb(109, 160, 202, 0.6)"
           }
         }
       ],

@@ -1,5 +1,5 @@
 import memoize from "fast-memoize";
-import { IColumn, isColumnNumerical } from '../../data/column';
+import { IColumn, isColumnNumerical, ISeries } from 'data';
 import { getScaleLinear, getScaleBand } from "../visualization/common";
 import { getTextWidth } from '../../common/utils';
 
@@ -19,13 +19,14 @@ export interface VColumn<T> extends IColumn<T> {
   onSort?: (order: "descend" | "ascend") => any;
   sorted?: 'descend' | 'ascend' | null;
   onChangeColumnWidth?: (width: number) => any;
+  prevSeries?: ISeries<T>;
 }
 
 export interface CategoricalColumn extends VColumn<string> {
   type: "categorical";
   width: number;
   xScale: d3.ScaleBand<string>;
-  filters?: string[];
+  filter?: string[];
   onFilter?: (filters?: string[]) => any;
 }
 
@@ -93,5 +94,5 @@ export function createColumn(column: IColumn<string> | IColumn<number> | TableCo
     ...column,
     width,
     xScale: memoizedScaleBand(column.series.toArray(), 0, chartWidth, column.categories)
-  } as CategoricalColumn;
+  };
 }
