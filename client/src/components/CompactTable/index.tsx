@@ -1,4 +1,5 @@
 import * as React from "react";
+import _ from "lodash";
 import memoizeOne from "memoize-one";
 import {
   InfiniteLoader,
@@ -9,17 +10,19 @@ import {
 import { CFResponse } from "api";
 import { Dataset, DataMeta, DataFrame } from "data";
 import Panel from "components/Panel";
-import Table, { CellProps, defaultChartMargin } from "components/Table";
+import Table, { CellProps, columnMargin } from "components/Table";
 import {
   TableState,
   initTableState,
   RowState,
   CollapsedRows,
-  ExpandedRow, 
-  isExpandedRow,
+  ExpandedRow,
+  isExpandedRow
 } from "./table_state";
 import StackedFeature from "../visualization/stackedFeature";
 import FeatureCF from "components/visualization/counterfactuals";
+import { TableColumn, changeColumnWidth, createColumn } from "../Table/common";
+import { IColumn } from "../../data/column";
 
 export interface ICompactTableProps {
   dataset: Dataset;
@@ -31,8 +34,8 @@ export interface ICompactTableProps {
 }
 
 export interface ICompactTableState {
-  xScales?: d3.ScaleLinear<number, number>[];
-  columnWidths?: number[];
+  columns: TableColumn[];
+  dataFrame: DataFrame;
   tableState: TableState;
   // loadedCFs: (CFResponse | undefined)[];
 }
@@ -53,12 +56,24 @@ export default class CFTableView extends React.Component<
     super(props);
 
     this.state = {
-      tableState: initTableState(props.dataset.dataFrame.length)
+      tableState: initTableState(props.dataset.dataFrame.length),
+      dataFrame: props.dataset.reorderedDataFrame,
+      columns: props.dataset.reorderedDataFrame.columns.map(c =>
+        this.initColumn(c)
+      )
     };
     this.isRowLoaded = this.isRowLoaded.bind(this);
     this.loadMoreRows = this.loadMoreRows.bind(this);
     this.renderCell = this.renderCell.bind(this);
     this.rowHeight = this.rowHeight.bind(this);
+    this.onSort = this.onSort.bind(this);
+  }
+
+  public initColumn(column: IColumn<string> | IColumn<number>): TableColumn {
+    const c = createColumn(column);
+    c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
+    c.onChangeColumnWidth = (width: number) => this.onChangeColumnWidth(c.name, width);
+    return c;
   }
 
   public rowHeight({ index }: Index): number {
@@ -81,54 +96,90 @@ export default class CFTableView extends React.Component<
     });
   });
 
-  public componentDidUpdate(prevProps: ICompactTableProps) {}
+  changeDataFrame(dataFrame: DataFrame) {
+    if (dataFrame !== this.state.dataFrame) {
+      const name2column = _.keyBy(this.state.columns);
+      return {
+        dataFrame,
+        columns: dataFrame.columns.map(c => {
+          if (c.name in name2column) {
+            return { ...name2column[c.name], ...c } as TableColumn;
+          }
+          return this.initColumn(c);
+        })
+      };
+    }
+    return null;
+  }
+
+  public componentDidUpdate(prevProps: ICompactTableProps) {
+    if (prevProps.dataset !== this.props.dataset) {
+      const newState = this.changeDataFrame(this.props.dataset.reorderedDataFrame)
+      this.setState(newState);
+    }
+  }
 
   public render() {
     const { dataset } = this.props;
-    const { tableState } = this.state;
+    const { tableState, columns, dataFrame } = this.state;
     const fixedColumns =
       Number(Boolean(dataset?.dataMeta.prediction)) +
       Number(Boolean(dataset?.dataMeta.target));
 
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
-        {dataset && (
-          <InfiniteLoader
-            isRowLoaded={this.isRowLoaded}
-            loadMoreRows={this.loadMoreRows}
-            rowCount={dataset.dataFrame.length}
-          >
-            {({ onRowsRendered, registerChild }) => {
-              const onSectionRendered = ({
-                rowStartIndex,
-                rowStopIndex
-              }: SectionRenderedParams) => {
-                console.debug("onSectionRendered", rowStartIndex, rowStopIndex);
-                return onRowsRendered({
-                  startIndex: rowStartIndex,
-                  stopIndex: rowStopIndex
-                });
-              };
-              return (
-                <Table
-                  rowCount={tableState.rows.length}
-                  columns={dataset.reorderedDataFrame.columns}
-                  fixedColumns={fixedColumns}
-                  showIndex={true}
-                  rowHeight={this.rowHeight}
-                  onSectionRendered={onSectionRendered}
-                  ref={(child: Table | null) => {
-                    this.tableRef = child;
-                    return registerChild(child);
-                  }}
-                  cellRenderer={this.renderCell}
-                />
-              );
-            }}
-          </InfiniteLoader>
-        )}
+        <InfiniteLoader
+          isRowLoaded={this.isRowLoaded}
+          loadMoreRows={this.loadMoreRows}
+          rowCount={dataFrame.length}
+        >
+          {({ onRowsRendered, registerChild }) => {
+            const onSectionRendered = ({
+              rowStartIndex,
+              rowStopIndex
+            }: SectionRenderedParams) => {
+              console.debug("onSectionRendered", rowStartIndex, rowStopIndex);
+              return onRowsRendered({
+                startIndex: rowStartIndex,
+                stopIndex: rowStopIndex
+              });
+            };
+            return (
+              <Table
+                rowCount={tableState.rows.length}
+                columns={columns}
+                fixedColumns={fixedColumns}
+                showIndex={true}
+                rowHeight={this.rowHeight}
+                onSectionRendered={onSectionRendered}
+                ref={(child: Table | null) => {
+                  this.tableRef = child;
+                  return registerChild(child);
+                }}
+                cellRenderer={this.renderCell}
+              />
+            );
+          }}
+        </InfiniteLoader>
       </Panel>
     );
+  }
+
+  onChangeColumnWidth(columnName: string, width: number) {
+    const { columns } = this.state;
+    const index = columns.findIndex(c => c.name === columnName);
+    columns.splice(index, 1, changeColumnWidth(columns[index], width));
+    // console.log(`change column ${index} width to ${width}`);
+
+    this.setState({ columns: [...columns] });
+  }
+
+  onSort(columnName: string, order: "ascend" | "descend") {
+    const newState = this.changeDataFrame(this.state.dataFrame.sortBy(columnName, order));
+    if (newState) {
+      newState.columns.forEach(c => (c.sorted = c.name === columnName ? order : null));
+      this.setState(newState);
+    }
   }
 
   renderCell(props: CellProps) {
@@ -143,30 +194,32 @@ export default class CFTableView extends React.Component<
   renderCellExpanded(props: CellProps, row: ExpandedRow) {
     const { columnIndex, width } = props;
     const { dataset, CFMeta } = this.props;
-    const { dataMeta, reorderedDataFrame } = dataset;
+    const { dataFrame } = this.state;
     if (columnIndex === -1) {
       // index column
-      return (<div className='cell-content'>{row.index}</div>);
+      return <div className="cell-content">{row.index}</div>;
     }
-    if (columnIndex === dataMeta.target.index) {
-      return (<div className='cell-content'>{reorderedDataFrame.at(row.index, columnIndex)}</div>);
+    if (columnIndex === dataset.dataMeta.target.index) {
+      return (
+        <div className="cell-content">
+          {dataFrame.at(row.index, columnIndex)}
+        </div>
+      );
     }
     const cfs = this.loadedCFs[row.index];
     if (!cfs) return undefined;
     // render CFs
-    const cfIndex = this.featureIdx2CFIdx(reorderedDataFrame, CFMeta)[
-      columnIndex
-    ]!;
+    const cfIndex = this.featureIdx2CFIdx(dataFrame, CFMeta)[columnIndex]!;
     return (
       <FeatureCF
-        baseValue={reorderedDataFrame.at(row.index, columnIndex) as number}
-        cfValues={
-          cfs.counterfactuals[cfIndex] as number[]
+        baseValue={dataFrame.at(row.index, columnIndex) as number}
+        cfValues={cfs.counterfactuals[cfIndex] as number[]}
+        xScale={
+          this.tableRef?.xScale(columnIndex) as d3.ScaleLinear<number, number>
         }
-        xScale={this.tableRef?.xScale(columnIndex) as d3.ScaleLinear<number, number>}
         width={width}
-        height={this.rowHeight({index: row.index})}
-        margin={defaultChartMargin}
+        height={this.rowHeight({ index: row.index })}
+        margin={columnMargin}
         // style={{marginTop: 2, position: 'relative'}}
       />
     );
@@ -174,22 +227,22 @@ export default class CFTableView extends React.Component<
 
   renderCellCollapsed(props: CellProps, rowState: CollapsedRows) {
     const { columnIndex, rowIndex, width } = props;
-    const { dataset, pixel } = this.props;
-    const { reorderedDataFrame } = dataset;
+    const { pixel } = this.props;
+    const { dataFrame } = this.state;
     if (columnIndex === -1) {
       // index column
-      return (<div className="cell-content"></div>);
+      return <div className="cell-content"></div>;
     } else {
       return (
         <StackedFeature
-          data={reorderedDataFrame.columns[columnIndex].series.toArray()}
+          data={dataFrame.columns[columnIndex].series.toArray()}
           startIndex={rowState.startIndex}
           endIndex={rowState.endIndex}
           pixel={pixel}
           xScale={this.tableRef!.xScale(columnIndex)}
           width={width}
           height={this.rowHeight({ index: rowIndex })}
-          margin={defaultChartMargin}
+          margin={columnMargin}
           // style={{marginTop: 2, position: 'relative'}}
         />
       );

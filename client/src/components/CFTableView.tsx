@@ -8,7 +8,7 @@ import {
 import memoizeOne from "memoize-one";
 import { Dataset, DataMeta, DataFrame } from "../data";
 import Panel from "./Panel";
-import Table, {CellProps, defaultChartMargin} from "./Table";
+import Table, {CellProps, columnMargin} from "./Table";
 import { CFResponse } from "../api";
 import FeatureCF from "./visualization/counterfactuals";
 
@@ -122,7 +122,7 @@ export default class CFTableView extends React.Component<
         xScale={this.tableRef?.xScale(columnIndex) as d3.ScaleLinear<number, number>}
         width={width}
         height={this.rowHeight({index: rowIndex})}
-        margin={defaultChartMargin}
+        margin={columnMargin}
         // style={{marginTop: 2, position: 'relative'}}
       />
     );

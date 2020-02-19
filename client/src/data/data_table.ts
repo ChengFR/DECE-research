@@ -3,7 +3,7 @@
 
 import memoizeOne from 'memoize-one';
 import * as _ from 'lodash';
-import { IColumn, Series, FeatureType, ColumnSpec } from './column';
+import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
 
 export type Row<T> = T[];
 
@@ -29,6 +29,7 @@ export type DataFrameInput = {
   data?: (string | number)[][];
   dataT?: (string | number)[][];
   columns: (ColumnSpec | IColumn<string> | IColumn<number>)[];
+  index?: number[];
 };
 
 export default class DataFrame implements IDataFrame {
@@ -37,6 +38,7 @@ export default class DataFrame implements IDataFrame {
   private _data?: Row<string | number>[];
   private _dataT?: Array<(string | number)[]>;
   private _name2column: {[k: string]: IColumn<string> | IColumn<number>};
+  private _index: number[];
 
   static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean=false): Row<string | number>[] {
     const featureTypes = columnSpecs.map(spec => spec.type);
@@ -77,6 +79,7 @@ export default class DataFrame implements IDataFrame {
     }
     this._columnSpecs = columns;
     this._name2column = _.keyBy(this.columns, c => c.name);
+    this._index = input.index || _.range(0, this.length);
     this.at = this.at.bind(this);
   }
 
@@ -125,11 +128,39 @@ export default class DataFrame implements IDataFrame {
   toColumns = memoizeOne(() => this.columns.map(c => c.series.toArray()));
 
   public reorderColumns(columnNames: string[]): DataFrame {
-    const columns = columnNames.map(n => {
+    const columns = columnNames.map((n, index) => {
       const c = this.getColumnByName(n);
       if (!c) throw `Column name ${n} not exists in the DataFrame`;
-      return c;
+      return {...c};
     });
     return DataFrame.fromColumns(columns);
+  }
+
+  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+    const columnIndex = this.columns.findIndex(c => c.name === columnName);
+    if (columnIndex < 0) throw "No column named " + columnName;
+    const column = this.columns[columnIndex];
+    let comp: (a: number, b: number) => number;
+    if (isColumnNumerical(column)) {
+      const at = column.series.at;
+      comp = (a: number, b: number) => at(a) - at(b);
+    } else {
+      const at = column.series.at;
+      comp = (a: number, b: number) => {
+        const xa = at(a), xb = at(b);
+        return xa == xb ? 0 : (xa < xb ? -1 : 1);
+      };
+    }
+   
+    let sortedIndex = _.range(0, this.length).sort(comp);
+    if (order === 'descend') sortedIndex = sortedIndex.reverse();
+
+    const data = sortedIndex.map(idx => this.data[idx]);
+    const index = sortedIndex.map(i => this._index[i]);
+    const columns = this.columns.map(c => {
+      const {series, ...rest} = c;
+      return rest;
+    })
+    return new DataFrame({data, index, columns}, false);
   }
 }

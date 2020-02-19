@@ -154,7 +154,6 @@ export interface IHistogramProps extends IHistogramOptions {
 
 export interface IHistogramState {
   hoveredBin: [number, number] | null;
-  xScale?: d3.ScaleLinear<number, number>;
 }
 
 export class Histogram extends React.PureComponent<
@@ -177,14 +176,13 @@ export class Histogram extends React.PureComponent<
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
     if (svg) {
       const { data, className, style, svgStyle, height, ...rest } = this.props;
-      const xScale = this.state.xScale;
-      drawHistogram(svg, data, { xScale, height: height - 24, ...rest, onRectMouseOver: this.onMouseOverBar, onRectMouseLeave: this.onMouseLeaveBar });
+      const xScale = rest.xScale || this.getXScale();
+      drawHistogram(svg, data, { height: height - 24, ...rest, xScale, onRectMouseOver: this.onMouseOverBar, onRectMouseLeave: this.onMouseLeaveBar });
       this.shouldPaint = false;
     }
   }
 
   public componentDidMount() {
-    this.setState({ xScale: this.getXscale() });
     this.paint();
   }
 
@@ -194,8 +192,8 @@ export class Histogram extends React.PureComponent<
   ) {
     const excludedProperties = new Set(["style", "svgStyle", "className"]);
     if (!shallowCompare(this.props, prevProps, excludedProperties)) {
+
       this.shouldPaint = true;
-      this.setState({ xScale: this.getXscale() });
       const delayedPaint = () => {
         if (this.shouldPaint) this.paint();
       };
@@ -207,7 +205,7 @@ export class Histogram extends React.PureComponent<
 
   memoizedXScaler = memoizeOne(getScaleLinear);
 
-  getXscale = () => {
+  getXScale = () => {
     const { data, width } = this.props;
     const margin = getMargin(this.props.margin);
     return this.memoizedXScaler(data, 0, width - margin.left - margin.right);
@@ -215,8 +213,9 @@ export class Histogram extends React.PureComponent<
 
   public render() {
     const { style, svgStyle, className, width, height } = this.props;
-    const { xScale, hoveredBin } = this.state;
-    const xRange = xScale && xScale.domain();
+    const { hoveredBin } = this.state;
+    const xScale = this.props.xScale || this.getXScale();
+    const xRange = xScale.domain();
     return (
       <div className={(className || "") + " histogram"} style={style}>
         <svg
@@ -228,7 +227,7 @@ export class Histogram extends React.PureComponent<
         <div className="info">
           {hoveredBin
             ? `${hoveredBin[0]} - ${hoveredBin[1]}`
-            : xRange && `${xRange[0]} - ${xRange[1]}`}
+            : `${xRange[0]} - ${xRange[1]}`}
         </div>
       </div>
     );
