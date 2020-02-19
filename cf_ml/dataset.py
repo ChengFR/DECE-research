@@ -20,7 +20,7 @@ class Dataset:
         self.description = description
         self.target_name = target_name
 
-        self.origin_columns = self.raw_df.columns.values
+        self.origin_columns = self.raw_df.columns.values.tolist()
         self.dummy_columns = []
 
         self._check_and_complete_description()
@@ -94,8 +94,9 @@ class Dataset:
             if self.description[col]['type'] == 'numerical':
                 minx = self.description[col]['min']
                 maxx = self.description[col]['max']
+                decile = self.description[col]['decile']
                 if maxx - minx > 1e-6:
-                    data_df[col] = data_df[col] * (maxx-minx) + minx
+                    data_df[col] = (data_df[col] * (maxx-minx) + minx).round(decile)
         return data_df
 
     def to_dummy(self, data):
@@ -141,6 +142,14 @@ class Dataset:
             return self.preprocess(self.raw_df)
         else:
             return self.raw_df 
+
+    def get_sample(self, index, preprocess=True):
+        if type(index) == int:
+            index = [index]
+        if preprocess:
+            return self.preprocess(self.raw_df.iloc[index])
+        else:
+            return self.raw_df.iloc[index] 
     
     def get_columns(self, preprocess=True):
         if preprocess:
