@@ -43,9 +43,9 @@ class Dataset:
         for col, info in self.description.items():
             if info['type'] == 'numerical':
                 if np.isnan(info['min']):
-                    info['min'] = self.raw_df[col].min()
+                    info['min'] = float(self.raw_df[col].min())
                 if np.isnan(info['max']):
-                    info['max'] = self.raw_df[col].max()
+                    info['max'] = float(self.raw_df[col].max())
                 if np.isnan(info['decile']):
                     info['decile'] = 0
 
