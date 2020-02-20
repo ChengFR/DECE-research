@@ -84,6 +84,10 @@ export default class DataFrame implements IDataFrame {
     this._index = input.index || _.range(0, this.length);
   }
 
+  public get index() {
+    return this._index;
+  }
+
   public get columns() {
     if (!this._columns) {
       const at = this.at;

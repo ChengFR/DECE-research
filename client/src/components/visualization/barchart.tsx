@@ -20,11 +20,11 @@ export interface IBarChartOptions extends ChartOptions {
   innerPadding: number;
   barWidth?: number;
   maxStep: number;
-  categories?: string[];
   rectStyle?: CSSPropertiesFn<SVGRectElement, Category>;
   onRectMouseOver?: d3.ValueFn<any, Category, void>;
   onRectMouseMove?: d3.ValueFn<any, Category, void>;
   onRectMouseLeave?: d3.ValueFn<any, Category, void>;
+  allData?: Category[];
 }
 
 export const defaultOptions: IBarChartOptions = {
@@ -45,6 +45,7 @@ export function drawBarChart(
   const {
     height,
     rectStyle,
+    allData,
     onRectMouseOver,
     onRectMouseMove,
     onRectMouseLeave
@@ -58,10 +59,23 @@ export function drawBarChart(
   const y = d3
     .scaleLinear()
     .range(yRange)
-    .domain([0, d3.max(data, d => d.count) as number]);
+    .domain([0, d3.max(allData || data, d => d.count) as number]);
 
-  // const yAxis = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "y-axis");
-  // yAxis.call(d3.axisLeft(y));
+
+  const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base").attr(
+    "transform",
+    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  );
+
+  gBase.selectAll("rect.bar")
+    .data(allData || [])
+    .join<SVGRectElement>(enter => {
+      return enter.append("rect").attr("class", "bar");
+    })
+    .attr("x", d => xScale(d.name) || 0)
+    .attr("width", xScale.bandwidth())
+    .attr("y", d => y(d.count))
+    .attr("height", d => yRange[0] - y(d.count));
 
   // append the bar rectangles to the svg element
   const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "bars").attr(
@@ -102,8 +116,13 @@ export function drawBarChart(
   }
 }
 
-export interface IBarChartProps extends IBarChartOptions {
+export interface IBarChartProps extends ChartOptions {
   data: Array<number | string>;
+  innerPadding?: number;
+  barWidth?: number;
+  maxStep?: number;
+  categories?: string[];
+  allData?: Array<number | string>;
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
   xScale: d3.ScaleBand<string>;
@@ -131,17 +150,20 @@ export class BarChart extends React.PureComponent<
   }
 
   count = memoizeOne(countCategories);
+  countAll = memoizeOne(countCategories);
 
   public paint(svg: SVGSVGElement | null = this.ref.current) {
     if (svg) {
       console.debug("rendering bar chart");
-      const { data, style, svgStyle, className, height, xScale, ...rest } = this.props;
+      const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
       const barData = this.count(data);
+      const allBars = allData && this.countAll(allData);
       drawBarChart(svg, barData, xScale, {
         ...rest,
         height: height - 20,
         onRectMouseOver: this.onMouseOverBar,
-        onRectMouseLeave: this.onMouseLeaveBar
+        onRectMouseLeave: this.onMouseLeaveBar,
+        allData: allBars
       });
       this.shouldPaint = false;
     }

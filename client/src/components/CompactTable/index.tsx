@@ -12,17 +12,17 @@ import { Dataset, DataMeta, DataFrame } from "data";
 import Panel from "components/Panel";
 import Table, { CellProps, columnMargin } from "components/Table";
 import {
-  TableState,
-  initTableState,
   RowState,
   CollapsedRows,
   ExpandedRow,
-  isExpandedRow
+  isExpandedRow,
+  initRowStates
 } from "./table_state";
 import StackedFeature from "../visualization/stackedFeature";
 import FeatureCF from "components/visualization/counterfactuals";
 import { TableColumn, changeColumnWidth, createColumn } from "../Table/common";
 import { IColumn } from "../../data/column";
+import { reduceRows, filterRows } from './table_state';
 
 export interface ICompactTableProps {
   dataset: Dataset;
@@ -37,7 +37,7 @@ export interface ICompactTableState {
   columns: TableColumn[];
   dataFrame: DataFrame;
   prevDataFrame?: DataFrame;
-  tableState: TableState;
+  rows: RowState[];
   // loadedCFs: (CFResponse | undefined)[];
 }
 
@@ -57,7 +57,7 @@ export default class CFTableView extends React.Component<
     super(props);
 
     this.state = {
-      tableState: initTableState(props.dataset.dataFrame.length),
+      rows: initRowStates(props.dataset.dataFrame.length),
       dataFrame: props.dataset.reorderedDataFrame,
       columns: props.dataset.reorderedDataFrame.columns.map(c =>
         this.initColumn(c)
@@ -79,7 +79,7 @@ export default class CFTableView extends React.Component<
   }
 
   public rowHeight({ index }: Index): number {
-    return this.computeRowHeights(this.state.tableState.rows)[index];
+    return this.computeRowHeights(this.state.rows)[index];
   }
 
   computeRowHeights = memoizeOne((rows: RowState[]) => {
@@ -123,7 +123,7 @@ export default class CFTableView extends React.Component<
 
   public render() {
     const { dataset } = this.props;
-    const { tableState, columns, dataFrame } = this.state;
+    const { rows, columns, dataFrame } = this.state;
     const fixedColumns =
       Number(Boolean(dataset?.dataMeta.prediction)) +
       Number(Boolean(dataset?.dataMeta.target));
@@ -150,7 +150,7 @@ export default class CFTableView extends React.Component<
             };
             return (
               <Table
-                rowCount={tableState.rows.length}
+                rowCount={rows.length}
                 columns={columns}
                 fixedColumns={fixedColumns}
                 showIndex={true}
@@ -187,8 +187,7 @@ export default class CFTableView extends React.Component<
   }
 
   onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
-    console.debug("onChangeFilter", columnName, filter);
-    const { columns } = this.state;
+    const { columns, rows } = this.state;
     const baseDataFrame = this.state.prevDataFrame || this.state.dataFrame;
     const index = columns.findIndex(c => c.name === columnName);
     const column = columns[index];
@@ -202,13 +201,15 @@ export default class CFTableView extends React.Component<
     const newState = this.changeDataFrame(baseDataFrame.filterBy(filters));
     if (newState) {
       newState.columns.forEach((c, i) => c.prevSeries = baseDataFrame.columns[i].series);
+      const newIndex = newState.dataFrame.index;
+      const newRows = filterRows(rows, newIndex);
       console.log(newState);
-      this.setState({...newState, prevDataFrame: baseDataFrame});
+      this.setState({...newState, prevDataFrame: baseDataFrame, rows: newRows});
     }
   }
 
   renderCell(props: CellProps) {
-    const rowState = this.state.tableState.rows[props.rowIndex];
+    const rowState = this.state.rows[props.rowIndex];
     if (isExpandedRow(rowState)) {
       return this.renderCellExpanded(props, rowState);
     } else {
@@ -290,3 +291,13 @@ export default class CFTableView extends React.Component<
     return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
   });
 }
+
+
+interface IControlsProps {
+  onClearFilters?: () => any;
+  onClearSort?: () => any;
+}
+
+const Controls: React.FunctionComponent<IControlsProps> = (props) => {
+  return (<div></div>);
+};
