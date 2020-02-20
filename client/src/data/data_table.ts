@@ -2,8 +2,9 @@
 // data-forge (with similar api as pandas, written in ts): https://github.com/data-forge/data-forge-ts
 
 import memoizeOne from 'memoize-one';
+import * as d3 from 'd3';
 import * as _ from 'lodash';
-import { IColumn, Series, FeatureType, ColumnSpec } from './column';
+import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
 
 export type Row<T> = T[];
 
@@ -28,15 +29,17 @@ function validate(value: string | number, type: FeatureType) {
 export type DataFrameInput = {  
   data?: (string | number)[][];
   dataT?: (string | number)[][];
-  columns: (ColumnSpec | IColumn<string> | IColumn<number> | IColumn<string | number>)[];
+  columns: (ColumnSpec | IColumn<string> | IColumn<number>)[];
+  index?: number[];
 };
 
 export default class DataFrame implements IDataFrame {
-  private _columns?: (IColumn<string> | IColumn<number> | IColumn<string | number>)[];
+  private _columns?: (IColumn<string> | IColumn<number>)[];
   private _columnSpecs: ColumnSpec[];
   private _data?: Row<string | number>[];
   private _dataT?: Array<(string | number)[]>;
-  private _name2column: {[k: string]: IColumn<string> | IColumn<number> | IColumn<string | number>};
+  private _name2column: {[k: string]: IColumn<string> | IColumn<number>};
+  private _index: number[];
 
   static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean=false): Row<string | number>[] {
     const featureTypes = columnSpecs.map(spec => spec.type);
@@ -56,7 +59,7 @@ export default class DataFrame implements IDataFrame {
     return data;
   }
 
-  static fromColumns(columns: (IColumn<string> | IColumn<number> | IColumn<string | number>)[]) {
+  static fromColumns(columns: (IColumn<string> | IColumn<number>)[]) {
     // console.debug(columns);
     const dataT = columns.map(c => c.series.toArray());
     const newDF = new DataFrame({dataT, columns}, false);
@@ -75,20 +78,34 @@ export default class DataFrame implements IDataFrame {
     } else {
       throw "Should have either data or dataT in the input!";
     }
+    this.at = this.at.bind(this);
     this._columnSpecs = columns;
     this._name2column = _.keyBy(this.columns, c => c.name);
-    this.at = this.at.bind(this);
+    this._index = input.index || _.range(0, this.length);
+  }
+
+  public get index() {
+    return this._index;
   }
 
   public get columns() {
     if (!this._columns) {
       const at = this.at;
       this._columns = this._columnSpecs.map((c, i) => {
-        return {
+        const column = {
           description: "",
           ...c,
           series: new Series(this.length, j => at(j, i))
-        };
+        } as IColumn<number> | IColumn<string>;
+        if (isColumnNumerical(column)) {
+          if (!column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
+        } else {
+          if (!column.categories) {
+            const counter = _.countBy(column.series.toArray());
+            column.categories = _.keys(counter).sort();
+          }
+        }
+        return column;
       });
     }
     return this._columns;
@@ -125,11 +142,70 @@ export default class DataFrame implements IDataFrame {
   toColumns = memoizeOne(() => this.columns.map(c => c.series.toArray()));
 
   public reorderColumns(columnNames: string[]): DataFrame {
-    const columns = columnNames.map(n => {
+    const columns = columnNames.map((n, index) => {
       const c = this.getColumnByName(n);
       if (!c) throw `Column name ${n} not exists in the DataFrame`;
-      return c;
+      return {...c};
     });
     return DataFrame.fromColumns(columns);
+  }
+
+  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+    const columnIndex = this.columns.findIndex(c => c.name === columnName);
+    if (columnIndex < 0) throw "No column named " + columnName;
+    const column = this.columns[columnIndex];
+    let comp: (a: number, b: number) => number;
+    if (isColumnNumerical(column)) {
+      const at = column.series.at;
+      comp = (a: number, b: number) => at(a) - at(b);
+    } else {
+      const at = column.series.at;
+      comp = (a: number, b: number) => {
+        const xa = at(a), xb = at(b);
+        return xa == xb ? 0 : (xa < xb ? -1 : 1);
+      };
+    }
+   
+    let sortedIndex = _.range(0, this.length).sort(comp);
+    if (order === 'descend') sortedIndex = sortedIndex.reverse();
+
+    const data = sortedIndex.map(idx => this.data[idx]);
+    const index = sortedIndex.map(i => this._index[i]);
+    const columns = this.columns.map(c => {
+      const {series, ...rest} = c;
+      return rest;
+    })
+    return new DataFrame({data, index, columns}, false);
+  }
+
+  public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
+    
+
+    let filteredIndex: number[] = _.range(0, this.length);
+    filters.forEach(({columnName, filter}) => {
+      const columnIndex = this.columns.findIndex(c => c.name === columnName);
+      if (columnIndex < 0) throw "No column named " + columnName;
+      const column = this.columns[columnIndex];
+
+      if (typeof filter[0] === 'string') {
+        if (isColumnNumerical(column)) throw `Column type ${column.type} does not match filter type string[]`;
+        const at = column.series.at;
+        const kept = new Set(filter as string[]);
+        filteredIndex = filteredIndex.filter(i => kept.has(at(i)));
+      } else {
+        if (!isColumnNumerical(column)) throw `Column type ${column.type} does not match filter type [number, number]`;
+        const at = column.series.at;
+        filteredIndex = filteredIndex.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
+      }
+
+    })
+    
+    const data = filteredIndex.map(idx => this.data[idx]);
+    const index = filteredIndex.map(i => this._index[i]);
+    const columns = this.columns.map(c => {
+      const {series, ...rest} = c;
+      return rest;
+    })
+    return new DataFrame({data, index, columns}, false);
   }
 }

@@ -36,7 +36,6 @@
 }
 
 .table-grid .cell.col-index {
-  cursor: e-resize;
   color: #888;
 }
 
@@ -47,6 +46,7 @@
 
 .table-header .cell {
   margin: auto;
+  font-size: 13px;
   /* line-height: 30px; */
 }
 
@@ -86,4 +86,38 @@
   text-overflow: ellipsis;
   overflow: hidden; 
   white-space: nowrap;
+}
+
+.cell.row-title .arrow {
+  cursor: pointer;
+  opacity: 1e-6;
+  transition: opacity .3s, background-color .3s;  
+  background-color: rgba(216,216,216, 0);
+  border-radius: 3px;
+}
+
+.cell.row-title i:focus {
+  outline: none;
+}
+
+.cell.row-title:hover .arrow{
+  opacity: 0.6;
+  transition: opacity .3s;  
+}
+
+.cell.row-title .arrow:hover{
+  background-color: rgba(216,216,216, 0.5);
+  transition: background-color .3s;  
+}
+
+.cell.row-title .arrow.sorted{
+  opacity: 0.6;
+}
+
+.cell.row-title .arrow svg {
+  transition: transform .3s ease-in-out;  
+}
+
+.cell.row-title .arrow.ascend svg {
+  transform: rotate(180deg);
 }
