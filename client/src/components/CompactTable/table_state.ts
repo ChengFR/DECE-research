@@ -98,6 +98,7 @@ function _collapseRows(rows: RowState[], action: CollapseRows) {
   if (start === -1 || end === -1) {
     console.error("This should not happen", rows, action);
   }
+  console.debug('collapse start', start, '. collapse end', end);
   if (start === end) return rows;  // nothing to collapse;
   let replacedState: CollapsedRows;
   const startState = rows[start];
@@ -114,7 +115,7 @@ function _collapseRows(rows: RowState[], action: CollapseRows) {
     replacedState.endIndex = endState.endIndex;
   }
   
-  return [...rows.slice(0, start - 1), ...breakCollapsedRows(replacedState), ...rows.slice(end + 1) ];
+  return [...rows.slice(0, start), ...breakCollapsedRows(replacedState), ...rows.slice(end + 1) ];
 }
 
 function _expandRows(rows: RowState[], action: ExpandRows) {
@@ -137,12 +138,12 @@ function _expandRows(rows: RowState[], action: ExpandRows) {
     replacedStates.push(...breakCollapsedRows({...startState, endIndex: startIndex}));
   }
   for (let index = startIndex; index < endIndex; index++) {
-    replacedStates.push({index, dataIndex: dataIndex[index], state: RowStateType.EXPANDED});
+    replacedStates.push({index, dataIndex: dataIndex[index - startIndex], state: RowStateType.EXPANDED});
   }
   if (endIndex < endState.endIndex) {
     replacedStates.push(...breakCollapsedRows({...endState, startIndex: endIndex}));
   }
-  return [...rows.slice(0, start - 1), ...replacedStates, ...rows.slice(end + 1) ];
+  return [...rows.slice(0, start), ...replacedStates, ...rows.slice(end + 1) ];
 
   // return rows.splice(start, end - start + 1, ...replacedStates);
 }
@@ -202,5 +203,15 @@ export function reorderRows(rows: RowState[], index: number[]) {
 
 export function filterRows(rows: RowState[], index: number[]) {
   const action = {type: ActionType.FILTER_ROWS, index} as FilterRows;
+  return reduceRows(rows, action);
+}
+
+export function expandRows(rows: RowState[], startIndex: number, endIndex: number, dataIndex: number[]) {
+  const action = {type: ActionType.EXPAND_ROWS, startIndex, endIndex, dataIndex} as ExpandRows;
+  return reduceRows(rows, action);
+}
+
+export function collapseRows(rows: RowState[], startIndex: number, endIndex: number) {
+  const action = {type: ActionType.COLLAPSE_ROWS, startIndex, endIndex} as CollapseRows;
   return reduceRows(rows, action);
 }

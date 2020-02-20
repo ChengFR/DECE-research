@@ -1,0 +1,13 @@
+.corner-info {
+  position: absolute;
+  background-color: rgba(240, 240, 240, 0.5);
+  border-color: rgba(160,160,160,0.5);
+  padding: 4px 6px;
+  bottom: 11px;
+  right: 12px;
+  font-size: 13px;
+}
+
+.compact-table .cell.col-index .cell-content {
+  background-color: rgba(240, 240, 240, 0.5);
+}

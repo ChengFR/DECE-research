@@ -32,6 +32,7 @@ export interface ITableGridProps {
   cellRenderer: CellRenderer;
   showIndex: boolean;
   onSectionRendered?: (params: SectionRenderedParams) => any;
+  overscanRowCount: number;
 }
 
 export interface ITableGridState {}
@@ -43,7 +44,8 @@ export default class TableGrid extends React.PureComponent<
   static defaultProps = {
     rowHeight: 20,
     fixedColumns: 0,
-    showIndex: false
+    showIndex: false,
+    overscanRowCount: 3,
   };
   // private divRef: React.RefObject<HTMLDivElement> = React.createRef();
   private rightGridRef: React.RefObject<Grid> = React.createRef();
@@ -82,6 +84,7 @@ export default class TableGrid extends React.PureComponent<
       rowHeight,
       onSectionRendered,
       rowCount,
+      overscanRowCount,
     } = this.props;
 
     const leftGridWidth =
@@ -115,6 +118,7 @@ export default class TableGrid extends React.PureComponent<
           height={height}
           style={styleLeftGrid}
           scrollTop={scrollTop}
+          overscanRowCount={overscanRowCount}
           onScroll={
             onScroll &&
             (params =>
@@ -151,6 +155,8 @@ export default class TableGrid extends React.PureComponent<
           scrollTop={scrollTop}
           onScroll={onScroll}
           onSectionRendered={onSectionRendered}
+          overscanColumnCount={3}
+          overscanRowCount={overscanRowCount}
           // scrollToColumn={scrollToColumn - fixedColumnCount}
           // scrollToRow={scrollToRow - fixedRowCount}
           style={styleRightGrid}
