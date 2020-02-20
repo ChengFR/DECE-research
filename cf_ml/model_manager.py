@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 import torch.optim as optim
 
+from utils.dir_manager import DirectoryManager
+
 class ModelManager(ABC):
 
     @abstractmethod
@@ -54,8 +56,11 @@ class PytorchModelManager(ModelManager):
         ModelManager.__init__(self)
         self.dataset = dataset
         self.model_name = model_name
+        self.dir_manager = DirectoryManager()
+
         self.feature_names = self.dataset.get_feature_names()
         self.target_names = self.dataset.get_target_names()
+
         if model is None:
             self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
         else:
@@ -73,8 +78,12 @@ class PytorchModelManager(ModelManager):
         self.train_accuracy = 0
         self.test_accuracy = 0
 
-    def load_model(self, path):
-        self.model.load_state_dict(torch.load(path))
+        self.dir_manager.init(self.dataset, self)
+
+    def load_model(self):
+        # self.model.load_state_dict(torch.load(path))
+        self.dir_manager.load_meta(self.dataset, self)
+        self.model.load_state_dict(torch.load(self.dir_manager.get_model_path()))
 
     def forward(self, x):
         self.model.eval()
@@ -132,9 +141,11 @@ class PytorchModelManager(ModelManager):
                 optimizer.step()
             if verbose:
                 print("Epoch: {}, loss={:.3f}, train_accuracy={:.3f}, test_accuracy={:.3f}".format(e, loss, self.evaluate('train'), self.evaluate('test')))
-        self.train_accuracy = self.evaluate('train')
-        self.test_accuracy = self.evaluate('test')
+        self.train_accuracy = float(self.evaluate('train'))
+        self.test_accuracy = float(self.evaluate('test'))
 
+        self.dir_manager.update_model_meta(self)
+        self.dir_manager.init_dir()
 
     def evaluate(self, dataset='test', batch_size=128):
         if dataset == 'test':
@@ -155,14 +166,26 @@ class PytorchModelManager(ModelManager):
             pred_class = np.concatenate((pred_class, pred))
         return (target_class == pred_class).mean()
 
-    def save_model(self, dirpath):
+    def save_model(self):
         "A tmp implementation"
-        torch.save(self.model.state_dict(), os.path.join(dirpath, '{}_test_accuracy_{:.2f}'.format(self.model_name, self.test_accuracy)))
+        model_path = self.dir_manager.renew_model_path(self)
+        torch.save(self.model.state_dict(), model_path)
 
+    def get_name(self):
+        return self.model_name
+
+    def get_train_accuracy(self):
+        return self.train_accuracy
+
+    def get_test_accuracy(self):
+        return self.test_accuracy
+
+    def get_dir_manager(self):
+        return self.dir_manager
 
 if __name__ == '__main__':
     from load_dataset import load_HELOC_dataset
     dataset = load_HELOC_dataset()
     mm = PytorchModelManager(dataset)
     mm.train()
-    mm.save_model('../model/HELOC/')
+    mm.save_model()
