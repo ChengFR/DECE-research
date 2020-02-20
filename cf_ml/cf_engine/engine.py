@@ -17,9 +17,9 @@ class CFEnginePytorch:
         self.model_manager = model_manager
         self.dataset = dataset
 
-    def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', proximity_weight=0.1, diversity_weight=1.0, lr=0.005, clip_frequency=50,
+    def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
                      changeable_attribute='all',
-                     max_iter=1000, min_iter=200, loss_diff=0.05, loss_threshold=3, batch_size=1, evaluate=True, verbose=True):
+                     max_iter=1000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, batch_size=1, evaluate=True, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
         :param data_df: pandas.DataFrame, target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
@@ -48,10 +48,11 @@ class CFEnginePytorch:
 
         start_time = timeit.default_timer()
         data_num = len(data_df)
+        total_loss = 0
         for batch_num in range(math.ceil(data_num / batch_size)):
             checkpoint = timeit.default_timer()
             start_id = batch_num*batch_size
-            end_id = min(batch_num*batch_size+batch_size, len(data_df)+1)
+            end_id = min(batch_num*batch_size+batch_size, len(data_df))
 
             data_instances = data_df[feature_names].iloc[start_id: end_id].values
 
@@ -72,16 +73,19 @@ class CFEnginePytorch:
 
             projected_cfs = self.project(cfs)
             cf_df = cf_df.append(self.model_manager.predict(projected_cfs))
+
             instance_df = instance_df.append(
                 self.model_manager.predict(data_df.iloc[start_id: end_id]))
+
+            total_loss += loss*(end_id-start_id)
             if verbose:
-                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteraciton: {}".format(end_id,
-                                                                                                   data_num, batch_num, timeit.default_timer()-checkpoint, loss, iter))
+                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}".format(end_id,
+                                                                                                   data_num, batch_num, timeit.default_timer()-checkpoint, loss*1000, iter))
             # print(cf_df)
         if evaluate:
             eval_result = self.evaluate_cfs(cf_df, instance_df)
-            print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}'.format(
-                timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance']))
+            print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}, average loss: {:.3f}'.format(
+                timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num*1000))
         cf_df.to_csv('./cf.csv')
         instance_df.to_csv('./data.csv')
 
@@ -159,7 +163,6 @@ class CFEnginePytorch:
             optimizer.step()
 
             iter += 1
-
             if iter % self.clip_frequency == 0:
                 self.clip(cfs.data)
 
@@ -169,12 +172,12 @@ class CFEnginePytorch:
     def init_loss(self):
         # self.criterion = nn.HingeEmbeddingLoss(reduction='sum')
         # self.criterion = nn.L1Loss(reduction='sum')
-        self.criterion = nn.MarginRankingLoss(reduction='sum')
+        self.criterion = nn.MarginRankingLoss(reduction='mean')
 
     def get_loss(self, cfs, data_instances, pred, target):
         loss = self.criterion(pred, torch.ones(pred.shape)*0.5, target)
         for i, cf in enumerate(cfs):
-            loss += self.proximity_weight * \
+            loss += self.proximity_weight * (1/self.cf_num/len(cfs)) * \
                 self.get_distance(cf, data_instances[i//self.cf_num])
         return loss
 
@@ -237,4 +240,4 @@ if __name__ == '__main__':
     mm.load_model('../model/HELOC/MLP_test_accuracy_0.72')
     engine = CFEnginePytorch(mm, dataset)
     engine.generate_cfs(dataset.get_sample([i for i in range(100)]), cf_num=4, proximity_weight=0.1, \
-        lr=0.005, batch_size=4, max_iter=5000, min_iter=100, loss_diff=0.01, changeable_attribute='all')
+        lr=0.05, batch_size=2, max_iter=5000, min_iter=100, loss_diff=5e-6, changeable_attribute='all')
