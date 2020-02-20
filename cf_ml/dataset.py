@@ -157,6 +157,16 @@ class Dataset:
         else:
             return self.origin_columns
 
+    def process_columns(self, columns):
+        new_columns = []
+        for col in columns:
+            if self.description[col]['type'] == 'categorical':
+                cats = self.description[col]['category']
+                new_columns += ['{}_{}'.format(col, cat) for cat in cats]
+            else:
+                new_columns += [col]
+        return new_columns
+
     def get_feature_names(self, preprocess=True):
         column_names = self.get_columns(preprocess)
         target_names = self.get_target_names(preprocess)
