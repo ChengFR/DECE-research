@@ -8,7 +8,6 @@ import { getMargin, ChartOptions, getChildOrAppend } from "./common";
 import { shallowCompare } from "../../common/utils";
 import { MarginType, DELAY_PAINT_TIME, isStringArray } from "./common";
 import "./stackedFeature.css";
-import { rgb } from "d3";
 
 export interface IStackedFeatureOptions extends ChartOptions {
   pixel: number;
@@ -104,6 +103,7 @@ export class StackedFeature extends React.PureComponent<
 > {
   static defaultProps = { ...defaultOptions };
   private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
+  private eRef: React.RefObject<ReactEcharts> = React.createRef();
   private shouldPaint: boolean = false;
 
   constructor(props: IStackedFeatureProps) {
@@ -170,6 +170,12 @@ export class StackedFeature extends React.PureComponent<
     // }
   }
 
+  public afterRender() {
+    // enable echarts with brushes
+    const echarts = this.eRef.current;
+    console.log(echarts);
+  }
+
   public render() {
     const { style, data, className, width, height, xScale } = this.props;
     return (
@@ -181,6 +187,7 @@ export class StackedFeature extends React.PureComponent<
       //   height={this.getHeight()}
       // />
       <ReactEcharts
+        ref={this.eRef}
         option={
           isStringArray(data)
             ? this.getOptionCategorical(data, xScale as d3.ScaleBand<string>)
@@ -199,6 +206,7 @@ export class StackedFeature extends React.PureComponent<
     xScale: d3.ScaleLinear<number, number>
   ) {
     const { startIndex, endIndex, margin } = this.props;
+    console.log(`rendering from ${startIndex} ${endIndex}`);
     const domain = xScale.domain();
     return {
       series: [
@@ -217,18 +225,29 @@ export class StackedFeature extends React.PureComponent<
         min: 0,
         max: domain[1] - domain[0],
         show: false,
-        boundaryGap: ["0%", "0%"],
+        boundaryGap: ["0%", "0%"]
       },
       yAxis: {
         type: "category",
         show: false,
         boundaryGap: false,
-        axisLine:{
-          onZero: false,
+        axisLine: {
+          onZero: false
         },
-        data: _.range(startIndex, endIndex).reverse()
+        inverse: true,
       },
-      grid: getMargin(margin)
+      grid: getMargin(margin),
+      brush: {
+        yAxisIndex: "all",
+        outOfBrush: {
+          color: "rgb(109, 160, 202, 0.3)"
+        },
+        brushType: 'lineY',
+        toolbox: []
+      },
+      toolbox: {
+        show: false
+      },
     };
   }
 
@@ -237,15 +256,15 @@ export class StackedFeature extends React.PureComponent<
     const domain = xScale.domain();
     const range = xScale.range();
     const bandwidth = xScale.bandwidth();
-    const str2idx: {[k: string]: number} = {};
+    const str2idx: { [k: string]: number } = {};
     domain.forEach((s, i) => {
       str2idx[s] = i;
     });
     const options = {
       series: domain.map((category, idx) => ({
-        type: 'scatter',
+        type: "scatter",
         data: [] as [number, number][],
-        symbol: 'rect',
+        symbol: "rect",
         symbolSize: [bandwidth, 1],
         large: true
       })),
@@ -254,23 +273,24 @@ export class StackedFeature extends React.PureComponent<
         min: 0,
         max: range[1] - range[0],
         show: false,
-        boundaryGap: ["0%", "0%"],
+        boundaryGap: ["0%", "0%"]
       },
       yAxis: {
-        type: "category",
+        type: "value",
+        min: 0,
+        max: endIndex - startIndex,
         show: false,
-        boundaryGap: false,
-        axisLine:{
-          onZero: false,
-        },
-        data: _.range(startIndex, endIndex).reverse()
+        boundaryGap: ["0%", "0%"],
+        inverse: true,
       },
       grid: getMargin(margin)
-
     };
-    
+
     data.slice(startIndex, endIndex).forEach((s, i) => {
-      options.series[str2idx[s]].data.push([bandwidth / 2 + (xScale(s) || 0), i]);
+      options.series[str2idx[s]].data.push([
+        bandwidth / 2 + (xScale(s) || 0),
+        i
+      ]);
     });
     // console.log(options);
     // console.log(bandwidth);
