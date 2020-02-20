@@ -202,7 +202,7 @@ class CFEnginePytorch:
             return False
         elif iter >= self.max_iter:
             return True
-        elif self.checkvalid(pred, target) and loss_diff <= self.loss_diff and loss <= self.loss_threshold:
+        elif self.checkvalid(pred, target) and loss_diff <= self.loss_diff:
             return True
         else:
             return False
@@ -235,9 +235,10 @@ class CFEnginePytorch:
 if __name__ == '__main__':
     from load_dataset import load_HELOC_dataset
     from model_manager import PytorchModelManager
+
     dataset = load_HELOC_dataset()
     mm = PytorchModelManager(dataset)
-    mm.load_model('../model/HELOC/MLP_test_accuracy_0.72')
+    mm.load_model()
     engine = CFEnginePytorch(mm, dataset)
     engine.generate_cfs(dataset.get_sample([i for i in range(100)]), cf_num=4, proximity_weight=0.1, \
         lr=0.05, batch_size=2, max_iter=5000, min_iter=100, loss_diff=5e-6, changeable_attribute='all')
