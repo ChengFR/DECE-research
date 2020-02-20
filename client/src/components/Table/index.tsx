@@ -15,10 +15,12 @@ import {
   changeColumnWidth,
 } from "./common";
 import "./index.css";
+import { number2string } from "common/utils";
 
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
+  className?: string;
   columns: (IColumn<string> | IColumn<number> | TableColumn)[];
   rowCount: number;
   onScroll?: (params: ScrollParams) => any;
@@ -37,7 +39,7 @@ interface ITableState {
   scrollLeft: number;
 }
 
-export default class Table extends React.Component<ITableProps, ITableState> {
+export default class Table extends React.PureComponent<ITableProps, ITableState> {
   static defaultProps = {
     rowHeight: 20,
     fixedColumns: 1,
@@ -106,6 +108,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   public render() {
     console.debug("render table");
     const {
+      className,
       style,
       rowHeight,
       fixedColumns,
@@ -122,7 +125,10 @@ export default class Table extends React.Component<ITableProps, ITableState> {
     };
 
     return (
-      <div className="table-container" style={containerStyle}>
+      <div 
+        className={"table-container" + (className ? ` ${className}`  : '')} 
+        style={containerStyle}
+      >
         <AutoSizer>
           {({ width, height }) => (
             <div style={{ overflow: "visible" }}>
@@ -212,7 +218,7 @@ export default class Table extends React.Component<ITableProps, ITableState> {
       props.data || this.props.columns[columnIndex].series.at(rowIndex);
     return (
       <div className="cell-content">
-        {typeof data === "string" ? data : number2string(data)}
+        <span>{typeof data === "string" ? data : number2string(data)}</span>
       </div>
     );
   };
@@ -227,11 +233,6 @@ export default class Table extends React.Component<ITableProps, ITableState> {
   }) {
     this.tableGrid.current?.recomputeGridSize(params);
   }
-}
-
-function number2string(x: number): string {
-  if (Number.isInteger(x)) return x.toFixed(0);
-  return x.toPrecision(4);
 }
 
 export * from "./TableGrid";

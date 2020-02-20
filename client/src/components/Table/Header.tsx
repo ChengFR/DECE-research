@@ -154,6 +154,7 @@ export default class Header extends React.Component<
           tabIndex={null}
           width={rightGridWidth}
           style={styleRightGrid}
+          overscanColumnCount={3}
         />
       </div>
     );
@@ -229,6 +230,7 @@ export default class Header extends React.Component<
             onSelectRange={column.onFilter}
             selectedRange={column.filter}
             allData={column.prevSeries?.toArray()}
+            extent={column.extent}
           />
         ) : (
           <BarChart

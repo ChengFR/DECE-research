@@ -9,6 +9,8 @@ export interface FeatureDisc {
   description?: string;
   type: FeatureType;
   index: number;
+  categories?: string[];
+  extent?: [number, number];
 }
 
 export class DataMeta {
