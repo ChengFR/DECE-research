@@ -15,7 +15,8 @@ export interface CollapsedRows {
 }
 
 export interface ExpandedRow {
-  index: number;
+  index: number;  // The index in a possibly reordered DataFrame
+  dataIndex: number; // The real index of the row in the dataFrame
   state: RowStateType.EXPANDED;
 }
 
@@ -25,14 +26,8 @@ export function isExpandedRow(row: CollapsedRows | ExpandedRow): row is Expanded
 
 export type RowState = CollapsedRows | ExpandedRow;
 
-export interface TableState {
-  rows: RowState[];
-}
-
-export function initTableState (nRows: number): TableState {
-  return {
-    rows: [{startIndex: 0, endIndex: nRows, state: RowStateType.COLLAPSED}]
-  };
+export function initRowStates (nRows: number): RowState[] {
+  return [{startIndex: 0, endIndex: nRows, state: RowStateType.COLLAPSED}];
 }
 
 // Actions
@@ -40,6 +35,11 @@ export function initTableState (nRows: number): TableState {
 export enum ActionType {
   COLLAPSE_ROWS = 'COLLAPSE_ROWS',
   EXPAND_ROWS = 'EXPAND_ROWS',
+  REORDER_ROWS = 'REORDER_ROWS',
+  FILTER_ROWS = 'FILTER_ROWS',
+  SORT = 'SORT',
+  FILTER = 'FILTER',
+  UPDATE_COLUMNS = 'UPDATE_COLUMNS',
 }
 
 export interface Action {
@@ -55,12 +55,23 @@ export interface CollapseRows extends Action {
 export interface ExpandRows extends Action {
   startIndex: number;
   endIndex: number;
+  dataIndex: number[];
   type: ActionType.EXPAND_ROWS;
+}
+
+export interface ReorderRows extends Action {
+  type: ActionType.REORDER_ROWS;
+  index: number[];
+}
+
+export interface FilterRows extends Action {
+  type: ActionType.FILTER_ROWS;
+  index: number[];
 }
 
 // Reducers
 
-function collapseRows(rows: RowState[], action: CollapseRows) {
+function _collapseRows(rows: RowState[], action: CollapseRows) {
   const {startIndex, endIndex} = action;
   const start = rows.findIndex(v => {
     if (isExpandedRow(v)) return startIndex === v.index;
@@ -92,8 +103,8 @@ function collapseRows(rows: RowState[], action: CollapseRows) {
   return rows.splice(start, end - start + 1, replacedState);
 }
 
-function expandRows(rows: RowState[], action: ExpandRows) {
-  const {startIndex, endIndex} = action;
+function _expandRows(rows: RowState[], action: ExpandRows) {
+  const {startIndex, endIndex, dataIndex} = action;
   const start = rows.findIndex(v => {
     if (isExpandedRow(v)) return false; // skipping this one
     return startIndex < v.endIndex;
@@ -111,8 +122,8 @@ function expandRows(rows: RowState[], action: ExpandRows) {
   if (startState.startIndex < startIndex) {
     replacedStates.push({...startState, endIndex: startIndex});
   }
-  for (let i = startIndex; i < endIndex; i++) {
-    replacedStates.push({index: i, state: RowStateType.EXPANDED});
+  for (let index = startIndex; index < endIndex; index++) {
+    replacedStates.push({index, dataIndex: dataIndex[index], state: RowStateType.EXPANDED});
   }
   if (endIndex < endState.endIndex) {
     replacedStates.push({...endState, startIndex: endIndex});
@@ -120,17 +131,61 @@ function expandRows(rows: RowState[], action: ExpandRows) {
   return rows.splice(start, end - start + 1, ...replacedStates);
 }
 
-function reduceRows(rows: RowState[], action: CollapseRows | ExpandRows) {
+function _remapRows(rows: RowState[], action: ReorderRows | FilterRows): RowState[] {
+  const {index} = action;
+  const index2new: (number | undefined)[] = [];
+  index.forEach((idx, i) => index2new[idx] = i);
+
+  let expandedRows: ExpandedRow[] = rows.filter(r => isExpandedRow(r)) as ExpandedRow[];
+  // The expandedRows with updated index
+  expandedRows = expandedRows.map(r => ({...r, index: index2new[r.dataIndex]}))
+    .filter(r => r.index !== undefined) as ExpandedRow[];
+  expandedRows.sort((a, b) => a.index - b.index);
+  const newRows: RowState[] = [];
+  expandedRows.forEach((row, i, arr) => {
+    if (i === 0 && row.index > 0) {
+      newRows.push({startIndex: 0, endIndex: row.index, state: RowStateType.COLLAPSED});
+    } else {
+      const prev = arr[i-1];
+      if (prev.index + 1 < row.index) {
+        newRows.push({startIndex: prev.index + 1, endIndex: row.index, state: RowStateType.COLLAPSED});
+      }
+    }
+    newRows.push(row);
+  });
+  console.log(expandedRows);
+  if (expandedRows.length === 0) {
+    newRows.push({startIndex: 0, endIndex: index.length, state: RowStateType.COLLAPSED});
+  } else {
+    const last = expandedRows[expandedRows.length - 1];
+    if (last.index + 1 < index.length) {
+      newRows.push({startIndex: last.index + 1, endIndex: index.length, state: RowStateType.COLLAPSED});
+    }
+  }
+  return newRows;
+}
+
+export function reduceRows(rows: RowState[], action: CollapseRows | ExpandRows | ReorderRows | FilterRows) {
   switch (action.type) {
     case ActionType.COLLAPSE_ROWS:
-      return collapseRows(rows, action);
+      return _collapseRows(rows, action);
     case ActionType.EXPAND_ROWS:
-      return expandRows(rows, action);
+      return _expandRows(rows, action);
+    case ActionType.REORDER_ROWS:
+      return _remapRows(rows, action);
+    case ActionType.FILTER_ROWS:
+        return _remapRows(rows, action);
     default:
       return rows;
   }
 }
 
-export const reducer = combineReducers({
-  rows: reduceRows
-})
+export function reorderRows(rows: RowState[], index: number[]) {
+  const action = {type: ActionType.REORDER_ROWS, index} as ReorderRows;
+  return reduceRows(rows, action);
+}
+
+export function filterRows(rows: RowState[], index: number[]) {
+  const action = {type: ActionType.FILTER_ROWS, index} as FilterRows;
+  return reduceRows(rows, action);
+}

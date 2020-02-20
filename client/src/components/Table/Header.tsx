@@ -237,6 +237,7 @@ export default class Header extends React.Component<
             height={chartHeight}
             margin={columnMargin}
             xScale={column.xScale}
+            allData={column.prevSeries?.toArray()}
           />
         )}
       </div>
