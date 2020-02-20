@@ -27,7 +27,7 @@ export function isExpandedRow(row: CollapsedRows | ExpandedRow): row is Expanded
 export type RowState = CollapsedRows | ExpandedRow;
 
 export function initRowStates (nRows: number): RowState[] {
-  return [{startIndex: 0, endIndex: nRows, state: RowStateType.COLLAPSED}];
+  return breakCollapsedRows({startIndex: 0, endIndex: nRows, state: RowStateType.COLLAPSED});
 }
 
 // Actions
@@ -71,6 +71,20 @@ export interface FilterRows extends Action {
 
 // Reducers
 
+// break collapsed rows so that we won't render too many rows in a cell
+function breakCollapsedRows(row: CollapsedRows, maxStep: number = 500): CollapsedRows[] {
+  const {startIndex, endIndex, state} = row;
+  const n = Math.ceil((endIndex - startIndex) / maxStep);
+  if (n === 1) return [row];
+  const step = Math.ceil((endIndex - startIndex) / n);
+  const rows: CollapsedRows[] = [];
+  for (let i = 0; i < n; ++i) {
+    const start = startIndex + step * i, end = Math.min(start + step, endIndex);
+    rows.push({startIndex: start, endIndex: end, state});
+  }
+  return rows;
+}
+
 function _collapseRows(rows: RowState[], action: CollapseRows) {
   const {startIndex, endIndex} = action;
   const start = rows.findIndex(v => {
@@ -100,7 +114,7 @@ function _collapseRows(rows: RowState[], action: CollapseRows) {
     replacedState.endIndex = endState.endIndex;
   }
   
-  return rows.splice(start, end - start + 1, replacedState);
+  return [...rows.slice(0, start - 1), ...breakCollapsedRows(replacedState), ...rows.slice(end + 1) ];
 }
 
 function _expandRows(rows: RowState[], action: ExpandRows) {
@@ -120,15 +134,17 @@ function _expandRows(rows: RowState[], action: ExpandRows) {
   if (isExpandedRow(endState)) throw "This should not happen";
   const replacedStates: RowState[] = [];
   if (startState.startIndex < startIndex) {
-    replacedStates.push({...startState, endIndex: startIndex});
+    replacedStates.push(...breakCollapsedRows({...startState, endIndex: startIndex}));
   }
   for (let index = startIndex; index < endIndex; index++) {
     replacedStates.push({index, dataIndex: dataIndex[index], state: RowStateType.EXPANDED});
   }
   if (endIndex < endState.endIndex) {
-    replacedStates.push({...endState, startIndex: endIndex});
+    replacedStates.push(...breakCollapsedRows({...endState, startIndex: endIndex}));
   }
-  return rows.splice(start, end - start + 1, ...replacedStates);
+  return [...rows.slice(0, start - 1), ...replacedStates, ...rows.slice(end + 1) ];
+
+  // return rows.splice(start, end - start + 1, ...replacedStates);
 }
 
 function _remapRows(rows: RowState[], action: ReorderRows | FilterRows): RowState[] {
@@ -144,22 +160,21 @@ function _remapRows(rows: RowState[], action: ReorderRows | FilterRows): RowStat
   const newRows: RowState[] = [];
   expandedRows.forEach((row, i, arr) => {
     if (i === 0 && row.index > 0) {
-      newRows.push({startIndex: 0, endIndex: row.index, state: RowStateType.COLLAPSED});
+      newRows.push(...breakCollapsedRows({startIndex: 0, endIndex: row.index, state: RowStateType.COLLAPSED}));
     } else {
       const prev = arr[i-1];
       if (prev.index + 1 < row.index) {
-        newRows.push({startIndex: prev.index + 1, endIndex: row.index, state: RowStateType.COLLAPSED});
+        newRows.push(...breakCollapsedRows({startIndex: prev.index + 1, endIndex: row.index, state: RowStateType.COLLAPSED}));
       }
     }
     newRows.push(row);
   });
-  console.log(expandedRows);
   if (expandedRows.length === 0) {
-    newRows.push({startIndex: 0, endIndex: index.length, state: RowStateType.COLLAPSED});
+    newRows.push(...breakCollapsedRows({startIndex: 0, endIndex: index.length, state: RowStateType.COLLAPSED}));
   } else {
     const last = expandedRows[expandedRows.length - 1];
     if (last.index + 1 < index.length) {
-      newRows.push({startIndex: last.index + 1, endIndex: index.length, state: RowStateType.COLLAPSED});
+      newRows.push(...breakCollapsedRows({startIndex: last.index + 1, endIndex: index.length, state: RowStateType.COLLAPSED}));
     }
   }
   return newRows;

@@ -89,10 +89,28 @@ export function drawHistogram(
     }) as number
   ]); // d3.hist has to be called before the Y axis obviously
 
-  const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base").attr(
-    "transform",
-    `translate(${margin.left}, ${margin.top})`
-  );
+
+  let rangeBrushing: [number, number] | null = null;
+  if (selectedRange) {
+    const startIndex = bins.findIndex(({x1}) => x1 !== undefined && selectedRange[0] < x1);
+    const endIndex = _.findLastIndex(bins, ({x0}) => x0 !== undefined && x0 < selectedRange[1]);
+    rangeBrushing = [startIndex, endIndex];
+  }
+  console.debug("brushed Range", rangeBrushing);
+  let brushing: boolean = false;
+
+  // getChildOrAppend<SVGGElement, SVGElement>(root, "rect", "bg")
+  //   .attr('width', width).attr('height', height)
+  //   .on('click', () => {
+  //     rangeBrushing = null;
+  //     onSelectRange && onSelectRange();
+  //   });
+
+  const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
+    .attr(
+      "transform",
+      `translate(${margin.left}, ${margin.top})`
+    );
 
   gBase.selectAll("rect.bar")
     .data(allBins || [])
@@ -102,11 +120,8 @@ export function drawHistogram(
         .attr("x", innerPadding)
         .attr("class", "bar");
     })
-    .attr("transform", d => {
-      return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
-    })
+    .attr("transform", d => `translate(${x(d.x0 as number)}, ${y(d.length)})`)
     .attr("width", d => {
-      // console.debug("update width to", x(d.x1 as number) - x(d.x0 as number) - 1);
       return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
     })
     .attr("height", d => {
@@ -127,25 +142,13 @@ export function drawHistogram(
         .attr("x", innerPadding)
         .attr("class", "bar");
     })
-    .attr("transform", d => {
-      return `translate(${x(d.x0 as number)}, ${y(d.length)})`;
-    })
+    .attr("transform", d => `translate(${x(d.x0 as number)}, ${y(d.length)})`)
     .attr("width", d => {
-      // console.debug("update width to", x(d.x1 as number) - x(d.x0 as number) - 1);
       return Math.max(0, x(d.x1 as number) - x(d.x0 as number) - 1);
     })
     .attr("height", d => {
       return yRange[0] - y(d.length) + 0.01;
     });
-
-  let rangeBrushing: [number, number] | null = null;
-  if (selectedRange) {
-    const startIndex = bins.findIndex(({x1}) => x1 !== undefined && selectedRange[0] < x1);
-    const endIndex = _.findLastIndex(bins, ({x0}) => x0 !== undefined && x0 < selectedRange[1]);
-    rangeBrushing = [startIndex, endIndex];
-  }
-  console.log(rangeBrushing);
-  let brushing: boolean = false;
 
   const g2 = getChildOrAppend<SVGGElement, SVGElement>(
     root,
