@@ -24,3 +24,9 @@ export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>) => {
 
   return true;
 };
+
+
+export function number2string(x: number): string {
+  if (Number.isInteger(x)) return x.toFixed(0);
+  return x.toPrecision(4);
+}

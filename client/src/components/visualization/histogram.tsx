@@ -229,6 +229,7 @@ export interface IHistogramProps extends IHistogramOptions {
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
   className?: string;
+  extent?: [number, number];
 }
 
 export interface IHistogramState {
@@ -296,10 +297,8 @@ export class Histogram extends React.PureComponent<
   };
 
   public render() {
-    const { style, svgStyle, className, width, height } = this.props;
+    const { style, svgStyle, className, width, height, extent } = this.props;
     const { hoveredBin } = this.state;
-    const xScale = this.props.xScale || this.getXScale();
-    const xRange = xScale.domain();
     return (
       <div className={(className || "") + " histogram"} style={style}>
         <svg
@@ -311,7 +310,8 @@ export class Histogram extends React.PureComponent<
         <div className="info">
           {hoveredBin
             ? `${hoveredBin[0]} - ${hoveredBin[1]}`
-            : `${xRange[0]} - ${xRange[1]}`}
+            : (extent && `${extent[0]} - ${extent[1]}`)
+          }
         </div>
       </div>
     );

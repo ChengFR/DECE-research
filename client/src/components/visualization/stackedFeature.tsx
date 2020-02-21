@@ -3,6 +3,7 @@ import * as d3 from "d3";
 import * as React from "react";
 import _ from "lodash";
 import ReactEcharts from "echarts-for-react";
+import {ECharts} from "echarts";
 
 import { getMargin, ChartOptions, getChildOrAppend } from "./common";
 import { shallowCompare } from "../../common/utils";
@@ -93,6 +94,8 @@ export interface IStackedFeatureProps {
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
   className?: string;
+  onHoverRow?: (rowIndex: number | null) => any;
+  onClickRow?: (rowIndex: number | null) => any;
 }
 
 export interface IStackedFeatureState {}
@@ -105,6 +108,7 @@ export class StackedFeature extends React.PureComponent<
   private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
   private eRef: React.RefObject<ReactEcharts> = React.createRef();
   private shouldPaint: boolean = false;
+  private hoveredIndex: number | null = null;
 
   constructor(props: IStackedFeatureProps) {
     super(props);
@@ -112,6 +116,7 @@ export class StackedFeature extends React.PureComponent<
     this.state = { hoveredBin: null };
     this.paint = this.paint.bind(this);
     this.getHeight = this.getHeight.bind(this);
+    this.afterRender = this.afterRender.bind(this);
   }
 
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
@@ -152,7 +157,8 @@ export class StackedFeature extends React.PureComponent<
   }
 
   public componentDidMount() {
-    this.paint();
+    // this.paint();
+    // this.afterRender();
   }
 
   public componentDidUpdate(
@@ -167,14 +173,82 @@ export class StackedFeature extends React.PureComponent<
       };
       window.setTimeout(delayedPaint, DELAY_PAINT_TIME);
     }
+    // this.afterRender();
     // }
   }
 
   public afterRender() {
+    const {startIndex, onHoverRow, onClickRow} = this.props;
     // enable echarts with brushes
-    const echarts = this.eRef.current;
-    console.log(echarts);
+    const echart = (this.eRef.current as any).getEchartsInstance() as ECharts;
+    // console.log(echarts);
+    // echart.dispatchAction({
+    //   type: 'takeGlobalCursor',
+    //   key: 'brush',
+    //   brushOption: {
+    //       brushType: 'lineY',
+    //       brushMode: 'single'
+    //   }
+    // });
+
+    let hoveredIndex: number | null = null;
+
+    // echart.on("mouseover", (e: any) => {
+    //   console.log(e);
+    // });
+    echart.off("updateAxisPointer");
+    echart.off("mouseout");
+
+    if (onHoverRow) {
+
+      echart.on("updateAxisPointer", (e: any) => {
+        // console.debug(e);
+        let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+        if (index !== hoveredIndex) {
+          onHoverRow(index);
+          hoveredIndex = index;
+          // console.log("hover at dataIndex ", hoveredIndex);
+        }
+      });
+      echart.on("mouseout", (e: any) => {
+        onHoverRow(null);
+        hoveredIndex = null;
+      })
+    }
+
+    echart.off("click");
+    if (onClickRow) {
+      console.debug("after Render", "register onClickRow");
+
+      echart.on("click", (e: any) => {
+        let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+        console.debug("click", e);
+        onClickRow(index);
+      });
+    }
+
+    echart.on("contextmenu", (e: any) => {
+      console.debug("rightclick", e);
+    });
   }
+
+  onEvents = {
+    'updateAxisPointer': (e: any) => {
+      const {onHoverRow, startIndex} = this.props;
+      let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      if (index !== this.hoveredIndex) {
+        onHoverRow && onHoverRow(index);
+        this.hoveredIndex = index;
+        // console.log("hover at dataIndex ", hoveredIndex);
+      }
+    },
+    'click': (e: any) => {
+      const {onClickRow, startIndex} = this.props;
+      let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      console.debug("click", e);
+      onClickRow && onClickRow(index);
+    }
+  };
 
   public render() {
     const { style, data, className, width, height, xScale } = this.props;
@@ -188,6 +262,7 @@ export class StackedFeature extends React.PureComponent<
       // />
       <ReactEcharts
         ref={this.eRef}
+        className="stacked-feature"
         option={
           isStringArray(data)
             ? this.getOptionCategorical(data, xScale as d3.ScaleBand<string>)
@@ -196,6 +271,7 @@ export class StackedFeature extends React.PureComponent<
                 xScale as d3.ScaleLinear<number, number>
               )
         }
+        onEvents={this.onEvents}
         style={{ ...style, width, height }}
       />
     );
@@ -229,6 +305,7 @@ export class StackedFeature extends React.PureComponent<
       },
       yAxis: {
         type: "category",
+        data: _.range(startIndex, endIndex),
         show: false,
         boundaryGap: false,
         axisLine: {
@@ -237,17 +314,26 @@ export class StackedFeature extends React.PureComponent<
         inverse: true,
       },
       grid: getMargin(margin),
-      brush: {
-        yAxisIndex: "all",
-        outOfBrush: {
-          color: "rgb(109, 160, 202, 0.3)"
+      
+      tooltip: {
+        showContent: false,
+        trigger: 'axis',
+        axisPointer: {
+          axis: 'y',
+          type: 'shadow'
         },
-        brushType: 'lineY',
-        toolbox: []
       },
-      toolbox: {
-        show: false
-      },
+      // brush: {
+      //   yAxisIndex: "all",
+      //   outOfBrush: {
+      //     color: "rgb(109, 160, 202, 0.3)"
+      //   },
+      //   brushType: 'lineY',
+      //   toolbox: []
+      // },
+      // toolbox: {
+      //   show: false
+      // },
     };
   }
 
