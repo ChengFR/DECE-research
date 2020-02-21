@@ -6,7 +6,7 @@ import {
   useParams
 } from "react-router-dom";
 
-import { getDataset, getCFs, getCFMeta } from "./api";
+import { getDataset, getCFs, getCFMeta, getCF } from "./api";
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
@@ -59,6 +59,7 @@ export class App extends React.Component<IAppProps, IAppState> {
               getCFs={({ startIndex, stopIndex }) =>
                 getCFs({ dataId, modelId, startIndex, stopIndex })
               }
+              getCF={(index) => getCF({dataId, modelId, index})}
             />
           ) : (
             <TableView dataset={dataset} />

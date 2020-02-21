@@ -60,7 +60,8 @@ export async function getDataset(params: {
     return {
       name,
       description: columnDisc?.description,
-      type: columnDisc?.type || "unknown"
+      type: columnDisc?.type || "unknown",
+      ...columnDisc,
     };
   });
   const dataFrame = new DataFrame({ data, columns });
