@@ -15,7 +15,7 @@ class CFEnginePytorch:
 
     def __init__(self, model_manager, dataset):
         self.model_manager = model_manager
-        self.dataset = dataset
+        self.dataset = datasets
 
     def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
                      changeable_attribute='all',
