@@ -59,6 +59,10 @@ class Dataset:
             else:
                 self.dummy_columns.append(col)
 
+        # add index of attributes in dataframe
+        for i, col in enumerate(self.origin_columns):
+            self.description[col]['index'] = i
+
     def _fit_normalizer(self, data):
         pass
 
