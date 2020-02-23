@@ -89,7 +89,7 @@ class Dataset:
                 minx = self.description[col]['min']
                 maxx = self.description[col]['max']
                 if maxx - minx > 1e-6:
-                    data_df[col] = (data_df[col] - minx)/(maxx-minx)
+                    data_df.loc[:, col] = (data_df[col] - minx)/(maxx-minx)
         return data_df
 
     def denormalize(self, data):
@@ -108,7 +108,7 @@ class Dataset:
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 for cat in self.description[col]['category']:
-                    data_df['{}_{}'.format(col, cat)] = (data_df[col] == cat).astype(int)
+                    data_df.loc[:, '{}_{}'.format(col, cat)] = (data_df[col] == cat).astype(int)
         return data_df[self.dummy_columns]
 
     def from_dummy(self, data):
@@ -147,13 +147,24 @@ class Dataset:
         else:
             return self.raw_df 
 
-    def get_sample(self, index, preprocess=True):
+    def get_sample(self, index='all', filters=[], preprocess=True):
         if type(index) == int:
             index = [index]
+        elif type(index) == str and index == 'all':
+            index = [i for i in range(len(self.raw_df))]
+        # else:
+        #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
+        filtered_df = self.raw_df.iloc[index]
+        for f in filters:
+            col = f[0]
+            if self.description[col]['type'] == 'numerical':
+                filtered_df = filtered_df[(filtered_df[col] >= f[1]) & (filtered_df[col] < f[2])]
+            else:
+                filtered_df = filtered_df[filtered_df[col].isin(f[1])]
         if preprocess:
-            return self.preprocess(self.raw_df.iloc[index])
+            return self.preprocess(filtered_df)
         else:
-            return self.raw_df.iloc[index] 
+            return filtered_df
     
     def get_columns(self, preprocess=True):
         if preprocess:
@@ -187,3 +198,45 @@ class Dataset:
 
     def get_description(self):
         return self.description
+
+
+# class DataMeta(object):
+
+#     def __init__(self, features, target, prediction=None):
+#         self.features = features
+#         self.target = target
+#         self.prediction = prediction
+
+#     @classmethod
+#     def from_csv(cls, filename, feature_indices=None, target_index=None, prediction_index=None):
+#         df = pd.read_csv(filename)
+#         dd = df.to_dict('records')
+#         return cls.from_records(dd, feature_indices, target_index, prediction_index)
+
+#     @classmethod
+#     def from_records(cls, records, feature_indices=None, target_index=None, prediction_index=None):
+#         for i, d in enumerate(records):
+#             d["index"] = i
+#         target = None if target_index is None else records[target_index]
+#         prediction = None if prediction_index is None else records[prediction_index]
+#         features = records
+#         if feature_indices is not None:
+#             features = [records[i] for i in feature_indices]
+#         # make sure no column is used twice
+#         features = [f for f in features if f is not target and f is not prediction]
+#         assert len(features) + (int(target is not None) + int(prediction is not None)) == len(records)
+#         return cls(features, target, prediction)
+
+
+#     @classmethod
+#     def from_json(cls, filename):
+#         with open(filename, 'r') as f:
+#             data = json.load(f)
+#         return cls(data['features'], data['target'], data.get('prediction', None))
+
+#     def to_json(self, filename):
+#         data = dict(features=self.features, target=self.target)
+#         if self.prediction:
+#             data['prediction'] = self.prediction
+#         with open(filename, 'w') as f:
+#             json.dump(data, f)

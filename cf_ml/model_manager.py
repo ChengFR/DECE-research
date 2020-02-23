@@ -52,11 +52,11 @@ class PytorchModel(nn.Module):
 
 class PytorchModelManager(ModelManager):
     """Model manager of a pytorch model"""
-    def __init__(self, dataset, model_name='MLP', model=None):
+    def __init__(self, dataset, model_name='MLP', root_dir='./output', model=None):
         ModelManager.__init__(self)
         self.dataset = dataset
         self.model_name = model_name
-        self.dir_manager = DirectoryManager()
+        self.dir_manager = DirectoryManager(self.dataset, self, root=root_dir)
 
         self.feature_names = self.dataset.get_feature_names()
         self.target_names = self.dataset.get_target_names()
@@ -75,15 +75,15 @@ class PytorchModelManager(ModelManager):
         self.train_dataset = TensorDataset(train_x, train_y)
         self.test_dataset = TensorDataset(test_x, test_y)
 
-        self.train_accuracy = 0
-        self.test_accuracy = 0
+        self.train_accuracy = None
+        self.test_accuracy = None
 
-        self.dir_manager.init(self.dataset, self)
+        self.dir_manager.init()
 
     def load_model(self):
         # self.model.load_state_dict(torch.load(path))
-        self.dir_manager.load_meta(self.dataset, self)
-        self.model.load_state_dict(torch.load(self.dir_manager.get_model_path()))
+        self.dir_manager.load_meta()
+        self.model.load_state_dict(self.dir_manager.load_pytorch_model_state())
 
     def forward(self, x):
         self.model.eval()
@@ -103,7 +103,7 @@ class PytorchModelManager(ModelManager):
         origin_feature_names = self.dataset.get_feature_names(preprocess=False)
         output_df['{}_pred'.format(origin_target_name)] = output_df[origin_target_name]
         output_df['score'] = pred.max(axis=1)
-        return output_df[origin_feature_names+['{}_pred'.format(origin_target_name), 'score']]
+        return output_df[origin_feature_names+[origin_target_name, '{}_pred'.format(origin_target_name), 'score']]
 
     def predict_instance(self, index):
         x = self.dataset.get_sample(index)[self.feature_names].values
@@ -167,9 +167,7 @@ class PytorchModelManager(ModelManager):
         return (target_class == pred_class).mean()
 
     def save_model(self):
-        "A tmp implementation"
-        model_path = self.dir_manager.renew_model_path(self)
-        torch.save(self.model.state_dict(), model_path)
+        self.dir_manager.save_pytorch_model_state(self.model.state_dict())
 
     def get_name(self):
         return self.model_name
@@ -187,5 +185,8 @@ if __name__ == '__main__':
     from load_dataset import load_HELOC_dataset
     dataset = load_HELOC_dataset()
     mm = PytorchModelManager(dataset)
-    mm.train()
-    mm.save_model()
+    try:
+        mm.load_model()
+    except FileNotFoundError:
+        mm.train()
+        mm.save_model()
