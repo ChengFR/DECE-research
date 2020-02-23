@@ -1,5 +1,6 @@
 import numpy as np 
 import pandas as pd 
+import os
 
 
 class CounterfactualExample:
@@ -25,7 +26,21 @@ class CounterfactualExampleBySubset:
             self.instance_df = self.instance_df.append(instance_df)
 
     def _add_index_col(self):
-        self.cf_df['OriginIndex'] = np.array([(i//self.cf_num) for i in range(len(self.cf_df))])
+        self.cf_df['OriginIndex'] = [(i//self.cf_num) for i in range(len(self.cf_df))]
+
+    def get_cf(self):
+        return self.cf_df
+    
+    def get_instance(self):
+        return self.instance_df
+
+    def to_csv(self, header, dirpath):
+        self.cf_df.to_csv(os.path.join(dirpath, '{}_cf.csv'.format(header)))
+        self.instance_df.to_csv(os.path.join(dirpath, '{}_data.csv'.format(header)))
+
+    def from_csv(self, header, dirpath):
+        self.cf_df = pd.read_csv(os.path.join(dirpath, '{}_cf.csv'.format(header)))
+        self.instance_df = pd.read_csv(os.path.join(dirpath, '{}_data.csv'.format(header)))
 
     
 
