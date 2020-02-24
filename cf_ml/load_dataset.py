@@ -5,9 +5,11 @@ import pandas as pd
 
 from dataset import Dataset
 
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+
 def load_HELOC_dataset():
-    data_df = pd.read_csv('../data/HELOC/heloc_dataset_v1.csv')
-    description = pd.read_csv('../data/HELOC/description.csv', index_col='name').to_dict('index')
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'HELOC/heloc_dataset_v1.csv'))
+    description = pd.read_csv(os.path.join(DATA_DIR,'HELOC/description.csv'), index_col='name').to_dict('index')
     for _, info in description.items():
         if type(info['category']) is str:
             info['category'] = info['category'].split(' ')

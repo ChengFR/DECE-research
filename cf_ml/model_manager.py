@@ -11,6 +11,8 @@ import torch.optim as optim
 
 from utils.dir_manager import DirectoryManager
 
+OUTPUT_ROOT = os.path.join(os.path.dirname(__file__), 'output')
+
 class ModelManager(ABC):
 
     @abstractmethod
@@ -52,7 +54,7 @@ class PytorchModel(nn.Module):
 
 class PytorchModelManager(ModelManager):
     """Model manager of a pytorch model"""
-    def __init__(self, dataset, model_name='MLP', root_dir='./output', model=None):
+    def __init__(self, dataset, model_name='MLP', root_dir=OUTPUT_ROOT, model=None):
         ModelManager.__init__(self)
         self.dataset = dataset
         self.model_name = model_name
@@ -100,10 +102,10 @@ class PytorchModelManager(ModelManager):
             columns=self.feature_names+self.target_names)
         output_df = self.dataset.depreprocess(output_df)
         origin_target_name = self.dataset.get_target_names(preprocess=False)
-        origin_feature_names = self.dataset.get_feature_names(preprocess=False)
+        origin_columns = self.dataset.get_columns(preprocess=False)
         output_df['{}_pred'.format(origin_target_name)] = output_df[origin_target_name]
-        output_df['score'] = pred.max(axis=1)
-        return output_df[origin_feature_names+[origin_target_name, '{}_pred'.format(origin_target_name), 'score']]
+        output_df['Score'] = pred.max(axis=1)
+        return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
     def predict_instance(self, index):
         x = self.dataset.get_sample(index)[self.feature_names].values
@@ -112,7 +114,7 @@ class PytorchModelManager(ModelManager):
         target = self.dataset.get_sample(index, preprocess=False)[origin_target_name]
         output_df = self.predict(x)
         output_df[origin_target_name] = target
-        return output_df
+        return output_df.set_index(index)
 
     def fix_model(self):
         for param in self.model.parameters():

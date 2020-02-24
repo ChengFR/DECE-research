@@ -28,7 +28,9 @@ class Dataset:
         self._fit_one_hot_encoder(self.raw_df)
 
         self.train_df, self.test_df = train_test_split(
-            self.raw_df, train_size=split_rate)
+            self.raw_df.reset_index(), train_size=split_rate)
+        self.train_df.set_index('index', inplace=True)
+        self.test_df.set_index('index', inplace=True)
 
     def _check_and_complete_description(self):
         # check whether each column is noted as numerical or categorical
@@ -89,7 +91,7 @@ class Dataset:
                 minx = self.description[col]['min']
                 maxx = self.description[col]['max']
                 if maxx - minx > 1e-6:
-                    data_df.loc[:, col] = (data_df[col] - minx)/(maxx-minx)
+                    data_df[col] = (data_df[col] - minx)/(maxx-minx)
         return data_df
 
     def denormalize(self, data):
@@ -154,13 +156,14 @@ class Dataset:
             index = [i for i in range(len(self.raw_df))]
         # else:
         #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
-        filtered_df = self.raw_df.iloc[index]
+        filtered_df = self.raw_df.reset_index().iloc[index]
         for f in filters:
             col = f[0]
             if self.description[col]['type'] == 'numerical':
                 filtered_df = filtered_df[(filtered_df[col] >= f[1]) & (filtered_df[col] < f[2])]
             else:
                 filtered_df = filtered_df[filtered_df[col].isin(f[1])]
+        filtered_df.set_index('index', inplace=True)
         if preprocess:
             return self.preprocess(filtered_df)
         else:

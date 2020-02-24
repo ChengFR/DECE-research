@@ -8,12 +8,12 @@ import pandas as pd
 
 from cf_engine.counterfactual import CounterfactualExampleBySubset
 
-output_root = './output/'
+OUTPUT_ROOT = os.path.join(os.path.dirname(__file__), 'output')
 
 class DirectoryManager:
     """A class to manage the path of the model files and output files"""
     
-    def __init__(self, dataset, model_manager, root, auto_save=True):
+    def __init__(self, dataset, model_manager, root=OUTPUT_ROOT, auto_save=True):
         self.root = root
         self.createifnotexist(self.root)
         self.dir = None
@@ -56,7 +56,8 @@ class DirectoryManager:
 
     def update_dataset_meta(self):
         self.data_meta = {'name': self.dataset.get_name(), \
-            'description': self.dataset.get_description()}
+            'description': self.dataset.get_description(), \
+            'target_name': self.dataset.get_target_names(preprocess=False)}
 
     def update_model_meta(self):
         self.model_meta = {'name': self.model_manager.get_name(), \
@@ -168,4 +169,8 @@ class DirectoryManager:
         if not os.path.exists(dirpath):
             os.mkdir(dirpath)
 
+    def get_dataset_meta(self):
+        return self.data_meta
 
+    def get_model_meta(self):
+        return self.model_meta
