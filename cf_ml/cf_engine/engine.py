@@ -19,21 +19,21 @@ class CFEnginePytorch:
         self.dir_manager = self.model_manager.get_dir_manager()
 
     def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50, max_iter=1000, min_iter=100,
-                                  loss_diff=5e-6, loss_threshold=0.01, batch_size=1, evaluate=True, verbose=True, cache=True):
+                                  loss_diff=5e-6, loss_threshold=0.01, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'changeable_attribute': str or list of str, 
                         'filters': list of ($attr_name, min, max, boolean: allow special value) or ($attr_name, list of any, boolean: allow special value), 
                         'cf_num': int, 
                         'desired_class': 'opposite' or pandas.DataFrame}
         """
-        if self.dir_manager.indexof_setting(setting) >= 0:
+        if use_cache and self.dir_manager.indexof_setting(setting) >= 0:
             subset_cf = self.dir_manager.load_cf_with_setting(setting)
         else:
             changeable_attribute = setting['changeable_attribute']
             filters = setting['filters']
             cf_num = setting['cf_num']
             desired_class = setting['desired_class']
-            data_df = self.dataset.get_sample(index=[i for i in range(100)], filters=filters)
+            data_df = self.dataset.get_sample(index=[i for i in range(100, 200)], filters=filters)
             subset_cf = self.generate_cfs(data_df, cf_num, desired_class, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute, \
                         max_iter, min_iter, loss_diff, loss_threshold, batch_size, evaluate, verbose)
         if cache:
@@ -97,7 +97,7 @@ class CFEnginePytorch:
                 cfs, data_instances, target, expanded_mask, lr)
 
             predicted_cfs = self.model_manager.predict(self.project(cfs))
-            predicted_instances = self.model_manager.predict(data_df.iloc[start_id: end_id])
+            predicted_instances = self.model_manager.predict(data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
 
             subset_cf.append_cfs(predicted_cfs, predicted_instances)
 
@@ -271,4 +271,4 @@ if __name__ == '__main__':
     engine = CFEnginePytorch(mm, dataset)
     # engine.generate_cfs(dataset.get_sample([i for i in range(100)]), cf_num=4, proximity_weight=0.1,
     #                     lr=0.05, batch_size=2, max_iter=5000, min_iter=100, loss_diff=5e-6, changeable_attribute='all')
-    engine.generate_cfs_from_setting({'changeable_attribute': 'all', 'filters': [], 'cf_num': 4, 'desired_class': 'opposite'})
+    engine.generate_cfs_from_setting({'changeable_attribute': 'all', 'filters': [], 'cf_num': 4, 'desired_class': 'opposite'}, use_cache=False, batch_size=2)

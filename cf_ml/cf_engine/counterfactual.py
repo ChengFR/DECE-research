@@ -14,19 +14,22 @@ class CounterfactualExampleBySubset:
     def __init__(self, dataset, cf_num):
         self.dataset = dataset
         self.cf_num = cf_num
-        self.cf_df = pd.DataFrame()
-        self.instance_df = pd.DataFrame()
+        origin_columns = self.dataset.get_columns(preprocess=False)
+        target_name = self.dataset.get_target_names(preprocess=False)
+        self.cf_column_names = origin_columns+['{}_pred'.format(target_name), 'Score', 'OriginIndex']
+        self.instance_column_names = origin_columns+['{}_pred'.format(target_name), 'Score']
+        self.cf_df = pd.DataFrame(columns=self.cf_column_names)
+        self.instance_df = pd.DataFrame(columns=self.instance_column_names)
 
     def append_cfs(self, cf_df, instance_df):
-        if len(self.cf_df) == 0:
-            self.cf_df = cf_df
-            self.instance_df = instance_df
-        else:
-            self.cf_df = self.cf_df.append(cf_df)
-            self.instance_df = self.instance_df.append(instance_df)
+        cf_df = cf_df.copy()
+        instance_df = instance_df.copy()
+        self.cf_df = self.cf_df.append(self._add_index_col(cf_df, instance_df)[self.cf_column_names])
+        self.instance_df = self.instance_df.append(instance_df[self.instance_column_names])
 
-    def _add_index_col(self):
-        self.cf_df['OriginIndex'] = [(i//self.cf_num) for i in range(len(self.cf_df))]
+    def _add_index_col(self, cf_df, instance_df):
+        cf_df['OriginIndex'] = [instance_df.index.values.astype(int)[i//self.cf_num] for i in range(len(cf_df))]
+        return cf_df
 
     def get_cf(self):
         return self.cf_df
