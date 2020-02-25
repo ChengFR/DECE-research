@@ -39,6 +39,11 @@ class CounterfactualExampleBySubset:
         """read only"""
         return self.instance_df.copy()
 
+    def get_cf_by_origin_index(self, index):
+        if type(index) == int:
+            index = [index]
+        return self.cf_df[self.cf_df['OriginIndex'].isin(index)]
+
     def to_csv(self, header, dirpath):
         self.cf_df.to_csv(os.path.join(dirpath, '{}_cf.csv'.format(header)))
         self.instance_df.to_csv(os.path.join(dirpath, '{}_data.csv'.format(header)))
