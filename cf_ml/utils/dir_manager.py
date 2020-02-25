@@ -90,6 +90,19 @@ class DirectoryManager:
         model_path = self._get_model_path()
         return torch.load(model_path)
 
+    def save_prediction(self, data_df, dataset_name='dataset'):
+        """ a tmp implementation
+        :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
+        """
+        data_df.to_csv(os.path.join(self.dir, dataset_name))
+
+    def load_prediction(self, dataset_name='dataset'):
+        """ a tmp implementation
+        :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
+        """
+        data_df = pd.read_csv(os.path.join(self.dir, dataset_name))
+        return data_df
+
     def indexof_setting(self, setting):
         index = -1
         for i, s in enumerate(self.cf_setting):
@@ -112,7 +125,6 @@ class DirectoryManager:
         if self.auto_save:
             self.save_meta()
         
-
     def load_cf_with_setting(self, setting):
         """
         """
@@ -120,6 +132,19 @@ class DirectoryManager:
         subset_cf = CounterfactualExampleBySubset(self.dataset, setting['cf_num'])
         subset_cf.from_csv(file_header, self.dir)
         return subset_cf
+
+    def rm_cf_with_setting(self, setting):
+        """tmp"""
+        file_header = self._setting2str(setting)
+        cf_file_path = os.path.join(self.dir, '{}_cf.csv'.format(file_header))
+        instance_file_path = os.path.join(self.dir, '{}_data.csv'.format(file_header))
+        if os.path.exists(cf_file_path):
+            os.remove(cf_file_path)
+        if os.path.exists(instance_file_path):
+            os.remove(instance_file_path)
+        if self.indexof_setting(setting) >= 0:
+            del self.cf_setting[self.indexof_setting(setting)]
+
 
     def _equal_setting(self, s1, s2):
         pass

@@ -153,17 +153,22 @@ class Dataset:
         if type(index) == int:
             index = [index]
         elif type(index) == str and index == 'all':
-            index = [i for i in range(len(self.raw_df))]
+            index = self.raw_df.index
+        elif type(index) == str and index == 'train':
+            index = self.train_df.index
+        elif type(index) == str and index == 'test':
+            index = self.test_df.index
         # else:
         #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
-        filtered_df = self.raw_df.reset_index().iloc[index]
+        filtered_df = self.raw_df.iloc[index]
+        index = filtered_df.index
         for f in filters:
             col = f[0]
             if self.description[col]['type'] == 'numerical':
                 filtered_df = filtered_df[(filtered_df[col] >= f[1]) & (filtered_df[col] < f[2])]
             else:
                 filtered_df = filtered_df[filtered_df[col].isin(f[1])]
-        filtered_df.set_index('index', inplace=True)
+        filtered_df.set_index(index, inplace=True)
         if preprocess:
             return self.preprocess(filtered_df)
         else:
