@@ -94,13 +94,13 @@ class DirectoryManager:
         """ a tmp implementation
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
-        data_df.to_csv(os.path.join(self.dir, dataset_name))
+        data_df.to_csv(os.path.join(self.dir, dataset_name+'.csv'))
 
     def load_prediction(self, dataset_name='dataset'):
         """ a tmp implementation
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
-        data_df = pd.read_csv(os.path.join(self.dir, dataset_name))
+        data_df = pd.read_csv(os.path.join(self.dir, dataset_name+'.csv'))
         return data_df
 
     def indexof_setting(self, setting):

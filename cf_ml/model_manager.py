@@ -104,7 +104,7 @@ class PytorchModelManager(ModelManager):
         origin_target_name = self.dataset.get_target_names(preprocess=False)
         origin_columns = self.dataset.get_columns(preprocess=False)
         output_df['{}_pred'.format(origin_target_name)] = output_df[origin_target_name]
-        output_df['Score'] = pred.max(axis=1)
+        output_df['Score'] = pred[:0]
         return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
     def predict_instance(self, index):

@@ -30,6 +30,7 @@ export async function getDataMeta(params: {
   const url = `${API}/data_meta`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
+  console.log(typeof(data))
   return new DataMeta(data);
 }
 
