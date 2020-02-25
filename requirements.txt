@@ -1,7 +1,6 @@
-numpy==1.16.0 # tensorflow 1.13.0rc1 requires numpy<1.17.0 
+numpy 
 pandas
 scikit-learn
-tensorflow==1.13.0rc1
 torch
 h5py
 cython
