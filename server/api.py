@@ -6,7 +6,7 @@ from flask.json import JSONEncoder
 from flask import request, jsonify, Blueprint, current_app, Response
 
 # from .cf_helpers import get_cf_by_index, get_cf_all
-from .cf_helpers import data_meta_translate
+from .cf_helpers import data_meta_translate, group_cf
 
 api = Blueprint('api', __name__)
 
@@ -104,7 +104,8 @@ def get_cf_meta():
 @api.route('/data', methods=['GET'])
 def get_data():
     data_df = current_app.dir_manager.load_prediction('dataset')
-    return Response(data_df.to_csv(index=False), mimetype="text/csv")
+    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
+    return Response(data_df[cols].to_csv(index=False), mimetype="text/csv")
 
 @api.route('/cf', methods=['GET'])
 def get_cf():
@@ -123,7 +124,9 @@ def get_cf():
         cf_df = subset_cf.get_cf_by_origin_index(index)
     else:
         cf_df = subset_cf.get_cf()
-    return Response(cf_df.to_csv(index=False), mimetype="text/csv")
+    cols = current_app.dataset.get_columns(preprocess=False) + ['Score', 'OriginIndex']
+    cf_dict = group_cf(cf_df[cols])[index]
+    return jsonify(cf_dict)
 # @api.route('/cf_meta', methods=['GET'])
 # def get_cf_meta():
 #     # temporary test data
