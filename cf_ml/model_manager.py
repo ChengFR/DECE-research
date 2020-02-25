@@ -108,13 +108,14 @@ class PytorchModelManager(ModelManager):
         return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
     def predict_instance(self, index):
-        x = self.dataset.get_sample(index)[self.feature_names].values
+        instances = self.dataset.get_sample(index=index)
+        x = instances[self.feature_names].values
         x = torch.from_numpy(x).float()
         origin_target_name = self.dataset.get_target_names(preprocess=False)
         target = self.dataset.get_sample(index, preprocess=False)[origin_target_name]
         output_df = self.predict(x)
         output_df[origin_target_name] = target
-        return output_df.set_index(index)
+        return output_df.set_index(instances.index)
 
     def fix_model(self):
         for param in self.model.parameters():
@@ -171,6 +172,12 @@ class PytorchModelManager(ModelManager):
     def save_model(self):
         self.dir_manager.save_pytorch_model_state(self.model.state_dict())
 
+    def save_prediction(self):
+        """a tmp implemetation"""
+        self.dir_manager.save_prediction(self.predict_instance('all'), 'dataset')
+        self.dir_manager.save_prediction(self.predict_instance('train'), 'train_dataset')
+        self.dir_manager.save_prediction(self.predict_instance('test'), 'test_dataset')
+
     def get_name(self):
         return self.model_name
 
@@ -192,3 +199,4 @@ if __name__ == '__main__':
     except FileNotFoundError:
         mm.train()
         mm.save_model()
+    mm.save_prediction()

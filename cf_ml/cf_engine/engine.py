@@ -33,7 +33,7 @@ class CFEnginePytorch:
             filters = setting['filters']
             cf_num = setting['cf_num']
             desired_class = setting['desired_class']
-            data_df = self.dataset.get_sample(index=[i for i in range(100, 200)], filters=filters)
+            data_df = self.dataset.get_sample(index=[1, 2, 3], filters=filters)
             subset_cf = self.generate_cfs(data_df, cf_num, desired_class, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute, \
                         max_iter, min_iter, loss_diff, loss_threshold, batch_size, evaluate, verbose)
         if cache:
@@ -263,6 +263,7 @@ if __name__ == '__main__':
 
     dataset = load_HELOC_dataset()
     mm = PytorchModelManager(dataset)
+    dm = mm.get_dir_manager()
     try:
         mm.load_model()
     except FileNotFoundError:
@@ -271,4 +272,8 @@ if __name__ == '__main__':
     engine = CFEnginePytorch(mm, dataset)
     # engine.generate_cfs(dataset.get_sample([i for i in range(100)]), cf_num=4, proximity_weight=0.1,
     #                     lr=0.05, batch_size=2, max_iter=5000, min_iter=100, loss_diff=5e-6, changeable_attribute='all')
-    engine.generate_cfs_from_setting({'changeable_attribute': 'all', 'filters': [], 'cf_num': 4, 'desired_class': 'opposite'}, use_cache=False, batch_size=2)
+    setting = {'changeable_attribute': 'all', 'filters': [], 'cf_num': 4, 'desired_class': 'opposite'}
+    subset_cf = engine.generate_cfs_from_setting(setting, use_cache=True, batch_size=2)
+    # dm.save_cf_with_setting(subset_cf, setting)
+    # dm.rm_cf_with_setting({'changeable_attribute': 'all', 'filters': [], 'cf_num': 3, 'desired_class': 'opposite'})
+    
