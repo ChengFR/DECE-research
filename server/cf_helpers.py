@@ -60,7 +60,7 @@ def data_meta_translate(des, target):
                 'name': col,
                 'description': des[col]['description'],
                 'type': des[col]['type'],
-                'index': des[col]['index']
+                'index': des[col]['index']+1
             }
             if des[col]['type'] == 'categorical':
                 data_meta['target']['categories'] = des[col]['category']
@@ -69,7 +69,7 @@ def data_meta_translate(des, target):
                 'name': col,
                 'description': des[col]['description'],
                 'type': des[col]['type'],
-                'index': des[col]['index']
+                'index': des[col]['index']+1
             })
             if des[col]['type'] == 'categorical':
                 attr['categories'] = des[col]['category']
@@ -78,17 +78,8 @@ def data_meta_translate(des, target):
     data_meta['prediction'] = {
         'name': 'Score',
         'type': 'numerical',
-        'index': len(des.keys()),
+        'index': len(des.keys())+2,
         'extend': [0.0, 1.0]
     }
     return data_meta
 
-def group_cfs(cf_df):
-    grouped = cf_df.groupby('OriginIndex')
-    idx2cfs = {
-        idx: {
-            'index': idx,
-            'counterfactuals': group.drop(columns='OriginIndex').values.T.tolist()
-        }
-        for idx, group in grouped}
-    return idx2cfs
