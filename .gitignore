@@ -138,3 +138,6 @@ dmypy.json
 
 # output dir
 cf_ml/output
+
+# cached file
+.cached_file
