@@ -30,6 +30,7 @@ export async function getDataMeta(params: {
   const url = `${API}/data_meta`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
+  console.log(typeof(data))
   return new DataMeta(data);
 }
 
@@ -89,8 +90,8 @@ export async function getCF(params: {
   const url = `${API}/cf`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
-  console.log(data)
   return data;
+
 }
 
 export async function getCFs(params: {

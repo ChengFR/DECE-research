@@ -282,7 +282,7 @@ export class StackedFeature extends React.PureComponent<
     xScale: d3.ScaleLinear<number, number>
   ) {
     const { startIndex, endIndex, margin } = this.props;
-    // console.log(`rendering from ${startIndex} ${endIndex}`);
+    console.log(`rendering from ${startIndex} ${endIndex}`);
     const domain = xScale.domain();
     return {
       series: [
