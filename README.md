@@ -2,8 +2,7 @@
 
 ## Development
 
-
-### Server
+### Model
 
 Install dependencies:
 
@@ -11,10 +10,18 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Preprocess dataset
+Add PYTHONPATH:
 ```
-python -m data_processing.heloc
+export PYTHONPATH=`pwd`/cf_ml:$PYTHONPATH
 ```
+
+Train model:
+
+```
+python cf_ml/train.py HELOC MLP
+```
+
+### Server
 
 Start server:
 ```bash
