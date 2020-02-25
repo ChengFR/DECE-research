@@ -135,3 +135,6 @@ dmypy.json
 
 # Pycharm
 .idea
+
+# output dir
+cf_ml/output
