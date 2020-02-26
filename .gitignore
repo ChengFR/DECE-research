@@ -137,7 +137,7 @@ dmypy.json
 .idea
 
 # output dir
-cf_ml/output
+cf_ml/output/
 
 # cached file
 .cached_file

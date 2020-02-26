@@ -30,7 +30,6 @@ export async function getDataMeta(params: {
   const url = `${API}/data_meta`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
-  console.log(typeof(data))
   return new DataMeta(data);
 }
 
@@ -65,7 +64,9 @@ export async function getDataset(params: {
       ...columnDisc,
     };
   });
-  const dataFrame = new DataFrame({ data, columns });
+  
+  const index = data.map((row, i) => dataMeta.index? Number(row[dataMeta.index.index]): i)
+  const dataFrame = new DataFrame({ data, columns, index });
   // console.debug(dataFrame);
   return new Dataset(dataFrame, dataMeta);
 }

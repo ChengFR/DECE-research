@@ -103,8 +103,9 @@ def get_cf_meta():
 
 @api.route('/data', methods=['GET'])
 def get_data():
-    data_df = current_app.dir_manager.load_prediction('dataset')
-    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
+    data_df = current_app.dir_manager.load_prediction('dataset', only_valid=True)
+    cols = current_app.dataset.get_columns(preprocess=False) + ['Score', 'index']
+    data_df.reset_index(inplace=True)
     return Response(data_df[cols].to_csv(index=False), mimetype="text/csv")
 
 @api.route('/cf', methods=['GET'])
