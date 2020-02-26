@@ -30,4 +30,4 @@ else:
     except FileNotFoundError:
         mm.train()
         mm.save_model()
-        mm.save_prediction()
+    mm.save_prediction()

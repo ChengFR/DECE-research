@@ -96,11 +96,19 @@ class DirectoryManager:
         """
         data_df.to_csv(os.path.join(self.dir, dataset_name+'.csv'))
 
-    def load_prediction(self, dataset_name='dataset'):
+    def load_prediction(self, dataset_name='dataset', only_valid=False):
         """ a tmp implementation
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
         data_df = pd.read_csv(os.path.join(self.dir, dataset_name+'.csv'))
+        des = self.dataset.get_description()
+        if only_valid:
+            for col in self.dataset.get_feature_names(preprocess=False):
+                if des[col]['type'] == 'numerical':
+                    data_df = data_df[data_df[col] >= des[col]['min']]
+                    data_df = data_df[data_df[col] <= des[col]['max']]
+                else:
+                    data_df = data_df[data_df[col].isin(des[col]['category'])]
         return data_df
 
     def indexof_setting(self, setting):

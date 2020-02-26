@@ -18,10 +18,13 @@ export class DataMeta {
   public features: FeatureDisc[];
   public target: FeatureDisc;
   public prediction?: FeatureDisc;
-  constructor(input: {features: FeatureDisc[], target: FeatureDisc, prediction?: FeatureDisc}) {
+  // add index attribute
+  public index?: FeatureDisc;
+  constructor(input: {features: FeatureDisc[], target: FeatureDisc, prediction?: FeatureDisc, index?: FeatureDisc}) {
     this.features = input.features;
     this.target = input.target;
     this.prediction = input.prediction;
+    this.index = input.index;
     this.name2feature = _.keyBy(this.features, (f) => f.name);
   }
 
@@ -52,10 +55,14 @@ export class Dataset {
     return this.dataMeta.features.map(f => this.dataFrame.columns[f.index]);
   }
 
+  public get index(){
+    return this.dataFrame.index;
+  }
+
   public _reorderedDataFrame = memoize(() => {
     const columns = [this.target];
     if (this.prediction) columns.push(this.prediction);
-    const df = DataFrame.fromColumns([...columns, ...this.features]);
+    const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
     console.debug(df);
     return df;
   })

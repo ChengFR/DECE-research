@@ -81,6 +81,11 @@ def data_meta_translate(des, target):
         'index': len(des.keys()),
         'extend': [0.0, 1.0]
     }
+    data_meta['index'] = {
+        'name': 'index',
+        'type': 'numerical',
+        'index': len(des.keys())+1,
+    }
     return data_meta
 
 def group_cf(cf_df):
