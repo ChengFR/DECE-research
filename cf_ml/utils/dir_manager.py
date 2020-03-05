@@ -174,12 +174,15 @@ class DirectoryManager:
 
     def _filter2str(self, f):
         col = f[0]
-        col_description = self.dataset.get_description
+        col_description = self.dataset.get_description()
         if col_description[col]['type'] == 'categorical':
-            filter_str = col + '-' + '^'.join(sorted(f[1])) + '-' + str(f[2])
+            # filter_str = col + '-' + '^'.join(sorted(f[1])) + '-' + str(f[2])
+            filter_str = "{}-{}-{}".format(col, '^'.join(sorted(f[1])), f[2])
         elif col_description[col]['type'] == 'numerical':
-            filter_str = col + '-' + round(f[1], col_description[col]['decile']) + '-' + \
-                round(f[2], col_description[col]['decile']) + '-' + str(f[3])
+            # filter_str = col + '-' + round(f[1], col_description[col]['decile']) + '-' + \
+            #     round(f[2], col_description[col]['decile']) + '-' + str(f[3])
+            filter_str = "{}-{}-{}-{}".format(col, round(f[1], col_description[col]['decile']), \
+                round(f[2], col_description[col]['decile']), f[3])
         else:
             raise ValueError('{}: illegal filter.'.format(col))
         return filter_str

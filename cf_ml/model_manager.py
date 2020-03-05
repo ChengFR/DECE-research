@@ -44,11 +44,13 @@ class PytorchModel(nn.Module):
         self.fc2 = nn.Linear(60, 30)
         self.fc3 = nn.Linear(30, class_num)
 
+        self.dropout_layer = nn.Dropout()
+
     def forward(self, x):
         x = F.relu(self.fc1(x))
-        x = F.dropout(x)
+        x = self.dropout_layer(x)
         x = F.relu(self.fc2(x))
-        x = F.dropout(x)
+        x = self.dropout_layer(x)
         x = F.sigmoid(self.fc3(x))
         return x
 

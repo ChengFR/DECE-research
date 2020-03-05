@@ -4,6 +4,7 @@ scikit-learn
 torch
 h5py
 cython
+matplotlib
 
 pyzmq
 flask>=1.1

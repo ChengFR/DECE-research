@@ -143,11 +143,16 @@ class Dataset:
         else:
             return self.test_df
 
-    def get_dataset(self, preprocess=True):
+    def get_dataset(self, preprocess=True, valid=False):
+        data = self.raw_df.copy()
+        if valid:
+            for f in self.get_feature_names(preprocess=False):
+                des = self.description[f]
+                if des['type'] == 'numerical':
+                    data = data[(data[f] >= des['min']) & (data[f] <= des['max'])]
         if preprocess:
-            return self.preprocess(self.raw_df)
-        else:
-            return self.raw_df 
+            data = self.preprocess(data)
+        return data
 
     def get_sample(self, index='all', filters=[], preprocess=True):
         if type(index) == int:
@@ -161,18 +166,31 @@ class Dataset:
         # else:
         #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
         filtered_df = self.raw_df.iloc[index]
-        index = filtered_df.index
+        # index = filtered_df.index
         for f in filters:
             col = f[0]
             if self.description[col]['type'] == 'numerical':
                 filtered_df = filtered_df[(filtered_df[col] >= f[1]) & (filtered_df[col] < f[2])]
             else:
                 filtered_df = filtered_df[filtered_df[col].isin(f[1])]
-        filtered_df.set_index(index, inplace=True)
+        # filtered_df.set_index(index, inplace=True)
         if preprocess:
             return self.preprocess(filtered_df)
         else:
             return filtered_df
+
+    def get_mads(self, preprocess=True):
+        """"""
+        data = self.get_dataset(preprocess=preprocess, valid=True)
+        features = self.get_feature_names(preprocess=False)
+        mads = {}
+        for f in features:
+            if self.description[f]['type'] == 'numerical':
+                mads[f] = np.median(abs(data[f].values - np.median(data[f].values)))
+            else:
+                for cat in self.description[f]['category']:
+                    mads['{}_{}'.format(f, cat)] = 0
+        return mads
     
     def get_columns(self, preprocess=True):
         if preprocess:

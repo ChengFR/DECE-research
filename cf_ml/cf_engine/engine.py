@@ -18,10 +18,13 @@ class CFEnginePytorch:
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
 
-    def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50, max_iter=1000, min_iter=100,
-                                  loss_diff=5e-6, loss_threshold=0.01, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
+    def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
+                                  loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
-        :param setting: {'changeable_attribute': str or list of str, 
+        :param setting: {'index': list of int or str, optional
+                        'changeable_attribute': str or list of str, 
+                        'weight': str or array-like
+                        'k': int, number of changed attribute
                         'filters': list of ($attr_name, min, max, boolean: allow special value) or ($attr_name, list of any, boolean: allow special value), 
                         'cf_num': int, 
                         'desired_class': 'opposite' or pandas.DataFrame}
@@ -33,17 +36,22 @@ class CFEnginePytorch:
             filters = setting['filters']
             cf_num = setting['cf_num']
             desired_class = setting['desired_class']
-            data_df = self.dataset.get_sample(index=[1, 2, 3], filters=filters)
-            subset_cf = self.generate_cfs(data_df, cf_num, desired_class, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute, \
-                        max_iter, min_iter, loss_diff, loss_threshold, batch_size, evaluate, verbose)
+            weight = setting['weight']
+            if 'index' in setting.keys():
+                index = setting['index']
+            else:
+                index = 'all'
+            data_df = self.dataset.get_sample(index=index, filters=filters)
+            subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute, \
+                        max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
         if cache:
             self.dir_manager.save_cf_with_setting(subset_cf, setting)
         return subset_cf
 
 
-    def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
+    def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', weight='mads', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
                      changeable_attribute='all',
-                     max_iter=1000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, batch_size=1, evaluate=True, verbose=True):
+                     max_iter=2000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
         :param data_df: pandas.DataFrame, target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
@@ -58,7 +66,7 @@ class CFEnginePytorch:
         :param batch_size: int, number of instance in a batch
         :param verbose: boolean, whether to print out the log information
         """
-        self.update_config(cf_num, desired_class, proximity_weight,
+        self.update_config(cf_num, desired_class, proximity_weight, weight,
                            diversity_weight, clip_frequency, changeable_attribute, max_iter, min_iter, loss_diff, loss_threshold, lr)
 
         # cf_df = pd.DataFrame(columns=self.dataset.get_columns(preprocess=False) +
@@ -96,23 +104,36 @@ class CFEnginePytorch:
             cfs, _, loss, iter = self.optimize(
                 cfs, data_instances, target, expanded_mask, lr)
 
-            predicted_cfs = self.model_manager.predict(self.project(cfs))
+            # predicted_cfs = self.model_manager.predict(self.project(cfs))
             predicted_instances = self.model_manager.predict(data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
+
+            projected_cfs = self.project(cfs)
+            
+
+            for _ in range(post_step):
+                projected_cfs = self.post_step(projected_cfs, data_instances, target, expanded_mask)
+                # print(projected_cfs.loc[0, :])
+
+            predicted_cfs = self.model_manager.predict(projected_cfs[self.dataset.get_columns(preprocess=False)])
+            # print(predicted_cfs[])
 
             subset_cf.append_cfs(predicted_cfs, predicted_instances)
 
             total_loss += loss*(end_id-start_id)
+
+            if evaluate:
+                eval_result = self.evaluate_cfs(predicted_cfs, predicted_instances)
             if verbose:
-                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}".format(end_id,
-                                                                                                  data_num, batch_num, timeit.default_timer()-checkpoint, loss*1000, iter))
+                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, validation rate: {:.3f}".format(\
+                    end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss*1000, iter, eval_result['valid_rate']))
             # print(cf_df)
         if evaluate:
-            eval_result = self.evaluate_cfs(subset_cf)
+            eval_result = self.evaluate_cfs(subset_cf.get_cf(), subset_cf.get_instance())
             print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}, average loss: {:.3f}'.format(
                 timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num*1000))
         return subset_cf
 
-    def update_config(self, cf_num, desired_class, proximity_weight, diversity_weight, clip_frequency, changeable_attribute, max_iter, min_iter, loss_diff, loss_threshold, lr):
+    def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute, max_iter, min_iter, loss_diff, loss_threshold, lr):
         self.cf_num = cf_num
         self.desired_class = desired_class
         self.proximity_weight = proximity_weight
@@ -129,6 +150,17 @@ class CFEnginePytorch:
         self.loss_diff = loss_diff
         self.loss_threshold = loss_threshold
         self.lr = lr
+
+        if weight == 'mads':
+            mads = self.dataset.get_mads()
+            features = self.dataset.get_feature_names(preprocess=True)
+            self.feature_weight = np.array([round(1 / (1 + mads[f]), 3) for f in features])
+        elif weight == 'unit':
+            features = self.dataset.get_feature_names(preprocess=True)
+            self.feature_weight = np.array([1 for f in features])
+        else:
+            self.feature_weight = np.array(weight)
+        self.feature_weight = torch.from_numpy(self.feature_weight).float()
 
     def init_cfs(self, data):
         return np.repeat(data, self.cf_num, axis=0)
@@ -178,7 +210,6 @@ class CFEnginePytorch:
             optimizer.zero_grad()
 
             pred = self.model_manager.forward(cfs)
-
             old_loss = loss.clone()
             loss = self.get_loss(cfs, data_instances, pred, target)
 
@@ -206,9 +237,11 @@ class CFEnginePytorch:
 
     def get_distance(self, cf, origin, metric='L2'):
         if metric == 'L1':
-            dist = torch.dist(cf, origin, 1)
+            # dist = torch.dist(cf, origin, 1)
+            dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
         elif metric == 'L2':
             dist = torch.dist(cf, origin, 2)
+            # dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
         return dist
 
     def clip(self, data):
@@ -225,14 +258,54 @@ class CFEnginePytorch:
             return False
         elif iter >= self.max_iter:
             return True
-        elif self.checkvalid(pred, target) and loss_diff <= self.loss_diff:
+        elif self.checkvalid(pred, target) and loss_diff > 0 and loss_diff <= self.loss_diff:
             return True
         else:
             return False
 
-    def evaluate_cfs(self, subset_cf, metrics=['valid_rate', 'avg_distance']):
-        cf_df = subset_cf.get_cf()
-        instance_df = subset_cf.get_instance()
+    def get_gradient(self, cfs, data_instances, target, mask):
+        cfs = torch.from_numpy(cfs).float()
+        target = torch.from_numpy(target).float()
+        cfs.requires_grad = True
+        target.requires_grad = False
+
+        self.model_manager.fix_model()
+        self.init_loss()
+
+        mask = torch.from_numpy(mask).int()
+        pred = self.model_manager.forward(cfs)
+        loss = self.get_loss(cfs, data_instances, pred, target)
+
+        loss.backward()
+        gradient = cfs.grad
+        return gradient*mask, pred
+
+    def post_step(self, projected_cfs, data_instances, target, mask):
+        feature_names = self.dataset.get_feature_names()
+        target_name = self.dataset.get_target_names(preprocess=False)
+        description = self.dataset.get_description()
+
+        cfs = self.dataset.preprocess(projected_cfs)[feature_names].values
+        grad, pred = self.get_gradient(cfs, data_instances, target, mask)
+        grad = grad.detach().numpy()
+        salient_attr = abs(grad).argmax(axis=1)
+        grad_sign= np.sign(grad)
+        # salient_grad = np.array([[1 if j == salient_attr[i] else 0 for j in range(gard.shape[1])] for i in range(grad.shape[0])]) * np.sign(grad)
+
+        invalid_cfs = pred.argmax(axis=1).numpy() != target.argmax(axis=1)
+        # masked_salient_grad = salient_grad * np.repeat(invalid_cfs[:, np.newaxis], grad.shape[1], axis=1)
+        for i in range(len(projected_cfs)):
+            if invalid_cfs[i]:
+                salient_feature_name = feature_names[salient_attr[i]]
+                if salient_feature_name in description.keys() and description[salient_feature_name]['type'] == 'numerical':
+                    projected_cfs.loc[i, salient_feature_name] -= grad_sign[i, salient_attr[i]] * 1 / 10**description[salient_feature_name]['decile']
+                    # print("{}->{}: {} + {}".format(pred[i, 0], target[i ,0], salient_feature_name, grad_sign[i, salient_attr[i]] * 1 / 10**description[salient_feature_name]['decile']))
+                else:
+                    cfs[i][salient_attr[i]] += grad_sign[i, salient_attr[i]]
+                    projected_cfs.loc[i, :] = self.model_manager.predict(self.project(cfs[i]))
+        return projected_cfs
+
+    def evaluate_cfs(self, cf_df, instance_df, metrics=['valid_rate', 'avg_distance']):
         result = {}
         if 'valid_rate' in metrics:
             target_name = self.dataset.get_target_names(preprocess=False)
@@ -255,25 +328,4 @@ class CFEnginePytorch:
             dist /= len(pp_cf_data)
             result['avg_distance'] = dist.numpy()
         return result
-
-
-if __name__ == '__main__':
-    from load_dataset import load_HELOC_dataset
-    from model_manager import PytorchModelManager
-
-    dataset = load_HELOC_dataset()
-    mm = PytorchModelManager(dataset)
-    dm = mm.get_dir_manager()
-    try:
-        mm.load_model()
-    except FileNotFoundError:
-        mm.train()
-        mm.save_model()
-    engine = CFEnginePytorch(mm, dataset)
-    # engine.generate_cfs(dataset.get_sample([i for i in range(100)]), cf_num=4, proximity_weight=0.1,
-    #                     lr=0.05, batch_size=2, max_iter=5000, min_iter=100, loss_diff=5e-6, changeable_attribute='all')
-    setting = {'changeable_attribute': 'all', 'filters': [], 'cf_num': 4, 'desired_class': 'opposite'}
-    subset_cf = engine.generate_cfs_from_setting(setting, use_cache=True, batch_size=2)
-    # dm.save_cf_with_setting(subset_cf, setting)
-    # dm.rm_cf_with_setting({'changeable_attribute': 'all', 'filters': [], 'cf_num': 3, 'desired_class': 'opposite'})
     
