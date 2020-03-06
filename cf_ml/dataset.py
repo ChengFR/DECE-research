@@ -166,7 +166,7 @@ class Dataset:
         # else:
         #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
         filtered_df = self.raw_df.iloc[index]
-        # index = filtered_df.index
+
         for f in filters:
             col = f[0]
             if self.description[col]['type'] == 'numerical':

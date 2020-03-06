@@ -37,14 +37,14 @@ class ModelManager(ABC):
 
 class PytorchModel(nn.Module):
 
-    def __init__(self, feature_num, class_num):
+    def __init__(self, feature_num, class_num, dropout=0.5):
         super(PytorchModel, self).__init__()
 
         self.fc1 = nn.Linear(feature_num, 60)
         self.fc2 = nn.Linear(60, 30)
         self.fc3 = nn.Linear(30, class_num)
 
-        self.dropout_layer = nn.Dropout()
+        self.dropout_layer = nn.Dropout(dropout)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -54,9 +54,20 @@ class PytorchModel(nn.Module):
         x = F.sigmoid(self.fc3(x))
         return x
 
+class PytorchLinearModel(nn.Module):
+
+    def __init__(self, feature_num, class_num):
+        super(PytorchLinearModel, self).__init__()
+
+        self.fc = nn.Linear(feature_num, class_num)
+
+    def forward(self, x):
+        return F.sigmoid(self.fc(x))
+
+
 class PytorchModelManager(ModelManager):
     """Model manager of a pytorch model"""
-    def __init__(self, dataset, model_name='MLP', root_dir=OUTPUT_ROOT, model=None):
+    def __init__(self, dataset, model_name='MLP', root_dir=OUTPUT_ROOT, model_type="3fc", model=None):
         ModelManager.__init__(self)
         self.dataset = dataset
         self.model_name = model_name
@@ -66,7 +77,14 @@ class PytorchModelManager(ModelManager):
         self.target_names = self.dataset.get_target_names()
 
         if model is None:
-            self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
+            if model_type == "3fc":
+                self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
+            elif model_type == "3fc_dropout0":
+                self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names), dropout=0)
+            elif  model_type == "linear":
+                self.model = PytorchLinearModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
+            else:
+                raise ValueError("Model type should be in [\"3fc\", \"3fc_dropout0\", \"linear\"]")
         else:
             self.model = model
 
@@ -149,7 +167,7 @@ class PytorchModelManager(ModelManager):
         self.train_accuracy = float(self.evaluate('train'))
         self.test_accuracy = float(self.evaluate('test'))
 
-        self.dir_manager.update_model_meta(self)
+        self.dir_manager.update_model_meta()
         self.dir_manager.init_dir()
 
     def evaluate(self, dataset='test', batch_size=128):

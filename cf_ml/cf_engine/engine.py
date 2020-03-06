@@ -18,7 +18,7 @@ class CFEnginePytorch:
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
 
-    def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
+    def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=0.1, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
@@ -87,35 +87,28 @@ class CFEnginePytorch:
             start_id = batch_num*batch_size
             end_id = min(batch_num*batch_size+batch_size, len(data_df))
 
-            data_instances = data_df[feature_names].iloc[start_id: end_id].values
-
-            if type(desired_class) is str and desired_class == 'opposite':
-                target = self.get_desired_class(data_instances)
-            else:
-                target = desired_class
-
-            cfs = self.init_cfs(data_instances)
-            target = self.init_target(target)
-            data_instances = torch.from_numpy(data_instances).float()
+            instances = data_df[feature_names].iloc[start_id: end_id].values
 
             expanded_mask = np.repeat(
                 mask[np.newaxis, :], self.cf_num*(end_id-start_id), axis=0)
 
+            if type(desired_class) is str and desired_class == 'opposite':
+                targets = self.get_desired_class(instances)
+            else:
+                targets = desired_class
+
+            cfs, targets, instances = self.prepare_cfs(targets=targets, instances=instances, mask=expanded_mask)
+
             cfs, _, loss, iter = self.optimize(
-                cfs, data_instances, target, expanded_mask, lr)
+                cfs, instances, targets, expanded_mask, lr)
 
-            # predicted_cfs = self.model_manager.predict(self.project(cfs))
             predicted_instances = self.model_manager.predict(data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
-
             projected_cfs = self.project(cfs)
-            
 
             for _ in range(post_step):
-                projected_cfs = self.post_step(projected_cfs, data_instances, target, expanded_mask)
-                # print(projected_cfs.loc[0, :])
+                projected_cfs = self.post_step(projected_cfs, instances, targets, expanded_mask)
 
             predicted_cfs = self.model_manager.predict(projected_cfs[self.dataset.get_columns(preprocess=False)])
-            # print(predicted_cfs[])
 
             subset_cf.append_cfs(predicted_cfs, predicted_instances)
 
@@ -126,7 +119,6 @@ class CFEnginePytorch:
             if verbose:
                 print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, validation rate: {:.3f}".format(\
                     end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss*1000, iter, eval_result['valid_rate']))
-            # print(cf_df)
         if evaluate:
             eval_result = self.evaluate_cfs(subset_cf.get_cf(), subset_cf.get_instance())
             print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}, average loss: {:.3f}'.format(
@@ -162,11 +154,32 @@ class CFEnginePytorch:
             self.feature_weight = np.array(weight)
         self.feature_weight = torch.from_numpy(self.feature_weight).float()
 
-    def init_cfs(self, data):
-        return np.repeat(data, self.cf_num, axis=0)
+    def init_cfs(self, data, mask):
+        cfs = np.repeat(data, self.cf_num, axis=0)
+        cfs += mask * np.random.rand(cfs.shape[0], cfs.shape[1])*0.1
+        return cfs
 
-    def init_target(self, target):
+    def init_targets(self, target):
         return np.repeat(target, self.cf_num, axis=0)
+
+    def init_instances(self, instances):
+        return np.repeat(instances, self.cf_num, axis=0)
+
+    def prepare_cfs(self, instances, targets, cfs=None, mask=None):
+
+        # init cfs
+        if cfs is None:
+            cfs = torch.from_numpy(self.init_cfs(instances, mask)).float()
+        else:
+            cfs = torch.from_numpy(cfs).float()
+
+        self.clip(cfs)
+        cfs.requires_grad = True
+        # init targets
+        targets = torch.from_numpy(self.init_targets(targets)).float()
+        # init instances
+        instances = torch.from_numpy(self.init_instances(instances)).float()
+        return cfs, targets, instances
 
     def get_desired_class(self, data):
         data = torch.from_numpy(data).float()
@@ -181,10 +194,6 @@ class CFEnginePytorch:
         return self.dataset.depreprocess(data_df)
 
     def optimize(self, cfs, data_instances, target, mask, lr):
-        cfs = torch.from_numpy(cfs).float()
-        target = torch.from_numpy(target).float()
-        cfs.requires_grad = True
-        target.requires_grad = False
 
         self.model_manager.fix_model()
         self.init_loss()
@@ -229,19 +238,39 @@ class CFEnginePytorch:
         self.criterion = nn.MarginRankingLoss(reduction='mean')
 
     def get_loss(self, cfs, data_instances, pred, target):
+        # prediction loss
         loss = self.criterion(pred, torch.ones(pred.shape)*0.5, target)
-        for i, cf in enumerate(cfs):
-            loss += self.proximity_weight * (1/self.cf_num/len(cfs)) * \
-                self.get_distance(cf, data_instances[i//self.cf_num])
+        # proximity loss
+        loss += self.proximity_weight * torch.sum(self.get_distance_quick(cfs, data_instances)) / (len(cfs))
+        # diversity loss
+        if self.diversity_weight > 0 and self.cf_num > 1:
+            for i in range(len(cfs) // self.cf_num):
+                det_entries = torch.ones([self.cf_num, self.cf_num], dtype=torch.float32)
+                for j in range(self.cf_num):
+                    start_index = i*self.cf_num
+                    end_index = (i+1)*self.cf_num
+                    distance_vector = self.get_distance_quick(cfs[start_index: end_index], \
+                        cfs[start_index+j].unsqueeze(0).repeat(self.cf_num, 1))
+                    # print(distance_vector)
+                    det_entries[j, :] = (1 / (distance_vector + 1))
+                # print(det_entries)
+                loss -= self.diversity_weight * torch.det(det_entries) / (len(cfs) // self.cf_num)
         return loss
 
-    def get_distance(self, cf, origin, metric='L2'):
+    def get_distance(self, cf, origin, metric='L1'):
         if metric == 'L1':
             # dist = torch.dist(cf, origin, 1)
             dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
         elif metric == 'L2':
-            dist = torch.dist(cf, origin, 2)
+            dist = torch.sum(torch.sqrt((torch.abs(cf - origin) * self.feature_weight)**2))
             # dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
+        return dist
+
+    def get_distance_quick(self, cfs, origins, metric='L1'):
+        if metric == 'L1':
+            dist = torch.sum(torch.abs(cfs - origins) * self.feature_weight.unsqueeze(0).repeat(len(cfs), 1), axis=1)
+        elif metric == 'L2':
+            dist = torch.sum(torch.sqrt((torch.abs(cfs - origins) * self.feature_weight.unsqueeze(0).repeat(len(cfs), 1))**2), axis=1)
         return dist
 
     def clip(self, data):
@@ -264,11 +293,6 @@ class CFEnginePytorch:
             return False
 
     def get_gradient(self, cfs, data_instances, target, mask):
-        cfs = torch.from_numpy(cfs).float()
-        target = torch.from_numpy(target).float()
-        cfs.requires_grad = True
-        target.requires_grad = False
-
         self.model_manager.fix_model()
         self.init_loss()
 
@@ -285,14 +309,15 @@ class CFEnginePytorch:
         target_name = self.dataset.get_target_names(preprocess=False)
         description = self.dataset.get_description()
 
-        cfs = self.dataset.preprocess(projected_cfs)[feature_names].values
+        cfs = torch.from_numpy(self.dataset.preprocess(projected_cfs)[feature_names].values).float()
+        cfs.requires_grad = True
         grad, pred = self.get_gradient(cfs, data_instances, target, mask)
         grad = grad.detach().numpy()
         salient_attr = abs(grad).argmax(axis=1)
         grad_sign= np.sign(grad)
         # salient_grad = np.array([[1 if j == salient_attr[i] else 0 for j in range(gard.shape[1])] for i in range(grad.shape[0])]) * np.sign(grad)
 
-        invalid_cfs = pred.argmax(axis=1).numpy() != target.argmax(axis=1)
+        invalid_cfs = pred.argmax(axis=1).numpy() != target.argmax(axis=1).numpy()
         # masked_salient_grad = salient_grad * np.repeat(invalid_cfs[:, np.newaxis], grad.shape[1], axis=1)
         for i in range(len(projected_cfs)):
             if invalid_cfs[i]:
