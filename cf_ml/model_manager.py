@@ -113,15 +113,10 @@ class PytorchModelManager(ModelManager):
 
     def predict(self, x, preprocess=True):
         self.model.eval()
-        if type(x) is type(pd.DataFrame()):
-            # if len(x.columns) == len(self.dataset.get_columns(preprocess=False)):
-            if preprocess:
-                x = self.dataset.preprocess(x)
-            x = torch.from_numpy(x[self.feature_names].values).float()
-        elif type(x) is type(np.array([])):
-            if preprocess:
-                x = self.dataset.preprocess(x, mode='x')
-            x = torch.from_numpy(x[self.feature_names].values).float()
+
+        if preprocess:
+            x = self.dataset.preprocess(x, mode='x')
+        x = torch.from_numpy(x[self.feature_names].values).float()
         pred = self.model(x).detach().numpy()
         output_df = pd.DataFrame(np.concatenate((x, pred), axis=1), \
             columns=self.feature_names+self.target_names)
