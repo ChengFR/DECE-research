@@ -73,25 +73,6 @@ class Dataset:
     def _fit_one_hot_encoder(self, data):
         pass
 
-    # def any2df(self, data, mode='all'):
-    #     if type(data) is type(pd.DataFrame()):
-    #         data_df = data
-    #     else:
-    #         data = np.array(data, dtype=np.float)
-    #         if len(data.shape) == 1:
-    #             data = data[np.newaxis, :, :]
-    #         if 'mode' == 'all':
-    #             if data.shape[1] == len(self.origin_columns):
-    #                 data_df = pd.DataFrame(data, columns=self.origin_columns)
-    #             elif data.shape[1] == len(self.dummy_columns):
-    #                 data_df = pd.DataFrame(data, columns=self.dummy_columns)
-    #         elif 'mode' == 'x':
-    #             if data.shape[1] == len(self.get_feature_names(preprocess=False)):
-    #                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
-    #             elif data.shape[1] == len(self.get_feature_names(preprocess=True)):
-    #                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
-    #     return data_df
-
     def _normalize(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'numerical':
