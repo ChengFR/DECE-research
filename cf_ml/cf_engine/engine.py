@@ -98,11 +98,22 @@ class CFEnginePytorch:
             else:
                 targets = desired_class
 
-            cfs, targets, instances = self.prepare_cfs(
+            init_cfs, targets, instances = self.prepare_cfs(
                 targets=targets, instances=instances, mask=expanded_mask)
 
             cfs, _, loss, iter = self.optimize(
-                cfs, instances, targets, expanded_mask, lr)
+                init_cfs, instances, targets, expanded_mask, lr)
+
+            if self.k > 0 and self.k < mask.sum():
+                diff = (cfs - instances).abs()
+                key_features = diff.argsort(dim=1, descending=True)[:, :k]
+                new_mask = torch.zeros(cfs.shape[0], cfs.shape[1])
+                for i in range(cfs.shape[0]):
+                    new_mask[i, key_features[i]] = 1
+                cfs, _, loss, iter = self.optimize(
+                    init_cfs, instances, targets, expanded_mask, lr)
+
+            cfs = cfs.detach().numpy()
 
             predicted_instances = self.model_manager.predict(
                 data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
@@ -193,6 +204,8 @@ class CFEnginePytorch:
                     else:
                         self.normed_max['{}_{}'.format(col, cat)] = 0
         self.normed_max = torch.from_numpy(self.normed_max.values).float()
+
+        self.k = k
         
 
     def init_cfs(self, data, mask):
@@ -271,7 +284,7 @@ class CFEnginePytorch:
                 cfs.data = self.clip(cfs.data)
 
         cfs.data = self.clip(cfs.data)
-        return cfs.detach().numpy(), pred.detach().numpy(), loss.detach().numpy(), iter
+        return cfs, pred, loss.detach().numpy(), iter
 
     def init_loss(self):
         # self.criterion = nn.HingeEmbeddingLoss(reduction='sum')
