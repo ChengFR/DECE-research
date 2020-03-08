@@ -120,7 +120,7 @@ class PytorchModelManager(ModelManager):
             x = torch.from_numpy(x[self.feature_names].values).float()
         elif type(x) is type(np.array([])):
             if preprocess:
-                x = self.dataset.preprocess(x)
+                x = self.dataset.preprocess(x, mode='x')
             x = torch.from_numpy(x[self.feature_names].values).float()
         pred = self.model(x).detach().numpy()
         output_df = pd.DataFrame(np.concatenate((x, pred), axis=1), \
