@@ -21,6 +21,14 @@ def load_german_credit_dataset():
 def load_boston_housing_dataset():
     pass
 
+def load_diabetes_dataset():
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'diabetes/diabetes.csv'))
+    description = pd.read_csv(os.path.join(DATA_DIR,'diabetes/description.csv'), index_col='name').to_dict('index')
+    for _, info in description.items():
+        if type(info['category']) is str:
+            info['category'] = [int(cat) for cat in info['category'].split(' ')]
+    return Dataset('diabetes', data_df, description, 'Outcome')
+
 
 if __name__ == '__main__':
     dataset = load_HELOC_dataset()
