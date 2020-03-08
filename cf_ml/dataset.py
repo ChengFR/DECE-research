@@ -71,27 +71,26 @@ class Dataset:
     def _fit_one_hot_encoder(self, data):
         pass
 
-    def any2df(self, data, mode='all'):
-        if type(data) is type(pd.DataFrame()):
-            data_df = data
-        else:
-            data = np.array(data, dtype=np.float)
-            if len(data.shape) == 1:
-                data = data[np.newaxis, :, :]
-            if 'mode' == 'all':
-                if data.shape[1] == len(self.origin_columns):
-                    data_df = pd.DataFrame(data, columns=self.origin_columns)
-                elif data.shape[1] == len(self.dummy_columns):
-                    data_df = pd.DataFrame(data, columns=self.dummy_columns)
-            elif 'mode' == 'x':
-                if data.shape[1] == len(self.get_feature_names(preprocess=False)):
-                    data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
-                elif data.shape[1] == len(self.get_feature_names(preprocess=True)):
-                    data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
-        return data_df
+    # def any2df(self, data, mode='all'):
+    #     if type(data) is type(pd.DataFrame()):
+    #         data_df = data
+    #     else:
+    #         data = np.array(data, dtype=np.float)
+    #         if len(data.shape) == 1:
+    #             data = data[np.newaxis, :, :]
+    #         if 'mode' == 'all':
+    #             if data.shape[1] == len(self.origin_columns):
+    #                 data_df = pd.DataFrame(data, columns=self.origin_columns)
+    #             elif data.shape[1] == len(self.dummy_columns):
+    #                 data_df = pd.DataFrame(data, columns=self.dummy_columns)
+    #         elif 'mode' == 'x':
+    #             if data.shape[1] == len(self.get_feature_names(preprocess=False)):
+    #                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
+    #             elif data.shape[1] == len(self.get_feature_names(preprocess=True)):
+    #                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
+    #     return data_df
 
-    def normalize(self, data, mode='all'):
-        data_df = self.any2df(data, mode)
+    def _normalize(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'numerical':
                 minx = self.description[col]['min']
@@ -100,8 +99,7 @@ class Dataset:
                     data_df[col] = (data_df[col] - minx)/(maxx-minx)
         return data_df
 
-    def denormalize(self, data, mode='all'):
-        data_df = self.any2df(data, mode)
+    def _denormalize(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'numerical':
                 minx = self.description[col]['min']
@@ -111,16 +109,14 @@ class Dataset:
                     data_df[col] = (data_df[col] * (maxx-minx) + minx).round(decile)
         return data_df
 
-    def to_dummy(self, data, mode='all'):
-        data_df = self.any2df(data, mode)
+    def _to_dummy(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 for cat in self.description[col]['category']:
                     data_df.loc[:, '{}_{}'.format(col, cat)] = (data_df[col] == cat).astype(int)
         return data_df[self.dummy_columns]
 
-    def from_dummy(self, data, mode='all'):
-        data_df = self.any2df(data, mode)
+    def _from_dummy(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 cats = self.description[col]['category']
@@ -132,10 +128,28 @@ class Dataset:
         return data_df[self.origin_columns]
 
     def preprocess(self, data, mode='all'):
-        return self.normalize(self.to_dummy(data, mode), mode)
+        if type(data) is type(pd.DataFrame()):
+            data_df = data
+        elif type(data) is type(np.array([])):
+            if mode == 'all':
+                data_df = pd.DataFrame(data, columns=self.origin_columns)
+            elif mode == 'x':
+                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
+            elif mode == 'y':
+                data_df = pd.DataFrame(data, columns=self.get_target_names(preprocess=False))
+        return self._normalize(self._to_dummy(data_df))
 
     def depreprocess(self, data, mode='all'):
-        return self.from_dummy(self.denormalize(data, mode), mode)
+        if type(data) is type(pd.DataFrame()):
+            data_df = data
+        elif type(data) is type(np.array([])):
+            if mode == 'all':
+                data_df = pd.DataFrame(data, columns=self.origin_columns)
+            elif mode == 'x':
+                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
+            elif mode == 'y':
+                data_df = pd.DataFrame(data, columns=self.get_target_names(preprocess=True))
+        return self._from_dummy(self._denormalize(data_df))
 
     def get_train_dataset(self, preprocess=True):
         if preprocess:
