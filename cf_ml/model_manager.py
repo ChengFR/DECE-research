@@ -166,9 +166,7 @@ class PytorchModelManager(ModelManager):
                 print("Epoch: {}, loss={:.3f}, train_accuracy={:.3f}, test_accuracy={:.3f}".format(e, loss, self.evaluate('train'), self.evaluate('test')))
         self.train_accuracy = float(self.evaluate('train'))
         self.test_accuracy = float(self.evaluate('test'))
-
         self.dir_manager.update_model_meta()
-        self.dir_manager.init_dir()
 
     def evaluate(self, dataset='test', batch_size=128):
         if dataset == 'test':
@@ -190,6 +188,7 @@ class PytorchModelManager(ModelManager):
         return (target_class == pred_class).mean()
 
     def save_model(self):
+        self.dir_manager.init_dir()
         self.dir_manager.save_pytorch_model_state(self.model.state_dict())
 
     def save_prediction(self):

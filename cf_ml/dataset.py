@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 class Dataset:
     """A class to store and process dataframe dataset."""
 
-    def __init__(self, name, dataframe, description, target_name, split_rate=0.8):
+    def __init__(self, name, dataframe, description, target_name, split_rate=0.8, split_seed=0):
         """ The initial method
         :param name: str, the name of the dataset, e.g. HELOC, adult
         :param dataframe: pandas.Dataframe, raw dataset in the form of pandas.dataframe
@@ -28,7 +28,7 @@ class Dataset:
         self._fit_one_hot_encoder(self.raw_df)
 
         self.train_df, self.test_df = train_test_split(
-            self.raw_df.reset_index(), train_size=split_rate)
+            self.raw_df.reset_index(), train_size=split_rate, random_state=0)
         self.train_df.set_index('index', inplace=True)
         self.test_df.set_index('index', inplace=True)
 
@@ -44,11 +44,11 @@ class Dataset:
         # complete min and max for numerical attributes
         for col, info in self.description.items():
             if info['type'] == 'numerical':
-                if np.isnan(info['min']):
+                if 'min' not in info or np.isnan(info['min']):
                     info['min'] = float(self.raw_df[col].min())
-                if np.isnan(info['max']):
+                if 'max' not in info or np.isnan(info['max']):
                     info['max'] = float(self.raw_df[col].max())
-                if np.isnan(info['decile']):
+                if 'decile' not in info or np.isnan(info['decile']):
                     info['decile'] = 0
 
         # complete category for categorial attribtues and generate dummy attributes

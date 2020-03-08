@@ -18,7 +18,7 @@ class CFEnginePytorch:
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
 
-    def generate_cfs_from_setting(self, setting, proximity_weight=0.1, diversity_weight=0.1, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
+    def generate_cfs_from_setting(self, setting, proximity_weight=0.01, diversity_weight=0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
