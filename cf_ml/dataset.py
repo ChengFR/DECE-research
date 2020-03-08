@@ -113,15 +113,19 @@ class Dataset:
 
     def preprocess(self, data, mode='all'):
         if mode == 'all':
-            if type(data) is type(pd.DataFrame()):
+            if isinstance(data, pd.DataFrame):
                 data_df = data
-            elif type(data) is type(np.array([])):
+            else:
+                data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.origin_columns)
             processed_df = self._normalize(self._to_dummy(data_df))
         elif mode == 'x':
             if type(data) is type(pd.DataFrame()):
                 data_df = data
-            elif type(data) is type(np.array([])):
+            else:
+                data = np.array(data)
+                if len(data.shape) == 1:
+                    data = data[np.newaxis, :]
                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
             target_col = self.get_target_names(preprocess=False)
             if self.description[target_col]['type'] == 'categorical':
@@ -136,13 +140,15 @@ class Dataset:
         if mode == 'all':
             if type(data) is type(pd.DataFrame()):
                 data_df = data
-            elif type(data) is type(np.array([])):
+            else:
+                data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.dummy_columns)
             deprocessed_df = self._from_dummy(self._denormalize(data_df))
         elif mode == 'x':
             if type(data) is type(pd.DataFrame()):
                 data_df = data
-            elif type(data) is type(np.array([])):
+            else:
+                data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
             for col in self.get_target_names(preprocess=True):  
                 data_df[col] = 0
