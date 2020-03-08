@@ -50,6 +50,8 @@ class Dataset:
                     info['max'] = float(self.raw_df[col].max())
                 if 'decile' not in info or np.isnan(info['decile']):
                     info['decile'] = 0
+                else:
+                    info['decile'] = int(info['decile'])
 
         # complete category for categorial attribtues and generate dummy attributes
         for col, info in self.description.items():
@@ -121,35 +123,50 @@ class Dataset:
             if self.description[col]['type'] == 'categorical':
                 cats = self.description[col]['category']
                 dummy_col = ['{}_{}'.format(col, cat) for cat in cats]
-                data_df[col] = data_df.apply(lambda row: \
-                    cats[np.array([val for col_name, val in zip(data_df.columns, row) if col_name in dummy_col]).argmax()], axis=1)
+                category_index = data_df[dummy_col].values.argmax(axis=1)
+                category_value = [cats[index] for index in category_index]
+                data_df[col] = category_value
                 # data_df[col] = data_df.apply(lambda row: \
                 #     cats[np.array([val for col_name, val in zip(data_df.columns, row) if col_name in dummy_col]).argmax()])
         return data_df[self.origin_columns]
 
     def preprocess(self, data, mode='all'):
-        if type(data) is type(pd.DataFrame()):
-            data_df = data
-        elif type(data) is type(np.array([])):
-            if mode == 'all':
+        if mode == 'all':
+            if type(data) is type(pd.DataFrame()):
+                data_df = data
+            elif type(data) is type(np.array([])):
                 data_df = pd.DataFrame(data, columns=self.origin_columns)
-            elif mode == 'x':
+            processed_df = self._normalize(self._to_dummy(data_df))
+        elif mode == 'x':
+            if type(data) is type(pd.DataFrame()):
+                data_df = data
+            elif type(data) is type(np.array([])):
                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
-            elif mode == 'y':
-                data_df = pd.DataFrame(data, columns=self.get_target_names(preprocess=False))
-        return self._normalize(self._to_dummy(data_df))
+            target_col = self.get_target_names(preprocess=False)
+            if self.description[target_col]['type'] == 'categorical':
+                data_df[target_col] = self.description[target_col]['category'][0]
+            else:
+                data_df[target_col] = self.description[target_col]['min']
+            processed_df = self._normalize(self._to_dummy(data_df))[self.get_feature_names(preprocess=False)]
 
+        return processed_df
+        
     def depreprocess(self, data, mode='all'):
-        if type(data) is type(pd.DataFrame()):
-            data_df = data
-        elif type(data) is type(np.array([])):
-            if mode == 'all':
-                data_df = pd.DataFrame(data, columns=self.origin_columns)
-            elif mode == 'x':
-                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
-            elif mode == 'y':
-                data_df = pd.DataFrame(data, columns=self.get_target_names(preprocess=True))
-        return self._from_dummy(self._denormalize(data_df))
+        if mode == 'all':
+            if type(data) is type(pd.DataFrame()):
+                data_df = data
+            elif type(data) is type(np.array([])):
+                data_df = pd.DataFrame(data, columns=self.dummy_columns)
+            deprocessed_df = self._from_dummy(self._denormalize(data_df))
+        elif mode == 'x':
+            if type(data) is type(pd.DataFrame()):
+                data_df = data
+            elif type(data) is type(np.array([])):
+                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
+            for col in self.get_target_names(preprocess=True):  
+                data_df[col] = 0
+            deprocessed_df = self._from_dummy(self._denormalize(data_df))[self.get_feature_names(preprocess=True)]
+        return deprocessed_df
 
     def get_train_dataset(self, preprocess=True):
         if preprocess:
