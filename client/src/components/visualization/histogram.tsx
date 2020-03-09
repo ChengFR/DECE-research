@@ -78,6 +78,7 @@ export function drawHistogram(
 
   const bins = histogram(data);
   const allBins = allData && histogram(allData);
+  console.log(bins);
 
   // Y axis: scale and draw:
   const y = d3.scaleLinear().range(yRange);

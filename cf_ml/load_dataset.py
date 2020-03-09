@@ -3,20 +3,13 @@ import numpy as np
 from sklearn import datasets
 import pandas as pd
 
-# from data import Dataset
-from data_interface import Dataset
+from dataset import Dataset
 
-# def load_HELOC_dataset():
-#     df = pd.read_csv('../data/HELOC/heloc_dataset_v2.csv')
-#     data = df.to_numpy()
-#     x = data[:, 1:]
-#     y = data[:, 0]
-#     dd = pd.read_csv('../data/HELOC/description.csv')
-#     attr_disc = dd.to_dict('records')
-#     return Dataset(attr_disc=attr_disc, name='HELOC', x=x, y=y)
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+
 def load_HELOC_dataset():
-    data_df = pd.read_csv('../data/HELOC/heloc_dataset_v1.csv')
-    description = pd.read_csv('../data/HELOC/description.csv', index_col='name').to_dict('index')
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'HELOC/heloc_dataset_v1.csv'))
+    description = pd.read_csv(os.path.join(DATA_DIR,'HELOC/description.csv'), index_col='name').to_dict('index')
     for _, info in description.items():
         if type(info['category']) is str:
             info['category'] = info['category'].split(' ')
@@ -27,6 +20,14 @@ def load_german_credit_dataset():
 
 def load_boston_housing_dataset():
     pass
+
+def load_diabetes_dataset():
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'diabetes/diabetes.csv'))
+    description = pd.read_csv(os.path.join(DATA_DIR,'diabetes/description.csv'), index_col='name').to_dict('index')
+    for _, info in description.items():
+        if type(info['category']) is str:
+            info['category'] = [int(cat) for cat in info['category'].split(' ')]
+    return Dataset('diabetes', data_df, description, 'Outcome')
 
 
 if __name__ == '__main__':
