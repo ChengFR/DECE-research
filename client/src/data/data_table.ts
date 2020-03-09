@@ -59,10 +59,10 @@ export default class DataFrame implements IDataFrame {
     return data;
   }
 
-  static fromColumns(columns: (IColumn<string> | IColumn<number>)[]) {
+  static fromColumns(columns: (IColumn<string> | IColumn<number>)[], index?: number[]) {
     // console.debug(columns);
     const dataT = columns.map(c => c.series.toArray());
-    const newDF = new DataFrame({dataT, columns}, false);
+    const newDF = new DataFrame({dataT, columns, index}, false);
     newDF._columns = columns;
     return newDF;
   }
@@ -81,7 +81,7 @@ export default class DataFrame implements IDataFrame {
     this.at = this.at.bind(this);
     this._columnSpecs = columns;
     this._name2column = _.keyBy(this.columns, c => c.name);
-    this._index = input.index || _.range(0, this.length);
+    this._index = input.index ? input.index : _.range(0, this.length);
   }
 
   public get index() {
