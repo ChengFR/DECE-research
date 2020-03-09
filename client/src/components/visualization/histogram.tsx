@@ -96,15 +96,8 @@ export function drawHistogram(
     const endIndex = _.findLastIndex(bins, ({x0}) => x0 !== undefined && x0 < selectedRange[1]);
     rangeBrushing = [startIndex, endIndex];
   }
-  console.debug("brushed Range", rangeBrushing);
+  // console.debug("brushed Range", rangeBrushing);
   let brushing: boolean = false;
-
-  // getChildOrAppend<SVGGElement, SVGElement>(root, "rect", "bg")
-  //   .attr('width', width).attr('height', height)
-  //   .on('click', () => {
-  //     rangeBrushing = null;
-  //     onSelectRange && onSelectRange();
-  //   });
 
   const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
     .attr(

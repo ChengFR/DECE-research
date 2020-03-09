@@ -45,6 +45,7 @@
 .table-grid .cell.col-index {
   color: #888;
   overflow: hidden;
+  cursor: e-resize;
 }
 
 .table-header {

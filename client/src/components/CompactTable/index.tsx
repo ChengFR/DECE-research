@@ -185,7 +185,7 @@ export default class CFTableView extends React.Component<
             columnMargin.bottom
         );
       } else {
-        return pixel * (row.endIndex - row.startIndex);
+        return pixel * (row.endIndex - row.startIndex + 1);
       }
     });
   });
@@ -409,23 +409,23 @@ export default class CFTableView extends React.Component<
   renderCellCollapsed(props: CellProps, rowState: CollapsedRows) {
     const { columnIndex, rowIndex, width } = props;
     const { pixel } = this.props;
-    const { dataFrame } = this.state;
+    const { columns } = this.state;
     if (columnIndex === -1) {
       // index column
       return <div className="cell-content"></div>;
     } else {
       return (
         <StackedFeature
-          data={dataFrame.columns[columnIndex].series.toArray()}
+          data={columns[columnIndex].series.toArray()}
           startIndex={rowState.startIndex}
           endIndex={rowState.endIndex}
           pixel={pixel}
-          xScale={this.tableRef!.xScale(columnIndex)}
+          xScale={columns[columnIndex].xScale}
           width={width}
           height={this.rowHeight({ index: rowIndex })}
           margin={collapsedCellMargin}
           onHoverRow={row => this.onHover(row, columnIndex)}
-          onClickRow={row => (typeof row === "number" && this.onExpandRow(row))}
+          onClickRow={this.onExpandRow}
           // style={{marginTop: 2, position: 'relative'}}
         />
       );
