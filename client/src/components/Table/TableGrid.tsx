@@ -118,6 +118,7 @@ export default class TableGrid extends React.PureComponent<
           height={height}
           style={styleLeftGrid}
           scrollTop={scrollTop}
+          // isScrollingOptOut={true}
           overscanRowCount={overscanRowCount}
           onScroll={
             onScroll &&
@@ -155,6 +156,7 @@ export default class TableGrid extends React.PureComponent<
           scrollTop={scrollTop}
           onScroll={onScroll}
           onSectionRendered={onSectionRendered}
+          // isScrollingOptOut={true}
           overscanColumnCount={3}
           overscanRowCount={overscanRowCount}
           // scrollToColumn={scrollToColumn - fixedColumnCount}

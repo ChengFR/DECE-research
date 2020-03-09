@@ -154,6 +154,7 @@ export default class Header extends React.Component<
           tabIndex={null}
           width={rightGridWidth}
           style={styleRightGrid}
+          // isScrollingOptOut={true}
           overscanColumnCount={3}
         />
       </div>

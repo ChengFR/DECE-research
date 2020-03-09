@@ -72,7 +72,7 @@ export interface FilterRows extends Action {
 // Reducers
 
 // break collapsed rows so that we won't render too many rows in a cell
-function breakCollapsedRows(row: CollapsedRows, maxStep: number = 500): CollapsedRows[] {
+function breakCollapsedRows(row: CollapsedRows, maxStep: number = 300): CollapsedRows[] {
   const {startIndex, endIndex, state} = row;
   const n = Math.ceil((endIndex - startIndex) / maxStep);
   if (n === 1) return [row];

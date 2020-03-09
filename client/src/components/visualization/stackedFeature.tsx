@@ -95,12 +95,12 @@ export interface IStackedFeatureProps {
   svgStyle?: React.CSSProperties;
   className?: string;
   onHoverRow?: (rowIndex: number | null) => any;
-  onClickRow?: (rowIndex: number | null) => any;
+  onClickRow?: (rowIndex: number) => any;
 }
 
 export interface IStackedFeatureState {}
 
-export class StackedFeature extends React.PureComponent<
+export class StackedFeature extends React.Component<
   IStackedFeatureProps,
   IStackedFeatureState
 > {
@@ -116,7 +116,12 @@ export class StackedFeature extends React.PureComponent<
     this.state = { hoveredBin: null };
     this.paint = this.paint.bind(this);
     this.getHeight = this.getHeight.bind(this);
-    this.afterRender = this.afterRender.bind(this);
+    // this.afterRender = this.afterRender.bind(this);
+  }
+
+  public shouldComponentUpdate(nextProps: IStackedFeatureProps) {
+    if (shallowCompare(nextProps, this.props, new Set(["onHoverRow"]))) return false;
+    return true;
   }
 
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
@@ -177,76 +182,82 @@ export class StackedFeature extends React.PureComponent<
     // }
   }
 
-  public afterRender() {
-    const {startIndex, onHoverRow, onClickRow} = this.props;
-    // enable echarts with brushes
-    const echart = (this.eRef.current as any).getEchartsInstance() as ECharts;
-    // console.log(echarts);
-    // echart.dispatchAction({
-    //   type: 'takeGlobalCursor',
-    //   key: 'brush',
-    //   brushOption: {
-    //       brushType: 'lineY',
-    //       brushMode: 'single'
-    //   }
-    // });
+  // public afterRender() {
+  //   const {startIndex, onHoverRow, onClickRow} = this.props;
+  //   // enable echarts with brushes
+  //   const echart = (this.eRef.current as any).getEchartsInstance() as ECharts;
+  //   // console.log(echarts);
+  //   // echart.dispatchAction({
+  //   //   type: 'takeGlobalCursor',
+  //   //   key: 'brush',
+  //   //   brushOption: {
+  //   //       brushType: 'lineY',
+  //   //       brushMode: 'single'
+  //   //   }
+  //   // });
 
-    let hoveredIndex: number | null = null;
+  //   let hoveredIndex: number | null = null;
 
-    // echart.on("mouseover", (e: any) => {
-    //   console.log(e);
-    // });
-    echart.off("updateAxisPointer");
-    echart.off("mouseout");
+  //   // echart.on("mouseover", (e: any) => {
+  //   //   console.log(e);
+  //   // });
+  //   echart.off("updateAxisPointer");
+  //   echart.off("mouseout");
 
-    if (onHoverRow) {
+  //   if (onHoverRow) {
 
-      echart.on("updateAxisPointer", (e: any) => {
-        // console.debug(e);
-        let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
-        if (index !== hoveredIndex) {
-          onHoverRow(index);
-          hoveredIndex = index;
-          // console.log("hover at dataIndex ", hoveredIndex);
-        }
-      });
-      echart.on("mouseout", (e: any) => {
-        onHoverRow(null);
-        hoveredIndex = null;
-      })
-    }
+  //     echart.on("updateAxisPointer", (e: any) => {
+  //       // console.debug(e);
+  //       let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+  //       if (index !== hoveredIndex) {
+  //         onHoverRow(index);
+  //         hoveredIndex = index;
+  //         // console.log("hover at dataIndex ", hoveredIndex);
+  //       }
+  //     });
+  //     echart.on("mouseout", (e: any) => {
+  //       onHoverRow(null);
+  //       hoveredIndex = null;
+  //     })
+  //   }
 
-    echart.off("click");
-    if (onClickRow) {
-      console.debug("after Render", "register onClickRow");
+  //   echart.off("click");
+  //   if (onClickRow) {
+  //     console.debug("after Render", "register onClickRow");
 
-      echart.on("click", (e: any) => {
-        let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
-        console.debug("click", e);
-        onClickRow(index);
-      });
-    }
+  //     echart.on("click", (e: any) => {
+  //       let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+  //       console.debug("click", e);
+  //       onClickRow(index);
+  //     });
+  //   }
 
-    echart.on("contextmenu", (e: any) => {
-      console.debug("rightclick", e);
-    });
-  }
+  //   echart.on("contextmenu", (e: any) => {
+  //     console.debug("rightclick", e);
+  //   });
+  // }
 
   onEvents = {
-    'updateAxisPointer': (e: any) => {
+    updateAxisPointer: (e: any) => {
       const {onHoverRow, startIndex} = this.props;
       let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      // console.debug("hover", e, index);
       if (index !== this.hoveredIndex) {
         onHoverRow && onHoverRow(index);
         this.hoveredIndex = index;
         // console.log("hover at dataIndex ", hoveredIndex);
       }
     },
-    'click': (e: any) => {
+    click: (e: any) => {
       const {onClickRow, startIndex} = this.props;
-      let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      // let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      let index: number | null = (e.data as (undefined | [number, number])) ? (e.data[1] + startIndex) : null;
       console.debug("click", e);
-      onClickRow && onClickRow(index);
+      onClickRow && index !== null && onClickRow(index);
+    },
+    contextmenu: (e: any) => {
+      console.debug("rightclick", e);
+      // e.preventDefault();
     }
   };
 
@@ -282,18 +293,19 @@ export class StackedFeature extends React.PureComponent<
     xScale: d3.ScaleLinear<number, number>
   ) {
     const { startIndex, endIndex, margin } = this.props;
-    console.log(`rendering from ${startIndex} ${endIndex}`);
+    console.log(`rendering numerical from ${startIndex} ${endIndex}`);
     const domain = xScale.domain();
     return {
       series: [
         {
           type: "bar",
-          data: data.slice(startIndex, endIndex).map(d => d - domain[0]),
+          data: data.slice(startIndex, endIndex).map((d, i) => [d - domain[0], i]),
           // Set `large` for large data amount
           large: true,
           itemStyle: {
-            color: "rgb(109, 160, 202, 0.6)"
-          }
+            color: "rgba(109, 160, 202, 0.6)"
+          },
+          // barCategoryGap: "0%",
         }
       ],
       xAxis: {
@@ -305,24 +317,31 @@ export class StackedFeature extends React.PureComponent<
       },
       yAxis: {
         type: "category",
-        data: _.range(startIndex, endIndex),
+        data: _.range(0, endIndex - startIndex+1),
         show: false,
         boundaryGap: false,
-        axisLine: {
-          onZero: false
-        },
         inverse: true,
       },
       grid: getMargin(margin),
-      
       tooltip: {
         showContent: false,
         trigger: 'axis',
+        triggerOn: 'mousemove',
         axisPointer: {
           axis: 'y',
           type: 'shadow'
         },
       },
+      // tooltip: {
+      //   showContent: false,
+      //   trigger: 'axis',
+      //   triggerOn: 'mousemove',
+      //   axisPointer: {
+      //     axis: 'y',
+      //     type: 'shadow'
+      //   },
+      // },
+
       // brush: {
       //   yAxisIndex: "all",
       //   outOfBrush: {
@@ -339,6 +358,7 @@ export class StackedFeature extends React.PureComponent<
 
   public getOptionCategorical(data: string[], xScale: d3.ScaleBand<string>) {
     const { startIndex, endIndex, margin } = this.props;
+    console.log(`rendering categorical from ${startIndex} ${endIndex}`);
     const domain = xScale.domain();
     const range = xScale.range();
     const bandwidth = xScale.bandwidth();
@@ -362,14 +382,24 @@ export class StackedFeature extends React.PureComponent<
         boundaryGap: ["0%", "0%"]
       },
       yAxis: {
-        type: "value",
-        min: 0,
-        max: endIndex - startIndex,
+        type: "category",
+        data: _.range(0, endIndex - startIndex + 1),
         show: false,
-        boundaryGap: ["0%", "0%"],
+        boundaryGap: false,
+        // boundaryGap: ["0%", "0%"],
         inverse: true,
       },
-      grid: getMargin(margin)
+      grid: getMargin(margin),
+      tooltip: {
+        showContent: false,
+        trigger: 'axis',
+        triggerOn: 'mousemove',
+        axisPointer: {
+          axis: 'y',
+          type: 'shadow'
+        },
+      },
+
     };
 
     data.slice(startIndex, endIndex).forEach((s, i) => {
