@@ -58,7 +58,7 @@ def data_meta_translate(des, target):
         if col == target:
             data_meta['target'] = {
                 'name': col,
-                'description': des[col]['description'],
+                # 'description': des[col]['description'],
                 'type': des[col]['type'],
                 'index': des[col]['index']
             }
@@ -67,7 +67,7 @@ def data_meta_translate(des, target):
         else:
             attr = ({
                 'name': col,
-                'description': des[col]['description'],
+                # 'description': des[col]['description'],
                 'type': des[col]['type'],
                 'index': des[col]['index']
             })
