@@ -1,6 +1,7 @@
 import io
 import os
 import logging
+import json
 
 from flask.json import JSONEncoder
 from flask import request, jsonify, Blueprint, current_app, Response
@@ -111,12 +112,8 @@ def get_data():
 @api.route('/cf', methods=['GET'])
 def get_cf():
     changeable_attr = request.args.get('changeable_attr', default='all', type=str)
-    cf_num = request.args.get('cf_num', default=4, type=int)
+    cf_num = request.args.get('cf_num', default=1, type=int)
     index = request.args.get('index', type=int)
-    # start_index = request.args.get('startIndex', type=int)
-    # end_index = request.args.get('endIndex', type=int)
-    
-    # build filters
     filters = []
     desired_class = 'opposite'
     setting = {'changeable_attribute': changeable_attr, 'filters': filters, 'cf_num': cf_num, 'desired_class': desired_class}
@@ -128,66 +125,28 @@ def get_cf():
     cols = current_app.dataset.get_columns(preprocess=False) + ['Score', 'OriginIndex']
     cf_dict = group_cf(cf_df[cols])[index]
     return jsonify(cf_dict)
-# @api.route('/cf_meta', methods=['GET'])
-# def get_cf_meta():
-#     # temporary test data
-#     data_name = request.args.get('dataId', default='HELOC', type=str)
-#     model_name = request.args.get('modelId', default='linear', type=str)
-#     meta_path = os.path.join(get_data_dir(
-#         data_name, model_name), 'cf.meta.json')
-#     with open(meta_path, 'r') as f:
-#         data = f.read()
-#     return Response(data, mimetype="text/json")
 
+@api.route('/cf_instance', methods=['GET', 'POST'])
+def get_cf_instance():
 
-# @api.route('/cf', methods=['GET', 'POST'])
-# def get_cf():
+    # try:
+    #     query_instance = json.loads(request.args.get('instance', type=None, default=None))
+    # except:
+    #     query_instance = None
+    # try:
+    #     prototype_cf = json.loads(request.args.get('prototype', type=None, default=None))
+    # except:
+    #     prototype_cf = None
+    # k = request.args.get('k', default=-1, type=int)
+    # cf_num = request.args.get('cf_num', default=1, type=int)
+    # try:
+    #     filters = json.loads(request.args.get('filters', type=None, default=None))
+    # except:
+    #     filters = None
 
-#     data_name = request.args.get('dataId', default='HELOC', type=str)
-#     model_name = request.args.get('modelId', default=None)
-#     if model_name is None:
-#         raise ApiError("A modelId parameter should be supplied", 400)
+    setting = {'index': 0, 'changeable_attribute': 'all', 'filters': [], 'cf_num': 12, 'desired_class': 'opposite'}
+    subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting)
+    cf_df = subset_cf.get_cf()
+    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
+    return jsonify(cf_df[cols].to_dict('record'))
     
-#     data_dir = get_data_dir(data_name, model_name)
-#     if request.method == 'POST':
-#         raise ApiError("POST method handling not implemented", 400)
-#     else:
-#         index = request.args.get('index', type=int)
-#         start_index = request.args.get('startIndex', type=int)
-#         stop_index = request.args.get('stopIndex', type=int)
-
-#         if index is not None:
-#             return get_cf_by_index(data_dir, index)
-
-#         elif start_index is not None and stop_index is not None:
-#             return jsonify([
-#                 get_cf_by_index(data_dir, idx)
-#                 for idx in range(start_index, stop_index)
-#             ])
-#         else:
-#             # return jsonify(get_cf_all(data_dir))
-#             raise ApiError(
-#                 "A index or indexRange parameter should be supplied if using GET method", 400)
-
-# @api.route('/cf', methods=['GET', 'POST'])
-# def get_cf():
-
-#     if request.method == 'POST':
-#         raise ApiError("POST method handling not implemented", 400)
-#     else:
-#         index = request.args.get('index', type=int)
-#         start_index = request.args.get('startIndex', type=int)
-#         stop_index = request.args.get('stopIndex', type=int)
-
-#         if index is not None:
-#             return current_app.dataset.get_instance(index).data
-
-#         elif start_index is not None and stop_index is not None:
-#             return jsonify([
-#                 get_cf_by_index(data_dir, idx)
-#                 for idx in range(start_index, stop_index)
-#             ])
-#         else:
-#             # return jsonify(get_cf_all(data_dir))
-#             raise ApiError(
-#                 "A index or indexRange parameter should be supplied if using GET method", 400)

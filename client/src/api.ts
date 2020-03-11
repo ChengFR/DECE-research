@@ -78,9 +78,26 @@ export async function getDataset(params: {
 
 export type CounterFactual = (string | number)[];
 
+export type Filter = {
+  name: string;
+  min?: number;
+  max?: number;
+  categories?: string[];
+}
+
 export interface CFResponse {
   index: number;
   counterfactuals: CounterFactual[];
+}
+
+export interface QueryParams {
+  query_instance: CounterFactual;
+  prototype_cf?: CounterFactual | null;
+  k?: number;
+  cf_num?: number;
+  mutable_attr?: string[];
+  filters?: Filter[];
+  attr_range?: Filter[];
 }
 
 export async function getCF(params: {
@@ -104,5 +121,13 @@ export async function getCFs(params: {
   const url = `${API}/cf`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
+  return data;
+}
+
+export async function GetInstanceCF(params: QueryParams): Promise<CounterFactual[]> {
+  const url =  `${API}/cf_instance`;
+  const response = await axios.post(url, params);
+  const data = checkResponse(response, []);
+  console.log(data)
   return data;
 }
