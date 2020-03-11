@@ -6,7 +6,7 @@ from flask_cors import CORS, cross_origin
 from .api import api
 from .page import page
 
-from cf_ml.load_dataset import load_HELOC_dataset
+from cf_ml.load_dataset import load_HELOC_dataset, load_diabetes_dataset
 from cf_ml.model_manager import PytorchModelManager
 from cf_ml.cf_engine.engine import CFEnginePytorch
 
@@ -26,8 +26,8 @@ def create_app(config=None):
     # load dataset -- a tmp implementation
     if app.config['DATASET'] == 'HELOC':
         app.dataset = load_HELOC_dataset()
-    else:
-        raise NotImplementedError
+    elif app.config['DATASET'] == 'diabetes':
+        app.dataset = load_diabetes_dataset()
 
     # load model -- a tmp implemenation
     if app.config['MODEL'] == 'MLP':
@@ -40,6 +40,7 @@ def create_app(config=None):
             app.model.save_model()
     else:
         raise NotImplementedError
+    app.model.save_prediction()
 
     # init engine
     app.cf_engine = CFEnginePytorch(app.model, app.dataset)

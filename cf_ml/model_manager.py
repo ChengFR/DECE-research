@@ -128,7 +128,7 @@ class PytorchModelManager(ModelManager):
         return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
     def predict_instance(self, index):
-        instances = self.dataset.get_sample(index=index)
+        instances = self.dataset.get_sample(index=index, preprocess=False)
         x = instances[self.feature_names].values
         x = torch.from_numpy(x).float()
         origin_target_name = self.dataset.get_target_names(preprocess=False)

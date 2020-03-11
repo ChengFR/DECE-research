@@ -6,13 +6,20 @@ import {
   useParams
 } from "react-router-dom";
 
-import { getDataset, getCFs, getCFMeta, getCF } from "./api";
+// import { Responsive, WidthProvider } from "react-grid-layout";
+
+import { Layout } from "antd"
+
+import { getDataset, getCFs, getCFMeta, getCF, GetInstanceCF, CounterFactual, QueryParams } from "./api";
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CFTableView from "./components/CFTableView";
 import TableView from "./components/TableView";
 import CompactTable from "./components/CompactTable";
+import InstanceView from "./components/InstanceView"
+
+const { Header, Content, Sider } = Layout;
 
 export interface IAppProps {
   dataId: string;
@@ -22,13 +29,18 @@ export interface IAppProps {
 export interface IAppState {
   dataset?: Dataset;
   CFMeta?: DataMeta;
+  queryInstance?: CounterFactual;
+  queryResults: CounterFactual[];
 }
 
 export class App extends React.Component<IAppProps, IAppState> {
   constructor(props: IAppProps) {
     super(props);
-    this.state = {};
+    this.state = {
+      queryResults: [],
+    };
     this.updateData = this.updateData.bind(this);
+    this.instanceQuery = this.instanceQuery.bind(this);
   }
 
   public componentDidMount() {
@@ -43,28 +55,59 @@ export class App extends React.Component<IAppProps, IAppState> {
       newState.CFMeta = await getCFMeta({ dataId, modelId });
     }
     // console.log(dataset);
-    this.setState(newState);
+    this.setState({ ...this.state, ...newState });
+  }
+
+  public async instanceQuery(params: QueryParams) {
+    this.setState({ queryInstance: params.query_instance })
+    const cfs = await GetInstanceCF(params);
+    console.log(`Query Results: ${cfs}`);
+    this.setState({ queryResults: cfs });
   }
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults } = this.state;
     return (
       <div className="App">
         {dataset &&
           (modelId && CFMeta ? (
-            <CompactTable
-              dataset={dataset}
-              CFMeta={CFMeta}
-              getCFs={({ startIndex, stopIndex }) =>
-                getCFs({ dataId, modelId, startIndex, stopIndex })
-              }
-              getCF={(index) => getCF({dataId, modelId, index})}
-            />
+            <div className="main-container">
+              <div className="instance-view-container">
+                <InstanceView
+                  CFMeta={CFMeta}
+                  dataset={dataset}
+                  queryInstance={queryInstance}
+                  queryFunction={this.instanceQuery}
+                  queryResults={queryResults}
+                />
+                {/* <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p> */}
+              </div>
+              <div className="table-view-container">
+                <CompactTable
+                  dataset={dataset}
+                  CFMeta={CFMeta}
+                  getCFs={({ startIndex, stopIndex }) =>
+                    getCFs({ dataId, modelId, startIndex, stopIndex })
+                  }
+                  getCF={(index) => getCF({ dataId, modelId, index })}
+                />
+                {/* <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p>
+  <p>test</p> */}
+                </div>
+            </div>
           ) : (
-            <TableView dataset={dataset} />
-            
-          ))}
+              <TableView dataset={dataset} />
+            ))}
       </div>
     );
   }

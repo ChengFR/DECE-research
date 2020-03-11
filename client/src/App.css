@@ -1,38 +1,85 @@
+@import '~antd/dist/antd.css';
 .App {
-  text-align: center;
+    text-align: center;
 }
 
 .App-logo {
-  height: 40vmin;
-  pointer-events: none;
+    height: 40vmin;
+    pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+    .App-logo {
+        animation: App-logo-spin infinite 20s linear;
+    }
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+    background-color: #282c34;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(10px + 2vmin);
+    color: white;
 }
 
 .App-link {
-  color: #61dafb;
+    color: #61dafb;
 }
 
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.main-container {
+    display: inline-flex;
+    float: left;
+}
+
+.instance-view-container {
+    width: 30vw;
+    height: 90vh;
+    margin-right: 5px;
+    overflow: hidden;
+}
+
+.table-view-container {
+    position: relative;
+    width: 68vw;
+    height: 90vh;
+    overflow: hidden;
+}
+
+.ant-card-head-title-text {
+    font: 18px;
+    font-weight: bold;
+    float: left;
+    line-height: 30px;
+}
+
+.ant-card-head-title {
+    padding-top: 0px;
+    padding-bottom: 0px;
+    min-height: 30px;
+}
+
+.ant-card-head {
+    background-color: #e8f0fa;
+    height: 30px;
+    min-height: 30px;
+    /* width: 100%; */
+    padding-left: 10px;
+    text-align: center;
+}
+
+.ant-card-body {
+    padding-left: 10px;
+    padding-top: 10px;
 }
