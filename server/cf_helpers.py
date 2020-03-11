@@ -64,6 +64,10 @@ def data_meta_translate(des, target):
             }
             if des[col]['type'] == 'categorical':
                 data_meta['target']['categories'] = des[col]['category']
+            elif des[col]['type'] == 'numerical':
+                attr['min'] = des[col]['min']
+                attr['max'] = des[col]['max']
+                attr['precision'] = des[col]['decile']
         else:
             attr = ({
                 'name': col,
@@ -73,6 +77,10 @@ def data_meta_translate(des, target):
             })
             if des[col]['type'] == 'categorical':
                 attr['categories'] = des[col]['category']
+            elif des[col]['type'] == 'numerical':
+                attr['min'] = des[col]['min']
+                attr['max'] = des[col]['max']
+                attr['precision'] = des[col]['decile']
             data_meta['features'].append(attr)
             
     data_meta['prediction'] = {

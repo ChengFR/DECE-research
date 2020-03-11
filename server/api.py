@@ -147,6 +147,6 @@ def get_cf_instance():
     setting = {'index': 0, 'changeable_attribute': 'all', 'filters': [], 'cf_num': 12, 'desired_class': 'opposite'}
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting)
     cf_df = subset_cf.get_cf()
-    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
-    return jsonify(cf_df[cols].to_dict('record'))
+    cols = current_app.dataset.get_feature_names(preprocess=False)
+    return jsonify(cf_df[cols].values.tolist())
     

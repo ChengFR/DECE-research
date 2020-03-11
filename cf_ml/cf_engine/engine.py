@@ -43,7 +43,7 @@ class CFEnginePytorch:
             attr_range = setting.get('attr_range', {})
             index = setting.get('index', 'all')
             if data_df is None:
-                data_df = self.dataset.get_sample(index=index, filters=filters)
+                data_df = self.dataset.get_sample(index=index, filters=filters, preprocess=False)
             subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
                                           k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
         if cache:
@@ -54,7 +54,7 @@ class CFEnginePytorch:
                      changeable_attr='all', k=-1, attr_range={},
                      max_iter=2000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
-        :param data_df: pandas.DataFrame, target dataset in the form of pandas.DataFrame
+        :param data_df: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
         :param desired_class: 'opposite' or pandas.DataFrame
         :param proximity_weight: float, weight of proximity loss part
@@ -74,13 +74,14 @@ class CFEnginePytorch:
         self.update_config(cf_num, desired_class, proximity_weight, weight,
                            diversity_weight, clip_frequency, changeable_attr, k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, lr)
 
+        start_time = timeit.default_timer()
         subset_cf = CounterfactualExampleBySubset(self.dataset, self.cf_num)
 
         feature_names = self.dataset.get_feature_names()
         mask = np.array(
             [feature in self.changeable_attribute for feature in feature_names]).astype(int)
 
-        start_time = timeit.default_timer()
+        data_df = self.dataset.preprocess(data_df, mode='x')
         data_num = len(data_df)
         total_loss = 0
         for batch_num in range(math.ceil(data_num / batch_size)):
@@ -116,7 +117,7 @@ class CFEnginePytorch:
             cfs = cfs.detach().numpy()
 
             predicted_instances = self.model_manager.predict(
-                data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
+                data_df.iloc[start_id: end_id], preprocess=False).set_index(data_df.iloc[start_id: end_id].index)
             projected_cfs = self.project(cfs)
 
             for _ in range(post_step):
