@@ -56,6 +56,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
     // console.log(dataset);
     this.setState({ ...this.state, ...newState });
+    this.instanceQuery({query_instance: []});
   }
 
   public async instanceQuery(params: QueryParams) {
@@ -81,12 +82,6 @@ export class App extends React.Component<IAppProps, IAppState> {
                   queryFunction={this.instanceQuery}
                   queryResults={queryResults}
                 />
-                {/* <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p> */}
               </div>
               <div className="table-view-container">
                 <CompactTable
@@ -97,12 +92,6 @@ export class App extends React.Component<IAppProps, IAppState> {
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
                 />
-                {/* <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p> */}
                 </div>
             </div>
           ) : (
