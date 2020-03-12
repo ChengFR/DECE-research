@@ -129,24 +129,29 @@ def get_cf():
 @api.route('/cf_instance', methods=['GET', 'POST'])
 def get_cf_instance():
 
-    # try:
-    #     query_instance = json.loads(request.args.get('instance', type=None, default=None))
-    # except:
-    #     query_instance = None
-    # try:
-    #     prototype_cf = json.loads(request.args.get('prototype', type=None, default=None))
-    # except:
-    #     prototype_cf = None
-    # k = request.args.get('k', default=-1, type=int)
-    # cf_num = request.args.get('cf_num', default=1, type=int)
-    # try:
-    #     filters = json.loads(request.args.get('filters', type=None, default=None))
-    # except:
-    #     filters = None
+    # print(request.get_json())
+    features = current_app.dataset.get_feature_names(preprocess=False)
+    request_params = request.get_json()
+    query_instance_inlist = request_params['queryInstance']
+    target_label = request_params.get('target', 'opposite')
+    k = request_params.get('k', -1)
+    cf_num = request_params.get('cfNum', 1)
+    attr_flex = request_params.get('attrFlex', None)
+    if attr_flex:
+        changeable_attr = [features[i] for i in range(len(attr_flex)) if attr_flex[i]]
+    else:
+        changeable_attr = 'all'
+    print(changeable_attr)
+    attr_range = {}
+    for attr in request_params['attrRange']:
+        attr_range[features[attr['id']]] = attr
 
-    setting = {'index': 0, 'changeable_attribute': 'all', 'filters': [], 'cf_num': 12, 'desired_class': 'opposite'}
-    subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting)
+    setting = {'changeable_attribute': changeable_attr, 'attr_range': attr_range, 
+        'filters': [], 'cf_num': cf_num, 'desired_class': 'opposite', 'k': k}
+    subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
+        diversity_weight=0, use_cache=False)
     cf_df = subset_cf.get_cf()
     cols = current_app.dataset.get_feature_names(preprocess=False)
+    print(cf_df[cols])
     return jsonify(cf_df[cols].values.tolist())
     

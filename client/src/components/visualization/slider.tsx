@@ -19,7 +19,7 @@ import './slider.css'
 export interface SliderOptions extends ChartOptions {
     defaultValue?: number;
     defaultRange?: [number, number];
-    onRangeChange?: (index: number, newValue: number) => void;
+    onRangeOneSideChange?: (index: number, newValue: number) => void;
     onValueChange?: (newValue: number) => void;
     xScale?: d3.ScaleLinear<number, number>;
     ticks: number;
@@ -40,7 +40,7 @@ export function drawSimpleSlider(
     data: ArrayLike<number>
 ) {
     const options = { ...defaultOptions, ...sliderOption };
-    const { width, height, xScale, ticks, defaultValue, onValueChange, onRangeChange } = options;
+    const { width, height, xScale, ticks, defaultValue, onValueChange, onRangeOneSideChange } = options;
     const margin = getMargin(options.margin);
     const _width = width - margin.left - margin.right;
     const _height = height - margin.top - margin.bottom;
@@ -150,13 +150,13 @@ export function drawSimpleSlider(
                 .attr(`x${i + 1}`, newxPos);
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             const xValue = x.invert(xPos);
-            onRangeChange && onRangeChange(i, xValue);
+            onRangeOneSideChange && onRangeOneSideChange(i, xValue);
 
         })
         .on("end", (d, i, n) => {
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             const xValue = x.invert(xPos);
-            onRangeChange && onRangeChange(i, xValue);
+            onRangeOneSideChange && onRangeOneSideChange(i, xValue);
         });
 
     const rangeHandleBase = base.selectAll<SVGGElement, any>("g.range-handle-base")
@@ -188,6 +188,7 @@ export interface HistSliderProps extends SliderOptions {
     cfValue?: number;
     editable: boolean;
     drawInput: boolean;
+    onRangeChange: (newRange: [number, number]) => void;
 }
 
 export interface HistSliderState {
@@ -229,7 +230,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                 {
                     defaultValue: instanceValue,
                     defaultRange: range,
-                    onRangeChange: this.onRangeChange,
+                    onRangeOneSideChange: this.onRangeChange,
                     onValueChange: this.onInstanceValueChange,
                     ticks, width, height, margin, xScale
                 },
@@ -315,7 +316,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
         const range = this.state.range;
         range[index] = newValue;
         this.setState({ range: range });
-        this.props.onRangeChange && this.props.onRangeChange(index, newValue);
+        this.props.onRangeChange && this.props.onRangeChange([Math.min(range[0], range[1]), Math.max(range[0], range[1])]);
     }
 
 
