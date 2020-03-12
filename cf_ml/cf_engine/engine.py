@@ -19,14 +19,14 @@ class CFEnginePytorch:
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
 
-    def generate_cfs_from_setting(self, setting, data_df=None, proximity_weight=0.01, diversity_weight=0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
+    def generate_cfs_from_setting(self, setting, data=None, proximity_weight=0.01, diversity_weight=0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
                         'changeable_attribute': str or list of str, 
                         'weight': str or array-like
                         'k': int, number of changed attribute,
-                        :param attr_range: dict, range of attribute
+                        'attr_range': dict, range of attribute
                         'filters': list of ($attr_name, min, max, boolean: allow special value) or ($attr_name, list of any, boolean: allow special value), 
                         'cf_num': int, 
                         'desired_class': 'opposite' or pandas.DataFrame}
@@ -42,9 +42,14 @@ class CFEnginePytorch:
             k = setting.get('k', -1)
             attr_range = setting.get('attr_range', {})
             index = setting.get('index', 'all')
-            if data_df is None:
-                data_df = self.dataset.get_sample(index=index, filters=filters)
-            subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
+            if data is None:
+                data = self.dataset.get_sample(index=index, filters=filters, preprocess=False)
+            elif isinstance(data, list) or isinstance(data, np.ndarray):
+                data = np.array(data)
+                if len(data.shape) == 1:
+                    data = data[np.newaxis, :]
+                data = pd.DataFrame(data, columns=self.dataset.get_feature_names(False))
+            subset_cf = self.generate_cfs(data, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
                                           k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
         if cache:
             self.dir_manager.save_cf_with_setting(subset_cf, setting)
@@ -54,7 +59,7 @@ class CFEnginePytorch:
                      changeable_attr='all', k=-1, attr_range={},
                      max_iter=2000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
-        :param data_df: pandas.DataFrame, target dataset in the form of pandas.DataFrame
+        :param data_df: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
         :param desired_class: 'opposite' or pandas.DataFrame
         :param proximity_weight: float, weight of proximity loss part
@@ -74,13 +79,14 @@ class CFEnginePytorch:
         self.update_config(cf_num, desired_class, proximity_weight, weight,
                            diversity_weight, clip_frequency, changeable_attr, k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, lr)
 
+        start_time = timeit.default_timer()
         subset_cf = CounterfactualExampleBySubset(self.dataset, self.cf_num)
 
         feature_names = self.dataset.get_feature_names()
         mask = np.array(
             [feature in self.changeable_attribute for feature in feature_names]).astype(int)
 
-        start_time = timeit.default_timer()
+        data_df = self.dataset.preprocess(data_df, mode='x')
         data_num = len(data_df)
         total_loss = 0
         for batch_num in range(math.ceil(data_num / batch_size)):
@@ -116,7 +122,7 @@ class CFEnginePytorch:
             cfs = cfs.detach().numpy()
 
             predicted_instances = self.model_manager.predict(
-                data_df.iloc[start_id: end_id]).set_index(data_df.iloc[start_id: end_id].index)
+                data_df.iloc[start_id: end_id], preprocess=False).set_index(data_df.iloc[start_id: end_id].index)
             projected_cfs = self.project(cfs)
 
             for _ in range(post_step):
@@ -301,16 +307,19 @@ class CFEnginePytorch:
         # diversity loss
         if self.diversity_weight > 0 and self.cf_num > 1:
             for i in range(len(cfs) // self.cf_num):
-                det_entries = torch.ones(
-                    [self.cf_num, self.cf_num], dtype=torch.float32)
+                det_entries = []
                 for j in range(self.cf_num):
                     start_index = i*self.cf_num
                     end_index = (i+1)*self.cf_num
                     distance_vector = self.get_distance_quick(cfs[start_index: end_index],
                                                               cfs[start_index+j].unsqueeze(0).repeat(self.cf_num, 1))
-                    det_entries[j, :] = (1 / (distance_vector + 1))
-                loss -= self.diversity_weight * \
-                    torch.det(det_entries) / (len(cfs) // self.cf_num)
+                    loss -= self.diversity_weight * distance_vector.sum() / len(cfs) / self.cf_num
+                #     det_entries.append(1.332 / (distance_vector + 1))
+                # det_matrix = torch.cat(det_entries).reshape([self.cf_num, self.cf_num])
+                # print(self.diversity_weight * \
+                #     torch.det(det_matrix) / (len(cfs) // self.cf_num))
+                # loss -= self.diversity_weight * \
+                #     torch.det(det_matrix) / (len(cfs) // self.cf_num)
         return loss
 
     def get_distance(self, cf, origin, metric='L1'):

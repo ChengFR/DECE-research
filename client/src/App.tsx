@@ -64,7 +64,7 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   public async instanceQuery(params: QueryParams) {
-    this.setState({ queryInstance: params.query_instance })
+    this.setState({ queryInstance: params.queryInstance })
     const cfs = await GetInstanceCF(params);
     console.log(`Query Results: ${cfs}`);
     this.setState({ queryResults: cfs });
@@ -86,14 +86,8 @@ export class App extends React.Component<IAppProps, IAppState> {
                   queryFunction={this.instanceQuery}
                   queryResults={queryResults}
                 />
-                {/* <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p> */}
               </div>
-              <div className="table-view-container">
+              {/* <div className="table-view-container">
                 <CompactTable
                   dataset={dataset}
                   CFMeta={CFMeta}
@@ -103,13 +97,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
                 />
-                {/* <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p>
-  <p>test</p> */}
-                </div>
+                </div> */}
             </div>
           ) : (
               <TableView dataset={dataset} />

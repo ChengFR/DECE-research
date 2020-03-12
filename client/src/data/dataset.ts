@@ -11,6 +11,9 @@ export interface FeatureDisc {
   index: number;
   categories?: string[];
   extent?: [number, number];
+  min?: number,
+  max?: number,
+  precision?: number
 }
 
 export class DataMeta {
