@@ -31,7 +31,7 @@ class CFEnginePytorch:
                         'cf_num': int, 
                         'desired_class': 'opposite' or pandas.DataFrame}
         """
-        if use_cache and self.dir_manager.indexof_setting(setting) >= 0:
+        if data is None and use_cache and self.dir_manager.indexof_setting(setting) >= 0:
             subset_cf = self.dir_manager.load_cf_with_setting(setting)
         else:
             changeable_attribute = setting['changeable_attribute']
@@ -51,7 +51,7 @@ class CFEnginePytorch:
                 data = pd.DataFrame(data, columns=self.dataset.get_feature_names(False))
             subset_cf = self.generate_cfs(data, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
                                           k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
-        if cache:
+        if data is None and cache:
             self.dir_manager.save_cf_with_setting(subset_cf, setting)
         return subset_cf
 

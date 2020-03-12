@@ -98,10 +98,9 @@ def data_meta_translate(des, target):
 
 def group_cf(cf_df):
     grouped = cf_df.groupby('OriginIndex')
-    idx2cfs = {
-        idx: {
+    idx2cfs = [{
             'index': idx,
-            'counterfactuals': group.drop(columns='OriginIndex').values.T.tolist()
+            'counterfactuals': group.drop(columns='OriginIndex').values.tolist()
         }
-        for idx, group in grouped}
+        for idx, group in grouped]
     return idx2cfs
