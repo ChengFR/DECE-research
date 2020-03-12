@@ -79,7 +79,7 @@ export async function getDataset(params: {
 export type CounterFactual = (string | number)[];
 
 export type Filter = {
-  name: string;
+  id: number;
   min?: number;
   max?: number;
   categories?: string[];
@@ -91,13 +91,13 @@ export interface CFResponse {
 }
 
 export interface QueryParams {
-  query_instance: CounterFactual;
-  prototype_cf?: CounterFactual | null;
+  queryInstance: CounterFactual;
+  target?: number | string;
+  prototypeCf?: CounterFactual | null;
   k?: number;
-  cf_num?: number;
-  mutable_attr?: string[];
-  filters?: Filter[];
-  attr_range?: Filter[];
+  cfNum?: number;
+  attrFlex?: boolean[];
+  attrRange?: Filter[];
 }
 
 export async function getCF(params: {

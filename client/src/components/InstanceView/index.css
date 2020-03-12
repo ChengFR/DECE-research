@@ -3,14 +3,28 @@
     font-weight: bold;
 }
 
-div.pcp-svg-container {
-    width: 100%;
-    /* height: 80%; */
+div.pcp-svg-container,
+.hist-svg-container {
     position: absolute;
     top: 10;
 }
 
-div.hist-svg-container {
-    position: absolute;
-    top: 10;
+div.instance-body-container {
+    width: 100%;
+    height: auto;
+    position: relative;
+}
+
+div.instance-vis-container {
+    position: relative;
+    height: 80%;
+    overflow: scroll;
+}
+
+span.target-title {
+    font-size: large;
+    font: bold;
+    line-height: 30px;
+    margin-right: 10px;
+    float: left;
 }
