@@ -98,6 +98,10 @@
 }
 
 .cell.row-title .arrow {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    right: 8px;
     cursor: pointer;
     opacity: 1e-6;
     transition: opacity .3s, background-color .3s;
@@ -124,9 +128,14 @@
 }
 
 .cell.row-title .arrow svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     transition: transform .3s ease-in-out;
 }
 
 .cell.row-title .arrow.ascend svg {
-    transform: rotate(180deg);
+    transform: translate(-50%, -50%) rotate(180deg);
+    transition: transform .3s ease-in-out;
 }

@@ -61,11 +61,13 @@ export async function getDataset(params: {
       name,
       description: columnDisc?.description,
       type: columnDisc?.type || "unknown",
-      ...columnDisc,
+      ...columnDisc
     };
   });
-  
-  const index = data.map((row, i) => dataMeta.index? Number(row[dataMeta.index.index]): i)
+
+  const index = data.map((row, i) =>
+    dataMeta.index ? Number(row[dataMeta.index.index]) : i
+  );
   const dataFrame = new DataFrame({ data, columns, index });
   // console.debug(dataFrame);
   return new Dataset(dataFrame, dataMeta);
@@ -83,7 +85,7 @@ export type Filter = {
   min?: number;
   max?: number;
   categories?: string[];
-}
+};
 
 export interface CFResponse {
   index: number;
@@ -109,25 +111,35 @@ export async function getCF(params: {
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
   return data;
-
 }
 
 export async function getCFs(params: {
   dataId: string;
   modelId: string;
-  startIndex: number;
-  stopIndex: number;
+  startIndex?: number;
+  stopIndex?: number;
+  index?: number[];
 }): Promise<CFResponse[]> {
+  const { index, ...rest } = params;
   const url = `${API}/cf`;
-  const response = await axios.get(url, { params });
+  const response = await axios.post(
+    url,
+    { index },
+    {
+      params: rest,
+      headers: { "content-type": "application/json" }
+    }
+  );
   const data = checkResponse(response, []);
   return data;
 }
 
-export async function GetInstanceCF(params: QueryParams): Promise<CounterFactual[]> {
-  const url =  `${API}/cf_instance`;
+export async function GetInstanceCF(
+  params: QueryParams
+): Promise<CounterFactual[]> {
+  const url = `${API}/cf_instance`;
   const response = await axios.post(url, params);
   const data = checkResponse(response, []);
-  console.log(data)
+  console.log(data);
   return data;
 }
