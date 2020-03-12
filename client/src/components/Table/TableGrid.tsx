@@ -10,6 +10,7 @@ export interface CellProps {
   width: number;
   height: number;
   data?: any;
+  isScrolling: boolean;
 }
 
 export type CellRenderer = (props: CellProps) => (React.ReactNode | undefined);
@@ -197,13 +198,14 @@ export default class TableGrid extends React.PureComponent<
   };
 
   public renderCellIndex(cellProps: GridCellProps) {
-    const { rowIndex, key, style } = cellProps;
+    const { rowIndex, key, style, isScrolling } = cellProps;
     const props = {
       width: style.width as number,
       height: style.height as number,
       rowIndex,
       columnIndex: -1,
       data: rowIndex + 1,
+      isScrolling
     };
     return (
       <div className={`cell row-${rowIndex} col-index`} key={key} style={style}>
@@ -213,12 +215,13 @@ export default class TableGrid extends React.PureComponent<
   }
 
   public renderCell(cellProps: GridCellProps) {
-    const { rowIndex, columnIndex, key, style } = cellProps;
+    const { rowIndex, columnIndex, key, style, isScrolling } = cellProps;
     const props = {
       width: style.width as number,
       height: style.height as number,
       rowIndex,
       columnIndex,
+      isScrolling
     };
     return (
       <div

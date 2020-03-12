@@ -12,12 +12,14 @@ export interface CollapsedRows {
   startIndex: number;
   endIndex: number;
   state: RowStateType;
+  cfLoaded?: boolean;
 }
 
 export interface ExpandedRow {
   index: number;  // The index in a possibly reordered DataFrame
   dataIndex: number; // The real index of the row in the dataFrame
   state: RowStateType.EXPANDED;
+  cfLoaded?: boolean;
 }
 
 export function isExpandedRow(row: CollapsedRows | ExpandedRow): row is ExpandedRow {
@@ -72,7 +74,7 @@ export interface FilterRows extends Action {
 // Reducers
 
 // break collapsed rows so that we won't render too many rows in a cell
-function breakCollapsedRows(row: CollapsedRows, maxStep: number = 300): CollapsedRows[] {
+function breakCollapsedRows(row: CollapsedRows, maxStep: number = 200): CollapsedRows[] {
   const {startIndex, endIndex, state} = row;
   const n = Math.ceil((endIndex - startIndex) / maxStep);
   if (n === 1) return [row];

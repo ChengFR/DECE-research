@@ -300,7 +300,7 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
       {onSort && (
         <Icon
           type="arrow-up"
-          style={{ position: "absolute", top: 0, height: "100%", right: 3 }}
+          // style={{ position: "absolute", right: 3 }}
           className={(sorted ? `arrow sorted ${sorted}` : "arrow")}
           onClick={() => onSort(column.sorted === "descend" ? "ascend" : "descend")}
         />

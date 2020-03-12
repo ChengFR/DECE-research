@@ -1,13 +1,22 @@
 .corner-info {
-    /* position: absolute; */
+    position: absolute;
     background-color: rgba(240, 240, 240, 0.5);
     border-color: rgba(160, 160, 160, 0.5);
     padding: 4px 6px;
-    bottom: 11px;
-    right: 12px;
+    bottom: -32px;
+    right: 0px;
     font-size: 13px;
 }
 
 .compact-table .cell.col-index .cell-content {
     background-color: rgba(240, 240, 240, 0.5);
+}
+
+.toolbox {
+  text-align: left;
+  height: 30px;
+}
+
+.compact-table {
+  height: calc(100% - 30px);
 }
