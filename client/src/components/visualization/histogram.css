@@ -4,8 +4,13 @@
 }
 
 .histogram svg rect {
-  fill: rgb(109, 160, 202);
+  /* fill: rgb(109, 160, 202); */
   opacity: 0.6;
+}
+
+.histogram svg .base rect {
+  /* fill: rgb(109, 160, 202); */
+  opacity: 0.4;
 }
 
 .histogram svg rect.shade {
