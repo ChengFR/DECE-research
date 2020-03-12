@@ -1,5 +1,7 @@
 data/processed
 
+cf_ml/output/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -135,9 +137,6 @@ dmypy.json
 
 # Pycharm
 .idea
-
-# output dir
-cf_ml/output/
 
 # cached file
 .cached_file
