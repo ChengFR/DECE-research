@@ -10,7 +10,7 @@ import {
 
 import { Layout } from "antd"
 
-import { getDataset, getCFs, getCFMeta, getCF, GetInstanceCF, CounterFactual, QueryParams } from "./api";
+import { getDataset, getCFs, getCFMeta, getCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse } from './api';
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
@@ -28,6 +28,7 @@ export interface IAppProps {
 
 export interface IAppState {
   dataset?: Dataset;
+  cfs?: (CFResponse | undefined)[];
   CFMeta?: DataMeta;
   queryInstance?: CounterFactual;
   queryResults: CounterFactual[];
@@ -52,7 +53,11 @@ export class App extends React.Component<IAppProps, IAppState> {
     const newState: Partial<IAppState> = {};
     newState.dataset = await getDataset({ dataId, modelId });
     if (modelId) {
-      newState.CFMeta = await getCFMeta({ dataId, modelId });
+      const params = { dataId, modelId };
+      newState.CFMeta = await getCFMeta(params);
+      const cfs = await getCFs({...params, index: newState.dataset.dataFrame.index});
+      newState.cfs = [];
+      cfs.forEach(cf => newState.cfs![cf.index] = cf);
     }
     // console.log(dataset);
     this.setState({ ...this.state, ...newState });
@@ -67,7 +72,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta, queryInstance, queryResults } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults, cfs } = this.state;
     return (
       <div className="App">
         {dataset &&
@@ -92,8 +97,9 @@ export class App extends React.Component<IAppProps, IAppState> {
                 <CompactTable
                   dataset={dataset}
                   CFMeta={CFMeta}
-                  getCFs={({ startIndex, stopIndex }) =>
-                    getCFs({ dataId, modelId, startIndex, stopIndex })
+                  cfs={cfs}
+                  getCFs={(params) =>
+                    getCFs({ dataId, modelId, ...params })
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
                 />
