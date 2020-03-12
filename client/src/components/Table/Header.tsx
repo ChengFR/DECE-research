@@ -6,10 +6,13 @@ import memoize from "fast-memoize";
 import Histogram from "../visualization/histogram";
 import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, columnMargin, TableColumn } from "./common";
+import { getFixedGridWidth, columnMargin, TableColumn, CategoricalColumn } from './common';
+import { assert } from '../../common/utils';
+import { isColumnNumerical } from '../../data/column';
 
 export interface IHeaderProps {
   columns: TableColumn[];
+  distGroupBy?: number;
   // columnWidths: number[];
   onChangeColumnWidth?: (p: { index: number; width: number }) => any;
   height: number;
@@ -28,12 +31,12 @@ export interface IHeaderProps {
 }
 
 export interface IHeaderState {
-  columns: TableColumn[];
+  // columns: TableColumn[];
   scrollLeft: number;
   columnData: Array<number>[];
 }
 
-export default class Header extends React.Component<
+export default class Header extends React.PureComponent<
   IHeaderProps,
   IHeaderState
 > {
@@ -43,16 +46,16 @@ export default class Header extends React.Component<
     fixedColumns: 0
   };
 
-  static getDerivedStateFromProps(
-    nextProps: IHeaderProps,
-    prevState: IHeaderState
-  ) {
-    let newState: Partial<IHeaderState> = {};
-    if (nextProps.columns !== prevState.columns) {
-      newState.columns = nextProps.columns;
-    }
-    return newState;
-  }
+  // static getDerivedStateFromProps(
+  //   nextProps: IHeaderProps,
+  //   prevState: IHeaderState
+  // ) {
+  //   let newState: Partial<IHeaderState> = {};
+  //   if (nextProps.columns !== prevState.columns) {
+  //     newState.columns = nextProps.columns;
+  //   }
+  //   return newState;
+  // }
   private leftGridRef: React.RefObject<Grid> = React.createRef();
   private rightGridRef: React.RefObject<Grid> = React.createRef();
   private columnWidth: any;
@@ -61,7 +64,7 @@ export default class Header extends React.Component<
     super(props);
 
     this.state = {
-      columns: [],
+      // columns: [],
       scrollLeft: 0,
       columnData: []
     };
@@ -95,9 +98,19 @@ export default class Header extends React.Component<
       chartHeight,
       fixedColumns,
       styleLeftGrid,
-      styleRightGrid
+      styleRightGrid,
+      distGroupBy,
     } = this.props;
     console.debug("render table header");
+
+    const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
+    assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
+    const cat2idx: Map<string, number> = new Map();
+    labelColumn?.categories?.map((c, i) => cat2idx.set(c, i));
+    const rowLabels = labelColumn && labelColumn.series.toArray().map(v => {
+      if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+      return cat2idx.get(v) as number;
+    });
 
     const titleHeight = hasChart ? height - chartHeight : height;
     const rowHeight = (p: { index: number }) =>
@@ -209,11 +222,31 @@ export default class Header extends React.Component<
     );
   }
 
+  _getRowLabels = memoize((labelColumn: CategoricalColumn): [number[], number[]] => {
+    const cat2idx: Map<string, number> = new Map();
+    labelColumn.categories?.map((c, i) => cat2idx.set(c, i));
+    const labels = labelColumn.series.toArray().map(v => {
+      if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+      return cat2idx.get(v) as number;
+    });
+    const uniqLabels: number[] = [];
+    cat2idx.forEach((v, k) => uniqLabels.push(v));
+    return [labels, uniqLabels];
+  })
+
+  _groupByArgs(): undefined | [number[], number[]] {
+    const {distGroupBy, columns} = this.props;
+    const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
+    assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
+    return labelColumn && this._getRowLabels(labelColumn);
+  }
+
   _chartCellRenderer(cellProps: GridCellProps) {
     const { columnIndex, key, style } = cellProps;
     const { chartHeight, columns } = this.props;
-    const column = this.state.columns[columnIndex];
-    const width = columns[columnIndex].width;
+    const column = columns[columnIndex];
+    const {width } = column;
+    const groupByArgs = this._groupByArgs();
     console.debug("render chart cell");
     return (
       <div
@@ -223,14 +256,14 @@ export default class Header extends React.Component<
       >
         {column.type === "numerical" ? (
           <Histogram
-            data={column.series.toArray()}
+            data={groupByArgs ? column.series.groupBy(...groupByArgs) : column.series.toArray()}
+            allData={column.prevSeries && (groupByArgs ? column.prevSeries.groupBy(...groupByArgs) : column.prevSeries.toArray())}
             width={width}
             height={chartHeight}
             margin={columnMargin}
             xScale={column.xScale}
             onSelectRange={column.onFilter}
             selectedRange={column.filter}
-            allData={column.prevSeries?.toArray()}
             extent={column.extent}
           />
         ) : (
@@ -240,6 +273,8 @@ export default class Header extends React.Component<
             height={chartHeight}
             margin={columnMargin}
             xScale={column.xScale}
+            onSelectCategories={column.onFilter}
+            selectedCategories={column.filter}
             allData={column.prevSeries?.toArray()}
           />
         )}
