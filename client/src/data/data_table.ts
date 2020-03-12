@@ -187,13 +187,14 @@ export default class DataFrame implements IDataFrame {
       if (columnIndex < 0) throw "No column named " + columnName;
       const column = this.columns[columnIndex];
 
-      if (typeof filter[0] === 'string') {
-        if (isColumnNumerical(column)) throw `Column type ${column.type} does not match filter type string[]`;
+      if (!isColumnNumerical(column)) {
+        if (filter.length > 0 && typeof filter[0] !== 'string') 
+          throw `Column type ${column.type} does not match filter ${filter}`;
         const at = column.series.at;
         const kept = new Set(filter as string[]);
         filteredIndex = filteredIndex.filter(i => kept.has(at(i)));
       } else {
-        if (!isColumnNumerical(column)) throw `Column type ${column.type} does not match filter type [number, number]`;
+        if (filter.length !== 2) throw `Column type ${column.type} does not match filter: ${filter}`;
         const at = column.series.at;
         filteredIndex = filteredIndex.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
       }

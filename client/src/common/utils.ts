@@ -30,3 +30,8 @@ export function number2string(x: number): string {
   if (Number.isInteger(x)) return x.toFixed(0);
   return x.toPrecision(4);
 }
+
+export function assert(cond: any, message: any = ""): asserts cond {
+  if(cond) return;
+  throw message;
+}
