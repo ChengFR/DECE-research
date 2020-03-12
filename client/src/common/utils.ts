@@ -35,3 +35,5 @@ export function assert(cond: any, message: any = ""): asserts cond {
   if(cond) return;
   throw message;
 }
+
+export type WithDefault<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;

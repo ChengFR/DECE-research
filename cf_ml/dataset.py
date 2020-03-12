@@ -79,7 +79,7 @@ class Dataset:
                 minx = self.description[col]['min']
                 maxx = self.description[col]['max']
                 if maxx - minx > 1e-6:
-                    data_df[col] = (data_df[col] - minx)/(maxx-minx)
+                    data_df.loc[:, col] = (data_df.loc[:, col] - minx)/(maxx-minx)
         return data_df
 
     def _denormalize(self, data_df):
@@ -89,27 +89,27 @@ class Dataset:
                 maxx = self.description[col]['max']
                 decile = self.description[col]['decile']
                 if maxx - minx > 1e-6:
-                    data_df[col] = (data_df[col] * (maxx-minx) + minx).round(decile)
+                    data_df.loc[:, col] = (data_df.loc[:, col] * (maxx-minx) + minx).round(decile)
         return data_df
 
     def _to_dummy(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 for cat in self.description[col]['category']:
-                    data_df.loc[:, '{}_{}'.format(col, cat)] = (data_df[col] == cat).astype(int)
-        return data_df[self.dummy_columns]
+                    data_df.loc[:, '{}_{}'.format(col, cat)] = (data_df.loc[:, col] == cat).astype(int)
+        return data_df.loc[:, self.dummy_columns]
 
     def _from_dummy(self, data_df):
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 cats = self.description[col]['category']
                 dummy_col = ['{}_{}'.format(col, cat) for cat in cats]
-                category_index = data_df[dummy_col].values.argmax(axis=1)
+                category_index = data_df.loc[:, dummy_col].values.argmax(axis=1)
                 category_value = [cats[index] for index in category_index]
-                data_df[col] = category_value
-                # data_df[col] = data_df.apply(lambda row: \
+                data_df.loc[:, col] = category_value
+                # data_df.loc[:, col] = data_df.apply(lambda row: \
                 #     cats[np.array([val for col_name, val in zip(data_df.columns, row) if col_name in dummy_col]).argmax()])
-        return data_df[self.origin_columns]
+        return data_df.loc[:, self.origin_columns]
 
     def preprocess(self, data, mode='all'):
         if mode == 'all':
@@ -129,9 +129,9 @@ class Dataset:
                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
             target_col = self.get_target_names(preprocess=False)
             if self.description[target_col]['type'] == 'categorical':
-                data_df[target_col] = self.description[target_col]['category'][0]
+                data_df.loc[:, target_col] = self.description[target_col]['category'][0]
             else:
-                data_df[target_col] = self.description[target_col]['min']
+                data_df.loc[:, target_col] = self.description[target_col]['min']
             processed_df = self._normalize(self._to_dummy(data_df))[self.get_feature_names(preprocess=False)]
 
         return processed_df
@@ -151,7 +151,7 @@ class Dataset:
                 data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
             for col in self.get_target_names(preprocess=True):  
-                data_df[col] = 0
+                data_df.loc[:, col] = 0
             deprocessed_df = self._from_dummy(self._denormalize(data_df))[self.get_feature_names(preprocess=True)]
         return deprocessed_df
 

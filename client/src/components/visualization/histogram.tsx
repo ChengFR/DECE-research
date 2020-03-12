@@ -10,7 +10,7 @@ import {
   getScaleLinear
 } from "./common";
 import "./histogram.css";
-import { shallowCompare } from "../../common/utils";
+import { shallowCompare, WithDefault } from '../../common/utils';
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 import { defaultCategoricalColor } from './common';
@@ -21,6 +21,7 @@ function isArrays<T>(a:T[] | T[][]): a is T[][] {
 
 export interface IHistogramOptions extends ChartOptions {
   innerPadding: number;
+  drawAxis: boolean,
   rectStyle?: CSSPropertiesFn<SVGRectElement, d3.Bin<number, number>>;
   onRectMouseOver?: d3.ValueFn<any, d3.Bin<number, number>, void>;
   // onRectMouseMove?: d3.ValueFn<any, d3.Bin<number, number>, void>;
@@ -28,13 +29,18 @@ export interface IHistogramOptions extends ChartOptions {
   onSelectRange?: (range?: [number, number]) => any;
   xScale?: d3.ScaleLinear<number, number>;
   selectedRange?: [number, number];
+  nBinsMin?: number,
+  nBinsMax?: number,
+  barWidthMin?: number,
+  barWidthMax?: number
 }
 
 export const defaultOptions = {
   width: 300,
   height: 200,
   margin: 0,
-  innerPadding: 1
+  innerPadding: 1,
+  drawAxis: false,
 };
 
 function getNBinsRange(width: number, minWidth: number = 7, maxWidth: number = 9): [number, number] {
@@ -58,7 +64,12 @@ export function drawHistogram(
     onRectMouseLeave,
     onSelectRange,
     xScale,
+    drawAxis,
     selectedRange,
+    nBinsMin,
+    nBinsMax,
+    barWidthMin,
+    barWidthMax
   } = opts;
 
   const margin = getMargin(opts.margin);
@@ -71,10 +82,15 @@ export function drawHistogram(
 
   const root = d3.select(svg);
 
-  // set the parameters for the
-  const nBins = d3.thresholdSturges(allData || data);
-  const [min, max] = getNBinsRange(width);
+  // set the parameters for the 
+
+  const _nBins = d3.thresholdSturges(allData || data);
+  const _nBinsMin = nBinsMin ? nBinsMin : _nBins;
+  const _nBinsMax = nBinsMax ? nBinsMax : _nBins;
+  const nBins = Math.min(Math.max(_nBins, _nBinsMin), _nBinsMax);
+  const [min, max] = getNBinsRange(width, barWidthMin, barWidthMax);
   const ticks = x.ticks(Math.min(Math.max(min, nBins), max));
+  // const ticks = x.ticks(nBins)
 
   const histogram = d3
     .histogram()
@@ -83,14 +99,13 @@ export function drawHistogram(
 
   const bins = histogram(data);
   const allBins = allData && histogram(allData);
-  // console.log(bins);
 
   // Y axis: scale and draw:
   const y = d3.scaleLinear().range(yRange);
 
   y.domain([
     0,
-    d3.max(allBins || bins, function(d) {
+    d3.max(allBins || bins, function (d) {
       return d.length;
     }) as number
   ]); // d3.hist has to be called before the Y axis obviously
@@ -109,12 +124,28 @@ export function drawHistogram(
   // console.debug("brushed Range", rangeBrushing);
   let brushing: boolean = false;
 
-  const gBase = getChildOrAppend<SVGGElement, SVGElement>(
-    root,
-    "g",
-    "base"
-  ).attr("transform", `translate(${margin.left}, ${margin.top})`)
-   .attr("fill", "rgb(109, 160, 202)");
+
+  // getChildOrAppend<SVGGElement, SVGElement>(root, "rect", "bg")
+  //   .attr('width', width).attr('height', height)
+  //   .on('click', () => {
+  //     rangeBrushing = null;
+  //     onSelectRange && onSelectRange();
+  //   });
+
+  const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
+    .attr(
+      "transform",
+      `translate(${margin.left}, ${margin.top})`
+    ).attr("fill", "rgb(109, 160, 202)");
+
+  if (drawAxis) {
+    const axisBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "axis-base")
+      .attr(
+        "transform",
+        `translate(${margin.left}, ${height - margin.bottom})`
+      );
+      axisBase.call(d3.axisBottom(x))
+  }
 
   gBase
     .selectAll("rect.bar")
@@ -188,7 +219,7 @@ export function drawHistogram(
   const merged2 = renderShades();
 
   merged2
-    .on("mouseover", function(data, idx, groups) {
+    .on("mouseover", function (data, idx, groups) {
       onRectMouseOver && onRectMouseOver(data, idx, groups);
       if (brushing && rangeBrushing) {
         rangeBrushing[1] = idx;
@@ -199,12 +230,12 @@ export function drawHistogram(
     .on("mouseleave", (onRectMouseLeave || null) as null);
 
   merged2
-    .on("mousedown", function(data, idx) {
+    .on("mousedown", function (data, idx) {
       brushing = true;
       if (rangeBrushing === null) rangeBrushing = [idx, idx];
       else rangeBrushing = null;
     })
-    .on("mouseup", function(data, idx) {
+    .on("mouseup", function (data, idx) {
       if (rangeBrushing) {
         rangeBrushing[1] = idx;
         // console.debug("select range:", rangeBrushing);
@@ -235,6 +266,13 @@ export type IHistogramProps = (IHistogramOptions | IGHistogramOptions) & {
   svgStyle?: React.CSSProperties;
   className?: string;
   extent?: [number, number];
+  drawRange?: boolean;
+}
+
+const defaultProps = {
+  ...defaultOptions,
+  drawAxis: false,
+  drawRange: true
 }
 
 export interface IHistogramState {
@@ -244,8 +282,8 @@ export interface IHistogramState {
 export class Histogram extends React.PureComponent<
   IHistogramProps,
   IHistogramState
-> {
-  static defaultProps = { ...defaultOptions };
+  > {
+  static defaultProps = { ...defaultProps };
   private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
   private shouldPaint: boolean = false;
 
@@ -262,7 +300,7 @@ export class Histogram extends React.PureComponent<
 
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
     if (svg) {
-      const { data, allData, className, style, svgStyle, height, ...rest } = this.props;
+      const { data, allData, className, style, svgStyle, height, drawRange, ...rest } = this.props;
       const xScale = rest.xScale || this.getXScale();
       if (isArrays(data)) {
         if (allData && !isArrays(allData)) throw "Mismatched array form between data and allData";
@@ -318,21 +356,23 @@ export class Histogram extends React.PureComponent<
   };
 
   public render() {
-    const { style, svgStyle, className, width, height, extent } = this.props;
+    const { style, svgStyle, className, width, height, drawAxis, drawRange, extent } = this.props;
     const { hoveredBin } = this.state;
     return (
       <div className={(className || "") + " histogram"} style={style}>
         <svg
           ref={this.svgRef}
-          style={{ ...svgStyle, marginTop: 4 }}
+          style={{ marginTop: 4, ...svgStyle }}
           width={width}
           height={height - 24}
         />
-        <div className="info">
+        {drawRange && <div className="info">
           {hoveredBin
             ? `${hoveredBin[0]} - ${hoveredBin[1]}`
-            : extent && `${extent[0]} - ${extent[1]}`}
-        </div>
+            : (extent && `${extent[0]} - ${extent[1]}`)
+          }
+        </div>}
+
       </div>
     );
   }
@@ -380,10 +420,10 @@ export class Histogram extends React.PureComponent<
 }
 
 export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "onRectMouseMove" | "onRectMouseLeave"> & {
-  onRectMouseOver: d3.ValueFn<any, d3.Bin<number, number>[], void>;
+  onRectMouseOver?: d3.ValueFn<any, d3.Bin<number, number>[], void>;
   // onRectMouseMove: d3.ValueFn<any, d3.Bin<number, number>[], void>;
-  onRectMouseLeave: d3.ValueFn<any, d3.Bin<number, number>[], void>;
-  color: (x: number) => string;
+  onRectMouseLeave?: d3.ValueFn<any, d3.Bin<number, number>[], void>;
+  color?: (x: number) => string;
 }
 
 export function drawGroupedHistogram(
