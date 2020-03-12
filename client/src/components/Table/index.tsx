@@ -16,12 +16,15 @@ import {
 } from "./common";
 import "./index.css";
 import { number2string } from "common/utils";
+import { assert } from '../../common/utils';
+import { isColumnNumerical } from '../../data/column';
 
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
   className?: string;
   columns: (IColumn<string> | IColumn<number> | TableColumn)[];
+  distGroupBy?: number;
   rowCount: number;
   onScroll?: (params: ScrollParams) => any;
   style?: React.CSSProperties;
@@ -112,6 +115,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       style,
       rowHeight,
       fixedColumns,
+      distGroupBy,
       showIndex,
       rowCount,
       onSectionRendered
@@ -134,6 +138,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
             <div style={{ overflow: "visible" }}>
               <Header
                 columns={columns}
+                distGroupBy={distGroupBy}
                 height={90}
                 chartHeight={60}
                 hasChart={true}

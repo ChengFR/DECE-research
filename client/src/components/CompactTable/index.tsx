@@ -146,7 +146,7 @@ export default class CFTableView extends React.Component<
   };
 
   private loadedCFs: (CFResponse | undefined)[] = [];
-  // private tableRef: Table | null = null;
+  private tableRef: Table | null = null;
   private loaderRef: LoadableTable | null = null;
   constructor(props: ICompactTableProps) {
     super(props);
@@ -259,13 +259,14 @@ export default class CFTableView extends React.Component<
         /> */}
         <Table
           className="compact-table"
+          distGroupBy={0}
           // onSectionRendered={this.onSectionRendered}
           rowCount={rows.length}
           columns={columns}
           fixedColumns={fixedColumns}
           showIndex={true}
           rowHeight={this.rowHeight}
-          // ref={ref => {this.loaderRef=ref;}}
+          ref={ref => {this.tableRef=ref;}}
           // tableRef={this.registerTableRef}
           cellRenderer={this.renderCell}
         />
@@ -287,7 +288,7 @@ export default class CFTableView extends React.Component<
   public renderToolBox() {
     return (
       <div className="toolbox">
-        <Switch
+        CF: <Switch
           checkedChildren="CF"
           unCheckedChildren="F"
           onChange={this.onSwitchCF}
@@ -452,19 +453,19 @@ export default class CFTableView extends React.Component<
   renderCellCollapsed(props: CellProps, rowState: CollapsedRows) {
     const { columnIndex, rowIndex, width } = props;
     const { pixel } = this.props;
-    const { columns } = this.state;
+    const { columns, showCF } = this.state;
     if (columnIndex === -1) {
       // index column
       return <div className="cell-content"></div>;
     } else {
       // if (props.isScrolling) return (<Spin indicator={LoadingIcon} delay={300} />);
-      if (this.state.showCF) {
+      // if (showCF) {
         const cfs = this.cfs();
         return (
           <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
             <CompactCFColumn 
               data={columns[columnIndex].series.toArray()}
-              cfData={cfs && cfs[columnIndex]}
+              cfData={showCF ? (cfs && cfs[columnIndex]) : undefined}
               startIndex={rowState.startIndex}
               endIndex={rowState.endIndex}
               pixel={pixel}
@@ -475,7 +476,7 @@ export default class CFTableView extends React.Component<
             />
           </Spin>
         );
-      }
+      // }
       return (
         <StackedFeature
           data={columns[columnIndex].series.toArray()}
@@ -506,7 +507,8 @@ export default class CFTableView extends React.Component<
 
   onSwitchCF(showCF: boolean) {
     this.setState({ showCF });
-    this.loaderRef?.resetLoadMoreRowsCache(true);
+    // this.loaderRef?.resetLoadMoreRowsCache(true);
+    this.tableRef?.recomputeGridSize();
   }
 
   // async loadMoreRows(params: IndexRange) {

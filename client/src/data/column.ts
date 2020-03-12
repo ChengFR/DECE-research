@@ -34,6 +34,7 @@ export interface ISeries<T = any> {
   length: number;
   at(n: number): T;
   toArray(): T[];
+  groupBy(labels: number[], uniqLabels?: number[]): T[][];
 }
 
 export class Series<T = string | number> implements ISeries<T> {
@@ -48,4 +49,13 @@ export class Series<T = string | number> implements ISeries<T> {
     return this.accessor(n);
   }
   toArray = memoizeOne(() => Array.from({length: this.length}, (v, i) => this.accessor(i)));
+  groupBy = memoizeOne((labels: number[], uniqLabels?: number[]): Array<T>[] => {
+    const ret: Array<T>[] = [];
+    if (uniqLabels) uniqLabels.forEach(l => ret[l] = []);
+    labels.forEach((label, i) => {
+      if (ret[label]) ret[label].push(this.accessor(i));
+      else ret[label] = [this.accessor(i)];
+    })
+    return ret;
+  })
 }
