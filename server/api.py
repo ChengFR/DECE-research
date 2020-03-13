@@ -160,4 +160,3 @@ def get_cf_instance():
     cols = current_app.dataset.get_feature_names(preprocess=False)
     print(cf_df[cols])
     return jsonify(cf_df[cols].values.tolist())
-    
