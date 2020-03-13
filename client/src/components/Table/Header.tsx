@@ -9,6 +9,7 @@ import ColResizer from "./ColResizer";
 import { getFixedGridWidth, columnMargin, TableColumn, CategoricalColumn } from './common';
 import { assert } from '../../common/utils';
 import { isColumnNumerical } from '../../data/column';
+import HeaderChart from './HeaderChart';
 
 export interface IHeaderProps {
   columns: TableColumn[];
@@ -254,30 +255,14 @@ export default class Header extends React.PureComponent<
         key={key}
         style={style}
       >
-        {column.type === "numerical" ? (
-          <Histogram
-            data={groupByArgs ? column.series.groupBy(...groupByArgs) : column.series.toArray()}
-            allData={column.prevSeries && (groupByArgs ? column.prevSeries.groupBy(...groupByArgs) : column.prevSeries.toArray())}
-            width={width}
-            height={chartHeight}
-            margin={columnMargin}
-            xScale={column.xScale}
-            onSelectRange={column.onFilter}
-            selectedRange={column.filter}
-            extent={column.extent}
-          />
-        ) : (
-          <BarChart
-            data={column.series.toArray()}
-            width={width}
-            height={chartHeight}
-            margin={columnMargin}
-            xScale={column.xScale}
-            onSelectCategories={column.onFilter}
-            selectedCategories={column.filter}
-            allData={column.prevSeries?.toArray()}
-          />
-        )}
+        <HeaderChart
+          column={column}
+          groupByArgs={groupByArgs}
+          width={width}
+          height={chartHeight}
+          margin={columnMargin}
+        />
+        
       </div>
     );
   }
@@ -328,9 +313,9 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
     <div style={style} {...props}>
       <div
         className="cell-content cut-text"
-        style={{ width: width - 18, height: "100%", margin: "0 9px" }}
+        style={{ width, height: "100%", padding: "0 9px" }}
       >
-        {name}
+        <span title={name}>{name}</span>
       </div>
       {onSort && (
         <Icon

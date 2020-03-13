@@ -14,10 +14,8 @@ import {
   IndexWidth,
   changeColumnWidth,
 } from "./common";
-import "./index.css";
 import { number2string } from "common/utils";
-import { assert } from '../../common/utils';
-import { isColumnNumerical } from '../../data/column';
+import "./index.scss";
 
 
 export interface ITableProps {

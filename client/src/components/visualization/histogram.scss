@@ -1,0 +1,37 @@
+.histogram {
+  svg {
+    margin-bottom: 0;
+    cursor: crosshair;
+    vertical-align:top;
+
+    rect {
+      /* fill: rgb(109, 160, 202); */
+      opacity: 0.6;
+    }
+
+    .base rect {
+      /* fill: rgb(109, 160, 202); */
+      opacity: 0.4;
+    }
+
+    rect.shade {
+      fill: #aaa;
+      opacity: 0;
+      &:hover {
+        opacity: 0.4;
+      }
+    }
+
+    rect.shade.show {
+      opacity: 0.4;
+    }
+  }
+  .info {
+    line-height: 18px;
+    height: 18px;
+    font-size: 12px;
+    text-align: left;
+    margin-left: 6px;
+  }
+
+}

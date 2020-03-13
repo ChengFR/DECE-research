@@ -12,7 +12,7 @@ import {
 } from "./common";
 import { defaultOptions, IHistogramProps, Histogram } from "./histogram";
 import { FeatureDisc } from "../../data/dataset"
-import './slider.css'
+import './slider.scss'
 
 // const {SwapRightOutlined} = Icon
 
@@ -252,6 +252,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                         style={svgStyle}
                         width={width}
                         height={height}
+                        className='hist-slider'
                     >
                         <g ref={this.histSvgGRef} />
                         <g ref={this.sliderSvgGRef} />

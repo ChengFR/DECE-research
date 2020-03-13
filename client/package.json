@@ -28,6 +28,7 @@
     "lodash": "^4.17.15",
     "lru-memoize": "^1.1.0",
     "memoize-one": "^5.1.1",
+    "node-sass": "^4.13.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "react-grid-layout": "^0.18.2",
