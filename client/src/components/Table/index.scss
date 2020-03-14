@@ -90,7 +90,7 @@
   }
 }
 
-.cell.row-title .arrow {
+.cell .row-title .arrow {
   position: absolute;
   top: 0;
   height: 100%;
@@ -102,7 +102,7 @@
   border-radius: 3px;
 }
 
-.cell.row-title {
+.table-header .cell .row-title {
 
   i:focus {
     outline: none;

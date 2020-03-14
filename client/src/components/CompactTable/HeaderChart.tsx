@@ -3,23 +3,49 @@ import * as _ from "lodash";
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 
-import { IHistogramOptions, IGHistogramOptions, drawGroupedHistogram, drawHistogram } from '../visualization/histogram';
-import { shallowCompare, number2string } from '../../common/utils';
-import { getScaleLinear, getMargin, IMargin } from '../visualization/common';
+import { shallowCompare, number2string, assert } from '../../common/utils';
+import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { TableColumn } from './common';
+import { CFTableColumn } from './common';
 import BarChart from '../visualization/barchart';
+import { isColumnNumerical } from '../../data/column';
+import memoize from 'fast-memoize';
+import { TableColumn } from '../Table/common';
 
 function isArrays<T>(a:T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
 }
 
+function label2nums(labels: string[], categories?: string[]): [number[], number[]] {
+  const cat2idx: Map<string, number> = new Map();
+  categories?.map((c, i) => cat2idx.set(c, i));
+  const nums = labels.map(v => {
+    if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+    return cat2idx.get(v) as number;
+  });
+  const uniqNums: number[] = [];
+  cat2idx.forEach((v, k) => uniqNums.push(v));
+  return [nums, uniqNums];
+}
+
+const getRowLabels = memoize((c: TableColumn) => {
+  assert(!isColumnNumerical(c));
+  return label2nums(c.series.toArray(), c.categories);
+});
+
+const getAllRowLabels = memoize((c: TableColumn) => {
+  assert(!isColumnNumerical(c));
+  const prevSeries = c.prevSeries;
+  return prevSeries && label2nums(prevSeries.toArray(), c.categories);
+});
+
+
 export interface IHeaderChartProps {
   width: number;
   height: number;
   margin: IMargin;
-  column: TableColumn;
-  groupByArgs?: [number[], number[]];
+  column: CFTableColumn;
+  groupByColumn?: Readonly<CFTableColumn>;
   cf?: number[] | number[][];
   allCF?: number[] | number[][];
   cfFilter?: [number, number];
@@ -32,19 +58,15 @@ export interface IHeaderChartState {
   hoveredBin: [number, number] | null;
 }
 
-const defaultProps = {
-  width: 300,
-  height: 200,
-  margin: 0,
-  innerPadding: 1,
-  drawAxis: false,
-  drawRange: true
-}
-
 export default class HeaderChart extends React.PureComponent<IHeaderChartProps, IHeaderChartState> {
-  static defaultProps = { ...defaultProps };
-  private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
-  private shouldPaint: boolean = false;
+  static defaultProps = { 
+    width: 300,
+    height: 200,
+    margin: 0,
+    innerPadding: 1,
+    drawAxis: false,
+    drawRange: true
+  };
 
   constructor(props: IHeaderChartProps) {
     super(props);
@@ -57,11 +79,13 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
   }
 
   public render() {
-    const { column, groupByArgs, cf, allCF, className, style, width, height, margin} = this.props;
-    
+    const { column, groupByColumn, cf, allCF, className, style, width, height, margin} = this.props;
+
     if (column.type === 'numerical') {
-      let data = groupByArgs ? column.series.groupBy(...groupByArgs) : column.series.toArray();
-      const allData = column.prevSeries && (groupByArgs ? column.prevSeries.groupBy(...groupByArgs) : column.prevSeries.toArray());
+      const groupArgs = groupByColumn && getRowLabels(groupByColumn);
+      let data = groupArgs ? column.series.groupBy(...groupArgs) : column.series.toArray();
+      const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
+      const allData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
       if (cf) {
         return (
           <div className={className} style={style}>
@@ -107,6 +131,11 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
         allData={column.prevSeries?.toArray()}
       />
     );
+  }
+
+  _groupByArgs(): undefined | [number[], number[]] {
+    const {groupByColumn} = this.props;
+    return groupByColumn && getRowLabels(groupByColumn);
   }
 
   onMouseOverBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (

@@ -22,16 +22,18 @@ export interface ITableProps {
   // dataFrame: IDataFrame;
   className?: string;
   columns: (IColumn<string> | IColumn<number> | TableColumn)[];
-  distGroupBy?: number;
-  rowCount: number;
   onScroll?: (params: ScrollParams) => any;
   style?: React.CSSProperties;
+  rowCount: number;
   rowHeight: number | ((params: Index) => number);
   fixedColumns: number;
   cellRenderer?: CellRenderer;
   showIndex: boolean;
   columnWidths?: number[];
   onSectionRendered?: (params: SectionRenderedParams) => any;
+  headerRowCount: number;
+  headerRowHeight: number | ((params: Index) => number);
+  headerCellRenderer?: CellRenderer;
 }
 
 interface ITableState {
@@ -41,10 +43,12 @@ interface ITableState {
 }
 
 export default class Table extends React.PureComponent<ITableProps, ITableState> {
-  static defaultProps = {
+  public static defaultProps = {
     rowHeight: 20,
     fixedColumns: 1,
-    showIndex: false
+    showIndex: false,
+    headerRowHeight: 30,
+    headerRowCount: 1,
   };
 
   private _leftGridWidth: number | null = null;
@@ -113,10 +117,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       style,
       rowHeight,
       fixedColumns,
-      distGroupBy,
       showIndex,
       rowCount,
-      onSectionRendered
+      onSectionRendered,
+      headerRowCount,
+      headerRowHeight,
+      headerCellRenderer
     } = this.props;
     const { columns, scrollLeft, scrollTop } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
@@ -125,7 +131,6 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       overflow: "visible",
       ...style
     };
-
     return (
       <div 
         className={"table-container" + (className ? ` ${className}`  : '')} 
@@ -136,11 +141,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
             <div style={{ overflow: "visible" }}>
               <Header
                 columns={columns}
-                distGroupBy={distGroupBy}
+                rowCount={headerRowCount}
+                rowHeight={headerRowHeight}
                 height={90}
                 chartHeight={60}
-                hasChart={true}
                 width={width - (showIndex ? IndexWidth : 0)}
+                cellRenderer={headerCellRenderer}
                 fixedColumns={fixedColumns}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}

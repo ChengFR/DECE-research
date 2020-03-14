@@ -440,7 +440,7 @@ export function drawGroupedHistogram(
 
   const nGroups = data.length;
   if (nGroups == 0) throw "data length equals to 0";
-  const binPad = 2;
+  const binPad = 1;
 
   const margin = getMargin(opts.margin);
   const color = opts.color || defaultCategoricalColor;
