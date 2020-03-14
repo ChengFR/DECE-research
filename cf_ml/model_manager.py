@@ -116,7 +116,10 @@ class PytorchModelManager(ModelManager):
 
         if preprocess:
             x = self.dataset.preprocess(x, mode='x')
-        x = torch.from_numpy(x[self.feature_names].values).float()
+        if isinstance(x, pd.DataFrame):
+            x = x[self.feature_names].values
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(x).float()
         pred = self.model(x).detach().numpy()
         output_df = pd.DataFrame(np.concatenate((x, pred), axis=1), \
             columns=self.feature_names+self.target_names)
@@ -128,12 +131,12 @@ class PytorchModelManager(ModelManager):
         return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
     def predict_instance(self, index):
-        instances = self.dataset.get_sample(index=index, preprocess=False)
+        instances = self.dataset.get_sample(index=index, preprocess=True)
         x = instances[self.feature_names].values
         x = torch.from_numpy(x).float()
         origin_target_name = self.dataset.get_target_names(preprocess=False)
         target = self.dataset.get_sample(index, preprocess=False)[origin_target_name]
-        output_df = self.predict(x, preprocess=True)
+        output_df = self.predict(x, preprocess=False)
         output_df[origin_target_name] = target
         return output_df.set_index(instances.index)
 

@@ -147,7 +147,6 @@ def get_cf_instance():
         changeable_attr = [features[i] for i in range(len(attr_flex)) if attr_flex[i]]
     else:
         changeable_attr = 'all'
-    print(changeable_attr)
     attr_range = {}
     for attr in request_params['attrRange']:
         attr_range[features[attr['id']]] = attr
@@ -158,5 +157,4 @@ def get_cf_instance():
         diversity_weight=0, use_cache=False)
     cf_df = subset_cf.get_cf()
     cols = current_app.dataset.get_feature_names(preprocess=False)
-    print(cf_df[cols])
     return jsonify(cf_df[cols].values.tolist())

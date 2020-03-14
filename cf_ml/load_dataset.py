@@ -16,7 +16,17 @@ def load_HELOC_dataset():
     return Dataset('HELOC', data_df, description, 'RiskPerformance')
 
 def load_german_credit_dataset():
-    pass
+    description = pd.read_csv(os.path.join(DATA_DIR,'german-credit/description.csv'), index_col='name')
+    cols = description.index
+    description = description.to_dict('index')
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/GermanData.csv'), names=cols)
+    for _, info in description.items():
+        if type(info['category']) is str:
+            try: 
+                info['category'] = [int(cat) for cat in info['category'].split(' ')]
+            except:
+                info['category'] = info['category'].split(' ')
+    return Dataset('german-credit', data_df, description, 'Output')
 
 def load_boston_housing_dataset():
     pass
