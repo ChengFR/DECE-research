@@ -79,7 +79,7 @@ class Dataset:
                 minx = self.description[col]['min']
                 maxx = self.description[col]['max']
                 if maxx - minx > 1e-6:
-                    data_df.loc[:, col] = (data_df.loc[:, col] - minx)/(maxx-minx)
+                    data_df.loc[:, col] = (data_df.loc[:, col].astype('float') - minx)/(maxx-minx)
         return data_df
 
     def _denormalize(self, data_df):
@@ -89,7 +89,7 @@ class Dataset:
                 maxx = self.description[col]['max']
                 decile = self.description[col]['decile']
                 if maxx - minx > 1e-6:
-                    data_df.loc[:, col] = (data_df.loc[:, col] * (maxx-minx) + minx).round(decile)
+                    data_df.loc[:, col] = (data_df.loc[:, col].astype('float') * (maxx-minx) + minx).round(decile)
         return data_df
 
     def _to_dummy(self, data_df):
@@ -114,14 +114,14 @@ class Dataset:
     def preprocess(self, data, mode='all'):
         if mode == 'all':
             if isinstance(data, pd.DataFrame):
-                data_df = data
+                data_df = data.copy()
             else:
                 data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.origin_columns)
             processed_df = self._normalize(self._to_dummy(data_df))
         elif mode == 'x':
             if type(data) is type(pd.DataFrame()):
-                data_df = data
+                data_df = data.copy()
             else:
                 data = np.array(data)
                 if len(data.shape) == 1:
@@ -132,27 +132,27 @@ class Dataset:
                 data_df.loc[:, target_col] = self.description[target_col]['category'][0]
             else:
                 data_df.loc[:, target_col] = self.description[target_col]['min']
-            processed_df = self._normalize(self._to_dummy(data_df))[self.get_feature_names(preprocess=False)]
+            processed_df = self._normalize(self._to_dummy(data_df))[self.get_feature_names(preprocess=True)]
 
         return processed_df
         
     def depreprocess(self, data, mode='all'):
         if mode == 'all':
             if type(data) is type(pd.DataFrame()):
-                data_df = data
+                data_df = data.copy()
             else:
                 data = np.array(data)
                 data_df = pd.DataFrame(data, columns=self.dummy_columns)
             deprocessed_df = self._from_dummy(self._denormalize(data_df))
         elif mode == 'x':
             if type(data) is type(pd.DataFrame()):
-                data_df = data
+                data_df = data.copy()
             else:
                 data = np.array(data)
-                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=False))
+                data_df = pd.DataFrame(data, columns=self.get_feature_names(preprocess=True))
             for col in self.get_target_names(preprocess=True):  
                 data_df.loc[:, col] = 0
-            deprocessed_df = self._from_dummy(self._denormalize(data_df))[self.get_feature_names(preprocess=True)]
+            deprocessed_df = self._from_dummy(self._denormalize(data_df))[self.get_feature_names(preprocess=False)]
         return deprocessed_df
 
     def get_train_dataset(self, preprocess=True):
@@ -213,7 +213,7 @@ class Dataset:
                 mads[f] = np.median(abs(data[f].values - np.median(data[f].values)))
             else:
                 for cat in self.description[f]['category']:
-                    mads['{}_{}'.format(f, cat)] = 0
+                    mads['{}_{}'.format(f, cat)] = 1
         return mads
     
     def get_columns(self, preprocess=True):

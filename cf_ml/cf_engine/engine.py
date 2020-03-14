@@ -18,6 +18,7 @@ class CFEnginePytorch:
         self.model_manager = model_manager
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
+        self.desc= self.dataset.get_description()
 
     def generate_cfs_from_setting(self, setting, data=None, proximity_weight=0.01, diversity_weight=0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
@@ -43,12 +44,14 @@ class CFEnginePytorch:
             attr_range = setting.get('attr_range', {})
             index = setting.get('index', 'all')
             if data is None:
-                data = self.dataset.get_sample(index=index, filters=filters, preprocess=False)
+                data = self.dataset.get_sample(
+                    index=index, filters=filters, preprocess=False)
             elif isinstance(data, list) or isinstance(data, np.ndarray):
                 data = np.array(data)
                 if len(data.shape) == 1:
                     data = data[np.newaxis, :]
-                data = pd.DataFrame(data, columns=self.dataset.get_feature_names(False))
+                data = pd.DataFrame(
+                    data, columns=self.dataset.get_feature_names(False))
             subset_cf = self.generate_cfs(data, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
                                           k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
         if data is None and cache:
@@ -130,7 +133,7 @@ class CFEnginePytorch:
                     projected_cfs, instances, targets, expanded_mask)
 
             predicted_cfs = self.model_manager.predict(
-                projected_cfs[self.dataset.get_columns(preprocess=False)])
+                projected_cfs[self.dataset.get_feature_names(preprocess=False)])
 
             subset_cf.append_cfs(predicted_cfs, predicted_instances)
 
@@ -149,22 +152,31 @@ class CFEnginePytorch:
                 timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num*1000))
         return subset_cf
 
-    def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute, \
-            k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, lr):
+    def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute,
+                      k, attr_range, max_iter, min_iter, loss_diff, loss_threshold, lr):
         self.cf_num = cf_num
         self.desired_class = desired_class
         self.proximity_weight = proximity_weight
         self.diversity_weight = diversity_weight
         self.clip_frequency = clip_frequency
         if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
-            self.changeable_attribute = self.dataset.get_feature_names(preprocess=True)
+            self.changeable_attribute = self.dataset.get_feature_names(
+                preprocess=True)
         else:
-            self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
+            self.changeable_attribute = self.dataset.process_columns(
+                changeable_attribute)
         self.max_iter = max_iter
         self.min_iter = min_iter
         self.loss_diff = loss_diff
         self.loss_threshold = loss_threshold
         self.lr = lr
+
+        self.numerical_attr_mask = \
+            torch.Tensor([True if attr in self.desc else False for attr in self.dataset.get_feature_names()]).int()
+        self.categorical_attr_list = []
+        for attr, info in self.desc.items():
+            if attr != self.dataset.get_target_names(False) and info['type'] == 'categorical':
+                self.categorical_attr_list.append([self.dataset.get_feature_names().index('{}_{}'.format(attr, cat)) for cat in info['category']])
 
         if weight == 'mads':
             mads = self.dataset.get_mads()
@@ -178,10 +190,9 @@ class CFEnginePytorch:
             self.feature_weight = np.array(weight)
         self.feature_weight = torch.from_numpy(self.feature_weight).float()
 
-        desc = self.dataset.get_description()
         target = self.dataset.get_target_names(preprocess=False)
         self.attr_range = OrderedDict()
-        for col, info in desc.items():
+        for col, info in self.desc.items():
             if col != target:
                 self.attr_range[col] = {}
                 if col in attr_range:
@@ -191,18 +202,17 @@ class CFEnginePytorch:
                     self.attr_range[col]['max'] = info['max']
                 else:
                     self.attr_range[col]['category'] = info['category']
-
-        self.normed_min = self.dataset.preprocess([info['min'] if desc[col]['type'] == 'numerical' else info['category'][0] \
-            for col, info in self.attr_range.items()], mode='x')
-        for col, info in desc.items():
+        self.normed_min = self.dataset.preprocess([info['min'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
+                                                   for col, info in self.attr_range.items()], mode='x')
+        for col, info in self.desc.items():
             if col != target and info['type'] == 'categorical':
                 for cat in info['category']:
                     self.normed_min['{}_{}'.format(col, cat)] = 0
         self.normed_min = torch.from_numpy(self.normed_min.values).float()
 
-        self.normed_max = self.dataset.preprocess([info['max'] if desc[col]['type'] == 'numerical' else info['category'][0] \
-            for col, info in self.attr_range.items()], mode='x')
-        for col, info in desc.items():
+        self.normed_max = self.dataset.preprocess([info['max'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
+                                                   for col, info in self.attr_range.items()], mode='x')
+        for col, info in self.desc.items():
             if col != target and info['type'] == 'categorical':
                 for cat in info['category']:
                     if cat in self.attr_range[col]['category']:
@@ -212,7 +222,6 @@ class CFEnginePytorch:
         self.normed_max = torch.from_numpy(self.normed_max.values).float()
 
         self.k = k
-        
 
     def init_cfs(self, data, mask):
         cfs = np.repeat(data, self.cf_num, axis=0)
@@ -248,10 +257,12 @@ class CFEnginePytorch:
         return np.eye(output.shape[1])[target_idx]
 
     def project(self, data):
-        pred = np.zeros((len(data), len(self.dataset.get_target_names())))
-        data_df = pd.DataFrame(np.concatenate((data, pred), axis=1),
-                               columns=self.dataset.get_columns())
-        return self.dataset.depreprocess(data_df)
+        # pred = np.zeros((len(data), len(self.dataset.get_target_names())))
+        if len(data.shape) == 1:
+            data = np.array([data])
+        data_df = pd.DataFrame(data,
+                               columns=self.dataset.get_feature_names())
+        return self.dataset.depreprocess(data_df, mode='x')
 
     def optimize(self, cfs, data_instances, target, mask, lr):
 
@@ -373,17 +384,18 @@ class CFEnginePytorch:
         gradient = cfs.grad
         return gradient*mask, pred
 
-    def post_step(self, projected_cfs, data_instances, target, mask):
+    def post_step(self, projected_cfs, data_instances, target, mask, verbose=False):
         feature_names = self.dataset.get_feature_names()
         target_name = self.dataset.get_target_names(preprocess=False)
-        description = self.dataset.get_description()
 
         cfs = torch.from_numpy(self.dataset.preprocess(
-            projected_cfs)[feature_names].values).float()
+            projected_cfs, 'x')[feature_names].values).float()
         cfs.requires_grad = True
         grad, pred = self.get_gradient(cfs, data_instances, target, mask)
+        # print(pred, self.model_manager.forward(data_instances))
         grad = grad.detach().numpy()
         salient_attr = abs(grad).argmax(axis=1)
+        # salient_attr = -grad.argmax(axis=1)
         grad_sign = np.sign(grad)
         # salient_grad = np.array([[1 if j == salient_attr[i] else 0 for j in range(gard.shape[1])] for i in range(grad.shape[0])]) * np.sign(grad)
 
@@ -393,14 +405,18 @@ class CFEnginePytorch:
         for i in range(len(projected_cfs)):
             if invalid_cfs[i]:
                 salient_feature_name = feature_names[salient_attr[i]]
-                if salient_feature_name in description.keys() and description[salient_feature_name]['type'] == 'numerical':
-                    projected_cfs.loc[i, salient_feature_name] -= grad_sign[i,
-                                                                            salient_attr[i]] * 1 / 10**description[salient_feature_name]['decile']
-                    # print("{}->{}: {} + {}".format(pred[i, 0], target[i ,0], salient_feature_name, grad_sign[i, salient_attr[i]] * 1 / 10**description[salient_feature_name]['decile']))
+                # print(salient_feature_name)
+                if salient_feature_name in self.desc.keys() and self.desc[salient_feature_name]['type'] == 'numerical':
+                    update = -grad_sign[i, salient_attr[i]] * 1 / 10**self.desc[salient_feature_name]['decile']
+                    if verbose:
+                        print("{}: {:.3f}->{}: {}:{} + {}".format(i, pred[i, 0], target[i ,0], salient_feature_name, projected_cfs.loc[i, salient_feature_name], update))
+                    projected_cfs.loc[i, salient_feature_name] += update
                 else:
-                    cfs[i][salient_attr[i]] += grad_sign[i, salient_attr[i]]
-                    projected_cfs.loc[i, :] = self.model_manager.predict(
-                        self.project(cfs[i]))
+                    update = 1 * -grad_sign[i, salient_attr[i]]
+                    cfs[i][salient_attr[i]] += update
+                    projected_cfs.loc[i, :] = self.project(cfs[i].detach().numpy()).loc[0, :]
+                    if verbose:
+                        print("{}: {:.3f}->{}: {} set {}".format(i, pred[i, 0], target[i ,0], salient_feature_name, update > 0))
         return projected_cfs
 
     def evaluate_cfs(self, cf_df, instance_df, metrics=['valid_rate', 'avg_distance']):
