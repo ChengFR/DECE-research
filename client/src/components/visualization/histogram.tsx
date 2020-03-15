@@ -294,10 +294,11 @@ export class Histogram extends React.PureComponent<
     if (svg) {
       const { data, allData, className, style, svgStyle, height, drawRange, ...rest } = this.props;
       const xScale = rest.xScale || this.getXScale();
+      const chartHeight = drawRange ? (height - 24) : (height - 4);
       if (isArrays(data)) {
         if (allData && !isArrays(allData)) throw "Mismatched array form between data and allData";
         drawGroupedHistogram(svg, data, allData, {
-          height: height - 24,
+          height: chartHeight,
           ...rest,
           xScale,
           onRectMouseOver: this.onMouseOverBins,
@@ -307,7 +308,7 @@ export class Histogram extends React.PureComponent<
       } else {
         if (allData && isArrays(allData)) throw "Mismatched array form between data and allData";
         drawHistogram(svg, data, allData, {
-          height: height - 24,
+          height: chartHeight,
           ...rest,
           xScale,
           onRectMouseOver: this.onMouseOverBin,
@@ -356,7 +357,7 @@ export class Histogram extends React.PureComponent<
           ref={this.svgRef}
           style={{ marginTop: 4, ...svgStyle }}
           width={width}
-          height={drawRange ? (height - 24) : height}
+          height={drawRange ? (height - 24) : (height - 4)}
         />
         {drawRange && <div className="info">
           {hoveredBin
