@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as _ from "lodash";
 import {
   AutoSizer,
   ScrollParams,
@@ -8,15 +9,15 @@ import {
 import Header from "./Header";
 import TableGrid, { CellRenderer } from "./TableGrid";
 import { IColumn } from "../../data";
-import { createColumn } from './common';
 import {
+  createColumn,
   TableColumn,
   IndexWidth,
-  changeColumnWidth,
+  changeColumnWidth
 } from "./common";
 import { number2string } from "common/utils";
 import "./index.scss";
-
+import { sum } from "../../common/math";
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
@@ -42,13 +43,16 @@ interface ITableState {
   scrollLeft: number;
 }
 
-export default class Table extends React.PureComponent<ITableProps, ITableState> {
+export default class Table extends React.PureComponent<
+  ITableProps,
+  ITableState
+> {
   public static defaultProps = {
     rowHeight: 20,
     fixedColumns: 1,
     showIndex: false,
     headerRowHeight: 30,
-    headerRowCount: 1,
+    headerRowCount: 1
   };
 
   private _leftGridWidth: number | null = null;
@@ -76,8 +80,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
   ): TableColumn[] {
     return columns.map((c, i) => {
       const prevColumn = prevColumns && prevColumns[i];
-      if (prevColumn)
-        return {...prevColumn, ...c} as TableColumn;
+      if (prevColumn) return { ...prevColumn, ...c } as TableColumn;
       return createColumn(c);
     });
   }
@@ -131,9 +134,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       overflow: "visible",
       ...style
     };
+    const headerHeight = typeof headerRowHeight === "number" ? headerRowHeight : sum(
+      _.range(headerRowCount).map(r => headerRowHeight({ index: r }))
+    );
     return (
-      <div 
-        className={"table-container" + (className ? ` ${className}`  : '')} 
+      <div
+        className={"table-container" + (className ? ` ${className}` : "")}
         style={containerStyle}
       >
         <AutoSizer>
@@ -143,7 +149,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
                 columns={columns}
                 rowCount={headerRowCount}
                 rowHeight={headerRowHeight}
-                height={90}
+                height={headerHeight}
                 chartHeight={60}
                 width={width - (showIndex ? IndexWidth : 0)}
                 cellRenderer={headerCellRenderer}
@@ -157,7 +163,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
                 rowCount={rowCount}
                 columns={columns}
                 rowHeight={rowHeight}
-                height={height - 90}
+                height={height - headerHeight}
                 width={width}
                 cellRenderer={this.cellRenderer}
                 fixedColumns={fixedColumns}

@@ -6,11 +6,11 @@ import { isArray } from "util";
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { CFTableColumn } from './common';
+import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn } from './common';
 import BarChart from '../visualization/barchart';
 import { isColumnNumerical } from '../../data/column';
 import memoize from 'fast-memoize';
-import { TableColumn } from '../Table/common';
+import { TableColumn, isNumericalVColumn } from '../Table/common';
 
 function isArrays<T>(a:T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
@@ -39,6 +39,10 @@ const getAllRowLabels = memoize((c: TableColumn) => {
   return prevSeries && label2nums(prevSeries.toArray(), c.categories);
 });
 
+function filterUndefined<T>(series: (T | undefined)[]): T[] {
+  return series.filter(c => c !== undefined) as T[];
+}
+
 
 export interface IHeaderChartProps {
   width: number;
@@ -46,8 +50,6 @@ export interface IHeaderChartProps {
   margin: IMargin;
   column: CFTableColumn;
   groupByColumn?: Readonly<CFTableColumn>;
-  cf?: number[] | number[][];
-  allCF?: number[] | number[][];
   cfFilter?: [number, number];
   style?: React.CSSProperties;
   className?: string;
@@ -79,14 +81,15 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
   }
 
   public render() {
-    const { column, groupByColumn, cf, allCF, className, style, width, height, margin} = this.props;
+    const { column, groupByColumn, className, style, width, height, margin} = this.props;
 
-    if (column.type === 'numerical') {
+    if (isNumericalVColumn(column)) {
       const groupArgs = groupByColumn && getRowLabels(groupByColumn);
       let data = groupArgs ? column.series.groupBy(...groupArgs) : column.series.toArray();
       const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
       const allData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-      if (cf) {
+      console.log(column);
+      if (column.cf) {
         return (
           <div className={className} style={style}>
             <Histogram 
@@ -100,7 +103,17 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               margin={margin}
               extent={column.extent}
             />
-    
+            <Histogram 
+              data={this.validateCFs(column.cf)}
+              allData={column.allCF && this.validateCFs(column.allCF)}
+              onSelectRange={column.onFilterCF}
+              selectedRange={column.cfFilter}
+              xScale={column.xScale}
+              width={width}
+              height={height/2}
+              margin={margin}
+              extent={column.extent}
+            />
           </div>
         );
       }
@@ -115,7 +128,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
           height={height}
           margin={margin}
           extent={column.extent}
-          drawRange
+          drawRange={true}
         />
       );
     }
@@ -132,6 +145,9 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
       />
     );
   }
+
+  validateCFs = memoizeOne(filterUndefined);
+  validateAllCFs = memoizeOne(filterUndefined);
 
   _groupByArgs(): undefined | [number[], number[]] {
     const {groupByColumn} = this.props;
