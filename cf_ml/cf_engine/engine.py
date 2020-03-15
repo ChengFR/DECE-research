@@ -19,6 +19,7 @@ class CFEnginePytorch:
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
         self.desc = self.dataset.get_description()
+        self.features = self.dataset.get_feature_names()
 
     def generate_cfs_from_setting(self, setting, data=None, proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
@@ -81,36 +82,36 @@ class CFEnginePytorch:
         """
         self.update_config(cf_num, desired_class, proximity_weight, weight,
                            diversity_weight, clip_frequency, changeable_attr, k, attr_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr)
-
+        # init timer
         start_time = timeit.default_timer()
+        # init result contrainer
         subset_cf = CounterfactualExampleBySubset(self.dataset, self.cf_num)
-
-        feature_names = self.dataset.get_feature_names()
-
+        # init original instances
         data_df = self.dataset.preprocess(data_df, mode='x')
         data_num = len(data_df)
         total_loss = 0
+        # start generating
         for batch_num in range(math.ceil(data_num / batch_size)):
             checkpoint = timeit.default_timer()
             start_id = batch_num*batch_size
             end_id = min(batch_num*batch_size+batch_size, len(data_df))
-
-            instances = data_df[feature_names].iloc[start_id: end_id].values
+            # get original instances in a batch
+            instances = data_df[self.features].iloc[start_id: end_id].values
 
             expanded_mask = np.repeat(
                 self.mask_change[np.newaxis, :], self.cf_num*(end_id-start_id), axis=0)
-
+            # init target classes
             if type(desired_class) is str and desired_class == 'opposite':
                 targets = self.get_desired_class(instances)
             else:
                 targets = desired_class
-
+            # prepare initialized counterfactuals, target, and instances for generation
             init_cfs, targets, instances = self.prepare_cfs(
                 targets=targets, instances=instances, mask=expanded_mask)
-
+            # optimization process
             cfs, _, loss, iter = self.optimize(
                 init_cfs, instances, targets, expanded_mask, lr)
-
+            # regenerate counterfactual examples if the number of changeable attributes is fixed
             if self.k > 0 and self.k < mask.sum():
                 diff = (cfs - instances).abs()
                 key_features = diff.argsort(dim=1, descending=True)[:, :k]
@@ -122,17 +123,19 @@ class CFEnginePytorch:
 
             cfs = cfs.detach().numpy()
 
-            predicted_instances = self.model_manager.predict(
-                data_df.iloc[start_id: end_id], preprocess=False).set_index(data_df.iloc[start_id: end_id].index)
+            # project the counterfactuals to the original space
             projected_cfs = self.project(cfs)
 
+            # post steps to refine counterfactual examples
             for _ in range(post_step):
                 projected_cfs = self.post_step(
                     projected_cfs, instances, targets, expanded_mask)
 
+            # store the final counterfactuals and the original instances into the container
             predicted_cfs = self.model_manager.predict(
                 projected_cfs[self.dataset.get_feature_names(preprocess=False)])
-
+            predicted_instances = self.model_manager.predict(
+                data_df.iloc[start_id: end_id], preprocess=False).set_index(data_df.iloc[start_id: end_id].index)
             subset_cf.append_cfs(predicted_cfs, predicted_instances)
 
             total_loss += loss*(end_id-start_id)
@@ -142,12 +145,12 @@ class CFEnginePytorch:
                     predicted_cfs, predicted_instances)
             if verbose:
                 print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, validation rate: {:.3f}".format(
-                    end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss*1000, iter, eval_result['valid_rate']))
+                    end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss, iter, eval_result['valid_rate']))
         if evaluate:
             eval_result = self.evaluate_cfs(
                 subset_cf.get_cf(), subset_cf.get_instance())
             print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}, average loss: {:.3f}'.format(
-                timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num*1000))
+                timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num))
         return subset_cf
 
     def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute,
@@ -161,7 +164,7 @@ class CFEnginePytorch:
         self.init_cat = init_cat
         self.reload_frequency = 100
         if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
-            self.changeable_attribute = self.dataset.get_feature_names()
+            self.changeable_attribute = self.features
         else:
             self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
         self.max_iter = max_iter
@@ -169,25 +172,26 @@ class CFEnginePytorch:
         self.loss_diff = loss_diff
         self.loss_threshold = loss_threshold
         self.lr = lr
-
+        self.k = k
+        # set mask of changeable attributes; numerical attributes; categorical attributes
         self.mask_change = \
             np.array(
-                [feature in self.changeable_attribute for feature in self.dataset.get_feature_names()]).astype(int)
+                [feature in self.changeable_attribute for feature in self.features]).astype(int)
 
         self.mask_num = \
             np.array(
-                [True if attr in self.desc else False for attr in self.dataset.get_feature_names()]).astype(int)
+                [True if attr in self.desc else False for attr in self.features]).astype(int)
 
         self.mask_cat = \
             np.array(
-                    [False if attr in self.desc else True for attr in self.dataset.get_feature_names()]).astype(int)
-
+                    [False if attr in self.desc else True for attr in self.features]).astype(int)
+        # list of the indexes of dummy attributes
         self.categorical_attr_list = []
         for attr, info in self.desc.items():
             if attr != self.dataset.get_target_names(False) and info['type'] == 'categorical':
-                self.categorical_attr_list.append([self.dataset.get_feature_names().index(
+                self.categorical_attr_list.append([self.features.index(
                     '{}_{}'.format(attr, cat)) for cat in info['category']])
-
+        # set feature weight
         if weight == 'mads':
             mads = self.dataset.get_mads()
             features = self.dataset.get_feature_names(preprocess=True)
@@ -200,6 +204,7 @@ class CFEnginePytorch:
             self.feature_weight = np.array(weight)
         self.feature_weight = torch.from_numpy(self.feature_weight).float()
 
+        # set min and max of both the preprocessed data and the non-preprocessed data
         target = self.dataset.get_target_names(preprocess=False)
         self.attr_range = OrderedDict()
         for col, info in self.desc.items():
@@ -230,8 +235,6 @@ class CFEnginePytorch:
                     else:
                         self.normed_max['{}_{}'.format(col, cat)] = 0
         self.normed_max = torch.from_numpy(self.normed_max.values).float()
-
-        self.k = k
 
     def init_cfs(self, data, mask):
         cfs = np.repeat(data, self.cf_num, axis=0)
@@ -274,7 +277,7 @@ class CFEnginePytorch:
         if len(data.shape) == 1:
             data = np.array([data])
         data_df = pd.DataFrame(data,
-                               columns=self.dataset.get_feature_names())
+                               columns=self.features)
         projected_df = self.dataset.depreprocess(data_df, mode='x')
         return projected_df
 
@@ -418,7 +421,7 @@ class CFEnginePytorch:
         return gradient*mask, pred
 
     def post_step(self, projected_cfs, data_instances, target, mask, verbose=False):
-        feature_names = self.dataset.get_feature_names()
+        feature_names = self.features
         target_name = self.dataset.get_target_names(preprocess=False)
 
         cfs = torch.from_numpy(self.dataset.preprocess(
