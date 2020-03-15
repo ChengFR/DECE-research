@@ -113,10 +113,10 @@ def get_data():
 def get_cf():
     changeable_attr = request.args.get('changeable_attr', default='all', type=str)
     cf_num = request.args.get('cf_num', default=1, type=int)
-    filters = []
+    data_range = {}
     desired_class = 'opposite'
-    setting = {'changeable_attribute': changeable_attr, 'filters': filters, 'cf_num': cf_num, 'desired_class': desired_class}
-    subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting)
+    setting = {'changeable_attribute': changeable_attr, 'data_range': data_range, 'cf_num': cf_num, 'desired_class': desired_class}
+    subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, batch_size=512)
 
     index = None
     if request.method == 'GET':
@@ -152,9 +152,9 @@ def get_cf_instance():
         attr_range[features[attr['id']]] = attr
 
     setting = {'changeable_attribute': changeable_attr, 'attr_range': attr_range, 
-        'filters': [], 'cf_num': cf_num, 'desired_class': 'opposite', 'k': k}
+        'data_range': {}, 'cf_num': cf_num, 'desired_class': 'opposite', 'k': k}
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
-        diversity_weight=0, use_cache=False)
+        diversity_weight=0)
     cf_df = subset_cf.get_cf()
     cols = current_app.dataset.get_feature_names(preprocess=False)
     return jsonify(cf_df[cols].values.tolist())

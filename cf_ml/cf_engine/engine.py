@@ -21,46 +21,46 @@ class CFEnginePytorch:
         self.desc = self.dataset.get_description()
         self.features = self.dataset.get_feature_names()
 
-    def generate_cfs_from_setting(self, setting, data=None, proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
+    def generate_cfs_from_setting(self, setting, data=None, weight='mads', proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
                         'changeable_attribute': str or list of str, 
-                        'weight': str or array-like
                         'k': int, number of changed attribute,
-                        'attr_range': dict, range of attribute
-                        'filters': list of ($attr_name, min, max, boolean: allow special value) or ($attr_name, list of any, boolean: allow special value), 
+                        'cf_range': dict, range of attribute
+                        'data_range': dict, range of attribute
                         'cf_num': int, 
-                        'desired_class': 'opposite' or pandas.DataFrame}
+                        'desired_class': 'opposite' or ndarray}
         """
         if data is None and use_cache and self.dir_manager.indexof_setting(setting) >= 0:
             subset_cf = self.dir_manager.load_cf_with_setting(setting)
         else:
             changeable_attribute = setting['changeable_attribute']
-            filters = setting.get('filters', [])
+            data_range = setting.get('data_range', {})
             cf_num = setting.get('cf_num', 1)
             desired_class = setting.get('desired_class', 'opposite')
-            weight = setting.get('weight', 'mads')
             k = setting.get('k', -1)
-            attr_range = setting.get('attr_range', {})
+            cf_range = setting.get('cf_range', {})
             index = setting.get('index', 'all')
             if data is None:
-                data = self.dataset.get_sample(
-                    index=index, filters=filters, preprocess=False)
+                data_df = self.dataset.get_sample(
+                    index=index, filters=data_range, preprocess=False)
             elif isinstance(data, list) or isinstance(data, np.ndarray):
                 data = np.array(data)
                 if len(data.shape) == 1:
                     data = data[np.newaxis, :]
-                data = pd.DataFrame(
+                data_df = pd.DataFrame(
                     data, columns=self.dataset.get_feature_names(False))
-            subset_cf = self.generate_cfs(data, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
-                                          k, attr_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
+            else:
+                data_df = data
+            subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
+                                          k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
         if data is None and cache:
             self.dir_manager.save_cf_with_setting(subset_cf, setting)
         return subset_cf
 
     def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', weight='mads', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
-                     changeable_attr='all', k=-1, attr_range={}, init_cat='rand', 
+                     changeable_attr='all', k=-1, cf_range={}, init_cat='rand', 
                      max_iter=2000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
         :param data_df: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
@@ -73,7 +73,7 @@ class CFEnginePytorch:
         :param changeable_attr: str of list of str, attribute names that are allowed to change, 'all' means that all attributes are allowed to be change
         :param k: int, number of changeable attribute, if k > 0 and k < len(changeable_attr), for each cf, 
             a post-hoc process will be made to ensure only k attributes finally changed.
-        :param attr_range: dict, range of attribute
+        :param cf_range: dict, range of attribute
         :param max_iter: int, maximum iteration
         :param min_iter: int, minimun iteraction
         :param loss_diff: float, an early stop happends when the difference of loss is below loss_diff
@@ -81,7 +81,7 @@ class CFEnginePytorch:
         :param verbose: boolean, whether to print out the log information
         """
         self.update_config(cf_num, desired_class, proximity_weight, weight,
-                           diversity_weight, clip_frequency, changeable_attr, k, attr_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr)
+                           diversity_weight, clip_frequency, changeable_attr, k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr)
         # init timer
         start_time = timeit.default_timer()
         # init result contrainer
@@ -154,7 +154,7 @@ class CFEnginePytorch:
         return subset_cf
 
     def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute,
-                      k, attr_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr):
+                      k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr):
         self.cf_num = cf_num
         self.desired_class = desired_class
         self.proximity_weight = proximity_weight
@@ -206,19 +206,19 @@ class CFEnginePytorch:
 
         # set min and max of both the preprocessed data and the non-preprocessed data
         target = self.dataset.get_target_names(preprocess=False)
-        self.attr_range = OrderedDict()
+        self.cf_range = OrderedDict()
         for col, info in self.desc.items():
             if col != target:
-                self.attr_range[col] = {}
-                if col in attr_range:
-                    self.attr_range[col] = attr_range[col]
+                self.cf_range[col] = {}
+                if col in cf_range:
+                    self.cf_range[col] = cf_range[col]
                 elif info['type'] == 'numerical':
-                    self.attr_range[col]['min'] = info['min']
-                    self.attr_range[col]['max'] = info['max']
+                    self.cf_range[col]['min'] = info['min']
+                    self.cf_range[col]['max'] = info['max']
                 else:
-                    self.attr_range[col]['category'] = info['category']
+                    self.cf_range[col]['category'] = info['category']
         self.normed_min = self.dataset.preprocess([info['min'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
-                                                   for col, info in self.attr_range.items()], mode='x')
+                                                   for col, info in self.cf_range.items()], mode='x')
         for col, info in self.desc.items():
             if col != target and info['type'] == 'categorical':
                 for cat in info['category']:
@@ -226,11 +226,11 @@ class CFEnginePytorch:
         self.normed_min = torch.from_numpy(self.normed_min.values).float()
 
         self.normed_max = self.dataset.preprocess([info['max'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
-                                                   for col, info in self.attr_range.items()], mode='x')
+                                                   for col, info in self.cf_range.items()], mode='x')
         for col, info in self.desc.items():
             if col != target and info['type'] == 'categorical':
                 for cat in info['category']:
-                    if cat in self.attr_range[col]['category']:
+                    if cat in self.cf_range[col]['category']:
                         self.normed_max['{}_{}'.format(col, cat)] = 1
                     else:
                         self.normed_max['{}_{}'.format(col, cat)] = 0
@@ -282,7 +282,7 @@ class CFEnginePytorch:
         return projected_df
 
     def optimize(self, cfs, data_instances, target, mask, lr):
-        
+
         self.model_manager.fix_model()
         self.init_loss()
 

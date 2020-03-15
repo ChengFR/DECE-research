@@ -178,7 +178,7 @@ class Dataset:
             data = self.preprocess(data)
         return data
 
-    def get_sample(self, index='all', filters=[], preprocess=True):
+    def get_sample(self, index='all', filters={}, preprocess=True):
         if type(index) == int:
             index = [index]
         elif type(index) == str and index == 'all':
@@ -191,12 +191,11 @@ class Dataset:
         #     raise ValueError('index: {} should be either int, list of int, or \'all\'.'.format(index))
         filtered_df = self.raw_df.iloc[index]
 
-        for f in filters:
-            col = f[0]
+        for col, info in filters.items():
             if self.description[col]['type'] == 'numerical':
-                filtered_df = filtered_df[(filtered_df[col] >= f[1]) & (filtered_df[col] < f[2])]
+                filtered_df = filtered_df[(filtered_df[col] >= info['min']) & (filtered_df[col] < info['max'])]
             else:
-                filtered_df = filtered_df[filtered_df[col].isin(f[1])]
+                filtered_df = filtered_df[filtered_df[col].isin(info['category'])]
         # filtered_df.set_index(index, inplace=True)
         if preprocess:
             return self.preprocess(filtered_df)
