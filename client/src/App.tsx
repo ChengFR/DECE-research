@@ -87,7 +87,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                   queryResults={queryResults}
                 />
               </div>
-              {/* <div className="table-view-container">
+              <div className="table-view-container">
                 <CompactTable
                   dataset={dataset}
                   CFMeta={CFMeta}
@@ -97,7 +97,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
                 />
-                </div> */}
+                </div>
             </div>
           ) : (
               <TableView dataset={dataset} />
