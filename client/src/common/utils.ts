@@ -26,9 +26,9 @@ export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>) => {
 };
 
 
-export function number2string(x: number): string {
+export function number2string(x: number, precision: number = 4): string {
   if (Number.isInteger(x)) return x.toFixed(0);
-  return x.toPrecision(4);
+  return x.toPrecision(precision);
 }
 
 export function assert(cond: any, message: any = ""): asserts cond {
