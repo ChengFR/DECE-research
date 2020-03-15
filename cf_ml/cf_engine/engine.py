@@ -18,7 +18,7 @@ class CFEnginePytorch:
         self.model_manager = model_manager
         self.dataset = dataset
         self.dir_manager = self.model_manager.get_dir_manager()
-        self.desc= self.dataset.get_description()
+        self.desc = self.dataset.get_description()
 
     def generate_cfs_from_setting(self, setting, data=None, proximity_weight=0.01, diversity_weight=0, lr=0.05, clip_frequency=50, max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
@@ -86,8 +86,6 @@ class CFEnginePytorch:
         subset_cf = CounterfactualExampleBySubset(self.dataset, self.cf_num)
 
         feature_names = self.dataset.get_feature_names()
-        mask = np.array(
-            [feature in self.changeable_attribute for feature in feature_names]).astype(int)
 
         data_df = self.dataset.preprocess(data_df, mode='x')
         data_num = len(data_df)
@@ -100,7 +98,7 @@ class CFEnginePytorch:
             instances = data_df[feature_names].iloc[start_id: end_id].values
 
             expanded_mask = np.repeat(
-                mask[np.newaxis, :], self.cf_num*(end_id-start_id), axis=0)
+                self.mask_change[np.newaxis, :], self.cf_num*(end_id-start_id), axis=0)
 
             if type(desired_class) is str and desired_class == 'opposite':
                 targets = self.get_desired_class(instances)
@@ -158,25 +156,36 @@ class CFEnginePytorch:
         self.desired_class = desired_class
         self.proximity_weight = proximity_weight
         self.diversity_weight = diversity_weight
+        self.category_weight = 0.01
         self.clip_frequency = clip_frequency
+        self.reload_frequency = 100
         if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
-            self.changeable_attribute = self.dataset.get_feature_names(
-                preprocess=True)
+            self.changeable_attribute = self.dataset.get_feature_names()
         else:
-            self.changeable_attribute = self.dataset.process_columns(
-                changeable_attribute)
+            self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
         self.max_iter = max_iter
         self.min_iter = min_iter
         self.loss_diff = loss_diff
         self.loss_threshold = loss_threshold
         self.lr = lr
 
-        self.numerical_attr_mask = \
-            torch.Tensor([True if attr in self.desc else False for attr in self.dataset.get_feature_names()]).int()
+        self.mask_change = \
+            np.array(
+                [feature in self.changeable_attribute for feature in self.dataset.get_feature_names()]).astype(int)
+
+        self.mask_num = \
+            np.array(
+                [True if attr in self.desc else False for attr in self.dataset.get_feature_names()]).astype(int)
+
+        self.mask_cat = \
+            np.array(
+                    [False if attr in self.desc else True for attr in self.dataset.get_feature_names()]).astype(int)
+
         self.categorical_attr_list = []
         for attr, info in self.desc.items():
             if attr != self.dataset.get_target_names(False) and info['type'] == 'categorical':
-                self.categorical_attr_list.append([self.dataset.get_feature_names().index('{}_{}'.format(attr, cat)) for cat in info['category']])
+                self.categorical_attr_list.append([self.dataset.get_feature_names().index(
+                    '{}_{}'.format(attr, cat)) for cat in info['category']])
 
         if weight == 'mads':
             mads = self.dataset.get_mads()
@@ -257,12 +266,12 @@ class CFEnginePytorch:
         return np.eye(output.shape[1])[target_idx]
 
     def project(self, data):
-        # pred = np.zeros((len(data), len(self.dataset.get_target_names())))
         if len(data.shape) == 1:
             data = np.array([data])
         data_df = pd.DataFrame(data,
                                columns=self.dataset.get_feature_names())
-        return self.dataset.depreprocess(data_df, mode='x')
+        projected_df = self.dataset.depreprocess(data_df, mode='x')
+        return projected_df
 
     def optimize(self, cfs, data_instances, target, mask, lr):
 
@@ -300,6 +309,9 @@ class CFEnginePytorch:
             if iter % self.clip_frequency == 0:
                 cfs.data = self.clip(cfs.data)
 
+            if iter % self.reload_frequency == 0:
+                cfs.data = self.reload(cfs.data)
+
         cfs.data = self.clip(cfs.data)
         return cfs, pred, loss.detach().numpy(), iter
 
@@ -312,27 +324,38 @@ class CFEnginePytorch:
         # prediction loss
         loss = self.criterion(pred, torch.ones(pred.shape)*0.5, target)
         # proximity loss
-        loss += self.proximity_weight * \
-            torch.sum(self.get_distance_quick(
-                cfs, data_instances)) / (len(cfs))
+        loss += self.proximity_weight * self.get_proximity_loss(cfs, data_instances, 'L1')
         # diversity loss
         if self.diversity_weight > 0 and self.cf_num > 1:
-            for i in range(len(cfs) // self.cf_num):
-                det_entries = []
-                for j in range(self.cf_num):
-                    start_index = i*self.cf_num
-                    end_index = (i+1)*self.cf_num
-                    distance_vector = self.get_distance_quick(cfs[start_index: end_index],
-                                                              cfs[start_index+j].unsqueeze(0).repeat(self.cf_num, 1))
-                    loss -= self.diversity_weight * distance_vector.sum() / len(cfs) / self.cf_num
-                #     det_entries.append(1.332 / (distance_vector + 1))
-                # det_matrix = torch.cat(det_entries).reshape([self.cf_num, self.cf_num])
-                # print(self.diversity_weight * \
-                #     torch.det(det_matrix) / (len(cfs) // self.cf_num))
-                # loss -= self.diversity_weight * \
-                #     torch.det(det_matrix) / (len(cfs) // self.cf_num)
+            loss += self.diversity_weight * self.get_diversity_loss(cfs, 'avg')
+        # category loss
+        loss += self.category_weight * self.get_category_loss(cfs)
+        
         return loss
 
+    def get_proximity_loss(self, cfs, data_instances, metric='L1'):
+        proximity_loss = torch.sum(self.get_distance_quick(
+                cfs, data_instances, metric)) / len(cfs)
+        return proximity_loss
+
+    def get_diversity_loss(self, cfs, metric='avg'):
+        diversity_loss = torch.tensor(0).float()
+        if metric == 'avg':
+            for i in range(len(cfs) // self.cf_num):
+                for j in range(self.cf_num):
+                    start = i*self.cf_num
+                    end = (i+1)*self.cf_num
+                    diversity_loss += (1 - self.get_distance_quick(cfs[start: end], cfs[start+j]).mean()) / len(cfs)
+        else:
+            raise NotImplementedError
+        return diversity_loss
+
+    def get_category_loss(self, cfs):
+        category_loss = torch.tensor(0).float()
+        for cat_index in self.categorical_attr_list:
+            category_loss += (cfs[:, cat_index].sum(axis=1) - torch.ones([1, len(cfs)])).abs().mean()
+        return category_loss
+    
     def get_distance(self, cf, origin, metric='L1'):
         if metric == 'L1':
             # dist = torch.dist(cf, origin, 1)
@@ -344,6 +367,8 @@ class CFEnginePytorch:
         return dist
 
     def get_distance_quick(self, cfs, origins, metric='L1'):
+        if origins.dim == 1:
+            origins = origins.unsqueeze(0).repeat(len(cfs), 1)
         if metric == 'L1':
             dist = torch.sum(torch.abs(
                 cfs - origins) * self.feature_weight.unsqueeze(0).repeat(len(cfs), 1), axis=1)
@@ -356,6 +381,9 @@ class CFEnginePytorch:
         # """clip value of each feature to [0, 1]"""
         # torch.clamp_(data, min=0, max=1)
         return torch.max(torch.min(data, self.normed_max), self.normed_min)
+
+    def reload(self, data):
+        return torch.from_numpy(self.dataset.preprocess(self.project(data), 'x').values).float()
 
     def checkvalid(self, pred, target):
         pred_class = pred.argmax(axis=1).numpy()
@@ -390,33 +418,54 @@ class CFEnginePytorch:
 
         cfs = torch.from_numpy(self.dataset.preprocess(
             projected_cfs, 'x')[feature_names].values).float()
+
+        valid_pos_grad_mask = (cfs < (self.normed_max-0.001)).detach().numpy()
+        valid_neg_grad_mask = (cfs > (self.normed_min+0.001)).detach().numpy()
+
         cfs.requires_grad = True
         grad, pred = self.get_gradient(cfs, data_instances, target, mask)
-        # print(pred, self.model_manager.forward(data_instances))
-        grad = grad.detach().numpy()
-        salient_attr = abs(grad).argmax(axis=1)
-        # salient_attr = -grad.argmax(axis=1)
+        grad = -grad.detach().numpy()
+
+        pos_grad = grad.copy()
+        pos_grad[pos_grad < 0] = 0
+        neg_grad = grad.copy()
+        neg_grad[neg_grad > 0] = 0
+        valid_grad = pos_grad * valid_pos_grad_mask + neg_grad * valid_neg_grad_mask
+
+        salient_attr = abs(valid_grad).argmax(axis=1)
         grad_sign = np.sign(grad)
-        # salient_grad = np.array([[1 if j == salient_attr[i] else 0 for j in range(gard.shape[1])] for i in range(grad.shape[0])]) * np.sign(grad)
 
         invalid_cfs = pred.argmax(
             axis=1).numpy() != target.argmax(axis=1).numpy()
-        # masked_salient_grad = salient_grad * np.repeat(invalid_cfs[:, np.newaxis], grad.shape[1], axis=1)
+
         for i in range(len(projected_cfs)):
             if invalid_cfs[i]:
                 salient_feature_name = feature_names[salient_attr[i]]
-                # print(salient_feature_name)
                 if salient_feature_name in self.desc.keys() and self.desc[salient_feature_name]['type'] == 'numerical':
-                    update = -grad_sign[i, salient_attr[i]] * 1 / 10**self.desc[salient_feature_name]['decile']
+                    max_value = self.desc[salient_feature_name]['max']
+                    min_value = self.desc[salient_feature_name]['min']
+                    precision = self.desc[salient_feature_name]['decile']
+                    scale = max_value - min_value
+                    sign = grad_sign[i, salient_attr[i]]
+                    update = sign * max(10**precision, round(abs(grad[i, salient_attr[i]])*self.lr*scale, precision))
+                    if sign > 0:
+                        update = min(update, max_value - projected_cfs.loc[i, salient_feature_name])
+                    else:
+                        update = max(update, min_value - projected_cfs.loc[i, salient_feature_name])
+                    # update = grad_sign[i, salient_attr[i]] * 1 / \
+                    #     10**self.desc[salient_feature_name]['decile']
                     if verbose:
-                        print("{}: {:.3f}->{}: {}:{} + {}".format(i, pred[i, 0], target[i ,0], salient_feature_name, projected_cfs.loc[i, salient_feature_name], update))
+                        print("{}: {:.3f}->{}: {}:{} + {}".format(
+                            i, pred[i, 0], target[i, 0], salient_feature_name, projected_cfs.loc[i, salient_feature_name], update))
                     projected_cfs.loc[i, salient_feature_name] += update
                 else:
-                    update = 1 * -grad_sign[i, salient_attr[i]]
+                    update = 1.1 * grad_sign[i, salient_attr[i]]
                     cfs[i][salient_attr[i]] += update
-                    projected_cfs.loc[i, :] = self.project(cfs[i].detach().numpy()).loc[0, :]
+                    projected_cfs.loc[i, :] = self.project(
+                        cfs[i].detach().numpy()).loc[0, :]
                     if verbose:
-                        print("{}: {:.3f}->{}: {} set {}".format(i, pred[i, 0], target[i ,0], salient_feature_name, update > 0))
+                        print("{}: {:.3f}->{}: {} set {}".format(i,
+                                                                 pred[i, 0], target[i, 0], salient_feature_name, update > 0))
         return projected_cfs
 
     def evaluate_cfs(self, cf_df, instance_df, metrics=['valid_rate', 'avg_distance']):
