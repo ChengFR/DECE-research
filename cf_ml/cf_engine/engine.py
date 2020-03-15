@@ -282,7 +282,7 @@ class CFEnginePytorch:
         return projected_df
 
     def optimize(self, cfs, data_instances, target, mask, lr):
-
+        
         self.model_manager.fix_model()
         self.init_loss()
 
