@@ -35,6 +35,11 @@ import {
 import { number2string } from "common/utils";
 import "./index.css";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
+import HeaderChart from './HeaderChart';
+import { isColumnNumerical } from '../../data/column';
+import { assert } from '../../common/utils';
+import { CategoricalColumn } from '../Table/common';
+import { CFTableColumn } from './common';
 
 const collapsedCellMargin = {
   ...columnMargin,
@@ -44,12 +49,20 @@ const collapsedCellMargin = {
 
 const LoadingIcon = <Icon type="loading" spin />;
 
+const headerChartHeight = 80;
+const headerRowHeights = [30, headerChartHeight];
+
+const headerRowHeight = (params: {index: number}) => {
+  return headerRowHeights[params.index];
+}
+
 interface ILoadableTableProps extends ITableProps {
   isRowLoaded: (params: Index) => boolean;
   loadMoreRows: (params: IndexRange) => Promise<any>;
   tableRef?: (instance: Table | null) => void;
 }
 
+// Deprecated.
 class LoadableTable extends React.PureComponent<ILoadableTableProps> {
   private onRowsRendered?: (params: {
     startIndex: number;
@@ -132,6 +145,7 @@ export interface ICompactTableState {
   rows: RowState[];
   showCF: boolean;
   hovered: [number, number] | null;
+  groupByColumn: number;
   // loadedCFs: (CFResponse | undefined)[];
 }
 
@@ -139,7 +153,7 @@ export default class CFTableView extends React.Component<
   ICompactTableProps,
   ICompactTableState
 > {
-  static defaultProps = {
+  public static defaultProps = {
     cfHeight: 6,
     rowHeight: 20,
     pixel: 1
@@ -150,19 +164,10 @@ export default class CFTableView extends React.Component<
   private loaderRef: LoadableTable | null = null;
   constructor(props: ICompactTableProps) {
     super(props);
-
-    this.state = {
-      rows: initRowStates(props.dataset.dataFrame.length),
-      dataFrame: props.dataset.reorderedDataFrame,
-      columns: props.dataset.reorderedDataFrame.columns.map(c =>
-        this.initColumn(c)
-      ),
-      hovered: null,
-      showCF: false
-    };
-    // this.isRowLoaded = this.isRowLoaded.bind(this);
+     // this.isRowLoaded = this.isRowLoaded.bind(this);
     // this.loadMoreRows = this.loadMoreRows.bind(this);
     this.renderCell = this.renderCell.bind(this);
+    this.renderHeaderCell = this.renderHeaderCell.bind(this);
     this.rowHeight = this.rowHeight.bind(this);
     this.onSort = this.onSort.bind(this);
     this.onChangeFilter = this.onChangeFilter.bind(this);
@@ -174,14 +179,33 @@ export default class CFTableView extends React.Component<
     // this.registerTableRef = this.registerTableRef.bind(this);
     this.loadCF = this.loadCF.bind(this);
     this.onSwitchCF = this.onSwitchCF.bind(this);
+    this.getCFs = this.getCFs.bind(this);
+
+    const dataFrame = props.dataset.reorderedDataFrame;
+    const cfs = this.props.cfs && this.getCFs(this.props.cfs, this.props.CFMeta, dataFrame);
+    this.state = {
+      rows: initRowStates(dataFrame.length),
+      dataFrame,
+      columns: dataFrame.columns.map((c, i) =>
+        this.initColumn(c, cfs && cfs[i])
+      ),
+      hovered: null,
+      showCF: false,
+      groupByColumn: 0,
+    };
+   
   }
 
-  public initColumn(column: IColumn<string> | IColumn<number>): TableColumn {
-    const c = createColumn(column);
+  public initColumn(column: IColumn<string> | IColumn<number>, cf?: CFSeries): CFTableColumn {
+    const c: CFTableColumn = createColumn(column);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
       this.onChangeColumnWidth(c.name, width);
     c.onFilter = (filter: any) => this.onChangeFilter(c.name, filter);
+    if (cf) {
+      c.cf = cf;
+      c.allCF = cf;
+    }
     return c;
   }
 
@@ -210,13 +234,17 @@ export default class CFTableView extends React.Component<
   changeDataFrame(dataFrame: DataFrame) {
     if (dataFrame !== this.state.dataFrame) {
       const name2column = _.keyBy(this.state.columns, c => c.name);
+      const cfs = this.props.cfs && this.getCFs(this.props.cfs, this.props.CFMeta, dataFrame);
       return {
         dataFrame,
-        columns: dataFrame.columns.map(c => {
+        columns: dataFrame.columns.map((c, i) => {
+          const cf = cfs ? cfs[i] : undefined;
           if (c.name in name2column) {
-            return { ...name2column[c.name], ...c } as TableColumn;
+            // merge and update the column
+            return { ...name2column[c.name], ...c, cf } as CFTableColumn;
           }
-          return this.initColumn(c);
+          // init new column
+          return this.initColumn(c, cf);
         })
       };
     }
@@ -259,7 +287,6 @@ export default class CFTableView extends React.Component<
         /> */}
         <Table
           className="compact-table"
-          distGroupBy={0}
           // onSectionRendered={this.onSectionRendered}
           rowCount={rows.length}
           columns={columns}
@@ -269,6 +296,9 @@ export default class CFTableView extends React.Component<
           ref={ref => {this.tableRef=ref;}}
           // tableRef={this.registerTableRef}
           cellRenderer={this.renderCell}
+          headerCellRenderer={this.renderHeaderCell}
+          headerRowCount={2}
+          headerRowHeight={headerRowHeight}
         />
         {hovered && (
           <CornerInfo
@@ -403,6 +433,29 @@ export default class CFTableView extends React.Component<
     }
   }
 
+  renderHeaderCell(props: CellProps) {
+    const {rowIndex} = props;
+    if (rowIndex === 0) return undefined;
+    return this._chartCellRenderer(props);
+  }
+
+  _chartCellRenderer(cellProps: CellProps) {
+    const { columnIndex } = cellProps;
+    const { columns, groupByColumn } = this.state;
+    const column = columns[columnIndex];
+    const {width } = column;
+    console.debug("render chart cell");
+    return (
+      <HeaderChart
+        column={column}
+        groupByColumn={columns[groupByColumn]}
+        width={width}
+        height={headerChartHeight}
+        margin={columnMargin}
+      />
+    );
+  }
+
   renderCellExpanded(props: CellProps, row: ExpandedRow) {
     const { columnIndex, width, rowIndex } = props;
     const { dataset, CFMeta } = this.props;
@@ -460,7 +513,7 @@ export default class CFTableView extends React.Component<
     } else {
       // if (props.isScrolling) return (<Spin indicator={LoadingIcon} delay={300} />);
       // if (showCF) {
-        const cfs = this.cfs();
+        const cfs = this.cfs;
         return (
           <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
             <CompactCFColumn 
@@ -493,6 +546,25 @@ export default class CFTableView extends React.Component<
         />
       );
     }
+  }
+
+  _getRowLabels = memoizeOne((labelColumn: CategoricalColumn): [number[], number[]] => {
+    const cat2idx: Map<string, number> = new Map();
+    labelColumn.categories?.map((c, i) => cat2idx.set(c, i));
+    const labels = labelColumn.series.toArray().map(v => {
+      if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+      return cat2idx.get(v) as number;
+    });
+    const uniqLabels: number[] = [];
+    cat2idx.forEach((v, k) => uniqLabels.push(v));
+    return [labels, uniqLabels];
+  })
+
+  _groupByArgs(): undefined | [number[], number[]] {
+    const {groupByColumn, columns} = this.state;
+    const labelColumn = groupByColumn === undefined ? undefined : columns[groupByColumn];
+    assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
+    return labelColumn && this._getRowLabels(labelColumn);
   }
 
   // isRowLoaded({ index }: Index): boolean {
@@ -541,7 +613,7 @@ export default class CFTableView extends React.Component<
   });
 
   getCFs = memoizeOne(processCFs);
-  public cfs() {
+  public get cfs() {
     const {cfs, CFMeta} = this.props;
     return cfs ? this.getCFs(cfs, CFMeta, this.state.dataFrame) : undefined;
   }

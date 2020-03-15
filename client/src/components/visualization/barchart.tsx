@@ -7,9 +7,9 @@ import {
   ChartOptions,
   getChildOrAppend
 } from "./common";
-import "./barchart.css";
 import memoizeOne from "memoize-one";
 import { countCategories, defaultCategoricalColor } from './common';
+import "./barchart.scss";
 
 type Category = {
   count: number;

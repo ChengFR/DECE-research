@@ -1,4 +1,5 @@
 import * as React from "react";
+import * as _ from "lodash";
 import {
   AutoSizer,
   ScrollParams,
@@ -8,32 +9,32 @@ import {
 import Header from "./Header";
 import TableGrid, { CellRenderer } from "./TableGrid";
 import { IColumn } from "../../data";
-import { createColumn } from './common';
 import {
+  createColumn,
   TableColumn,
   IndexWidth,
-  changeColumnWidth,
+  changeColumnWidth
 } from "./common";
-import "./index.css";
 import { number2string } from "common/utils";
-import { assert } from '../../common/utils';
-import { isColumnNumerical } from '../../data/column';
-
+import "./index.scss";
+import { sum } from "../../common/math";
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
   className?: string;
   columns: (IColumn<string> | IColumn<number> | TableColumn)[];
-  distGroupBy?: number;
-  rowCount: number;
   onScroll?: (params: ScrollParams) => any;
   style?: React.CSSProperties;
+  rowCount: number;
   rowHeight: number | ((params: Index) => number);
   fixedColumns: number;
   cellRenderer?: CellRenderer;
   showIndex: boolean;
   columnWidths?: number[];
   onSectionRendered?: (params: SectionRenderedParams) => any;
+  headerRowCount: number;
+  headerRowHeight: number | ((params: Index) => number);
+  headerCellRenderer?: CellRenderer;
 }
 
 interface ITableState {
@@ -42,11 +43,16 @@ interface ITableState {
   scrollLeft: number;
 }
 
-export default class Table extends React.PureComponent<ITableProps, ITableState> {
-  static defaultProps = {
+export default class Table extends React.PureComponent<
+  ITableProps,
+  ITableState
+> {
+  public static defaultProps = {
     rowHeight: 20,
     fixedColumns: 1,
-    showIndex: false
+    showIndex: false,
+    headerRowHeight: 30,
+    headerRowCount: 1
   };
 
   private _leftGridWidth: number | null = null;
@@ -74,8 +80,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
   ): TableColumn[] {
     return columns.map((c, i) => {
       const prevColumn = prevColumns && prevColumns[i];
-      if (prevColumn)
-        return {...prevColumn, ...c} as TableColumn;
+      if (prevColumn) return { ...prevColumn, ...c } as TableColumn;
       return createColumn(c);
     });
   }
@@ -115,10 +120,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       style,
       rowHeight,
       fixedColumns,
-      distGroupBy,
       showIndex,
       rowCount,
-      onSectionRendered
+      onSectionRendered,
+      headerRowCount,
+      headerRowHeight,
+      headerCellRenderer
     } = this.props;
     const { columns, scrollLeft, scrollTop } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
@@ -127,10 +134,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
       overflow: "visible",
       ...style
     };
-
+    const headerHeight = typeof headerRowHeight === "number" ? headerRowHeight : sum(
+      _.range(headerRowCount).map(r => headerRowHeight({ index: r }))
+    );
     return (
-      <div 
-        className={"table-container" + (className ? ` ${className}`  : '')} 
+      <div
+        className={"table-container" + (className ? ` ${className}` : "")}
         style={containerStyle}
       >
         <AutoSizer>
@@ -138,11 +147,12 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
             <div style={{ overflow: "visible" }}>
               <Header
                 columns={columns}
-                distGroupBy={distGroupBy}
-                height={90}
+                rowCount={headerRowCount}
+                rowHeight={headerRowHeight}
+                height={headerHeight}
                 chartHeight={60}
-                hasChart={true}
                 width={width - (showIndex ? IndexWidth : 0)}
+                cellRenderer={headerCellRenderer}
                 fixedColumns={fixedColumns}
                 onScroll={this._onScrollLeft}
                 scrollLeft={scrollLeft}
@@ -153,7 +163,7 @@ export default class Table extends React.PureComponent<ITableProps, ITableState>
                 rowCount={rowCount}
                 columns={columns}
                 rowHeight={rowHeight}
-                height={height - 90}
+                height={height - headerHeight}
                 width={width}
                 cellRenderer={this.cellRenderer}
                 fixedColumns={fixedColumns}

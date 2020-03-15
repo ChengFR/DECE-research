@@ -3,16 +3,15 @@ import { Icon } from "antd";
 import { Grid, GridCellProps, ScrollParams } from "react-virtualized";
 import memoize from "fast-memoize";
 
-import Histogram from "../visualization/histogram";
-import BarChart from "../visualization/barchart";
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, columnMargin, TableColumn, CategoricalColumn } from './common';
+import { getFixedGridWidth, columnMargin, TableColumn } from './common';
 import { assert } from '../../common/utils';
 import { isColumnNumerical } from '../../data/column';
+import { CellRenderer, CellProps } from './TableGrid';
 
 export interface IHeaderProps {
   columns: TableColumn[];
-  distGroupBy?: number;
+  // distGroupBy?: number;
   // columnWidths: number[];
   onChangeColumnWidth?: (p: { index: number; width: number }) => any;
   height: number;
@@ -23,8 +22,11 @@ export interface IHeaderProps {
   scrollLeft?: number;
   className?: string;
   onScroll?: (params: ScrollParams) => any;
-  hasChart?: boolean;
-  chartHeight: number;
+  cellRenderer?: CellRenderer;
+  // hasChart?: boolean;
+  // chartHeight: number;
+  rowCount: number;
+  rowHeight: number | ((p: { index: number }) => number);
   fixedColumns: number;
   onSort?: (columnIndex: number, order: "descend" | "ascend") => any;
   onSearch?: (columnIndex: number, order: "descend" | "ascend") => any;
@@ -43,7 +45,8 @@ export default class Header extends React.PureComponent<
   static defaultProps = {
     height: 20,
     chartHeight: 60,
-    fixedColumns: 0
+    fixedColumns: 0,
+    rowCount: 1,
   };
 
   // static getDerivedStateFromProps(
@@ -68,8 +71,8 @@ export default class Header extends React.PureComponent<
       scrollLeft: 0,
       columnData: []
     };
-    this._titleCellRenderer = this._titleCellRenderer.bind(this);
-    this._chartCellRenderer = this._chartCellRenderer.bind(this);
+    this.defaultCellRenderer = this.defaultCellRenderer.bind(this);
+    // this._chartCellRenderer = this._chartCellRenderer.bind(this);
     this.renderCell = this.renderCell.bind(this);
     this.renderCellLeft = this.renderCellLeft.bind(this);
     this.renderCellRight = this.renderCellRight.bind(this);
@@ -94,27 +97,20 @@ export default class Header extends React.PureComponent<
       scrollLeft,
       onScroll,
       className,
-      hasChart,
-      chartHeight,
+      // hasChart,
+      // chartHeight,
       fixedColumns,
+      rowCount,
+      rowHeight,
       styleLeftGrid,
       styleRightGrid,
-      distGroupBy,
+      // distGroupBy,
     } = this.props;
     console.debug("render table header");
 
-    const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
-    assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
-    const cat2idx: Map<string, number> = new Map();
-    labelColumn?.categories?.map((c, i) => cat2idx.set(c, i));
-    const rowLabels = labelColumn && labelColumn.series.toArray().map(v => {
-      if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
-      return cat2idx.get(v) as number;
-    });
-
-    const titleHeight = hasChart ? height - chartHeight : height;
-    const rowHeight = (p: { index: number }) =>
-      p.index === 0 ? titleHeight : chartHeight;
+    // const titleHeight = hasChart ? height - chartHeight : height;
+    // const rowHeight = (p: { index: number }) =>
+    //   p.index === 0 ? titleHeight : chartHeight;
 
     const leftGridWidth = getFixedGridWidth(fixedColumns, columns);
     const leftGrid = fixedColumns ? (
@@ -132,9 +128,9 @@ export default class Header extends React.PureComponent<
           columnCount={fixedColumns}
           columnWidth={({ index }: { index: number }) => columns[index].width}
           height={height}
-          rowHeight={hasChart ? rowHeight : height}
+          rowHeight={rowHeight}
           ref={this.rightGridRef}
-          rowCount={hasChart ? 2 : 1}
+          rowCount={rowCount}
           tabIndex={null}
           width={leftGridWidth}
           style={styleLeftGrid}
@@ -159,10 +155,10 @@ export default class Header extends React.PureComponent<
             columns[index + fixedColumns].width
           }
           height={height}
-          rowHeight={hasChart ? rowHeight : height}
+          rowHeight={rowHeight}
           onScroll={onScroll}
           ref={this.leftGridRef}
-          rowCount={hasChart ? 2 : 1}
+          rowCount={rowCount}
           scrollLeft={scrollLeft}
           tabIndex={null}
           width={rightGridWidth}
@@ -185,12 +181,33 @@ export default class Header extends React.PureComponent<
   }
 
   renderCell(cellProps: GridCellProps) {
-    const { rowIndex } = cellProps;
+    const { rowIndex, columnIndex, key, style, isScrolling } = cellProps;
+    const props = {
+      width: style.width as number,
+      height: style.height as number,
+      rowIndex,
+      columnIndex,
+      isScrolling
+    };
+    const {cellRenderer} = this.props;
+    let result: React.ReactNode;
     // console.log(`Render ${rowIndex} ${cellProps.columnIndex}`);
-
-    if (rowIndex === 0) return this._titleCellRenderer(cellProps);
-    else if (this.props.hasChart && rowIndex === 1)
-      return this._chartCellRenderer(cellProps);
+    if (cellRenderer) {
+      result = cellRenderer(props);
+    }
+    if (result === undefined) result = this.defaultCellRenderer(props);
+    return (
+      <div 
+        className={`cell row-${rowIndex} col-${columnIndex}`}
+        key={key}
+        style={style}
+      >
+        {result}
+      </div>
+    );
+    // if (rowIndex === 0) return this.defaultCellRenderer(cellProps);
+    // else if (this.props.hasChart && rowIndex === 1)
+    //   return this._chartCellRenderer(cellProps);
   }
 
   renderCellLeft(cellProps: GridCellProps) {
@@ -205,82 +222,63 @@ export default class Header extends React.PureComponent<
     });
   }
 
-  _titleCellRenderer(cellProps: GridCellProps) {
-    const { columnIndex, key, style } = cellProps;
+  defaultCellRenderer(cellProps: CellProps) {
+    const { columnIndex, height } = cellProps;
     const { columns } = this.props;
 
     return (
       <ColumnTitle
-        className={`cell row-title col-${columnIndex}`}
-        key={key}
         style={{
-          ...style,
-          lineHeight: style.height && `${style.height}px`
+          lineHeight: height && `${height}px`
         }}
         column={columns[columnIndex]}
       />
     );
   }
 
-  _getRowLabels = memoize((labelColumn: CategoricalColumn): [number[], number[]] => {
-    const cat2idx: Map<string, number> = new Map();
-    labelColumn.categories?.map((c, i) => cat2idx.set(c, i));
-    const labels = labelColumn.series.toArray().map(v => {
-      if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
-      return cat2idx.get(v) as number;
-    });
-    const uniqLabels: number[] = [];
-    cat2idx.forEach((v, k) => uniqLabels.push(v));
-    return [labels, uniqLabels];
-  })
+  // _getRowLabels = memoize((labelColumn: CategoricalColumn): [number[], number[]] => {
+  //   const cat2idx: Map<string, number> = new Map();
+  //   labelColumn.categories?.map((c, i) => cat2idx.set(c, i));
+  //   const labels = labelColumn.series.toArray().map(v => {
+  //     if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+  //     return cat2idx.get(v) as number;
+  //   });
+  //   const uniqLabels: number[] = [];
+  //   cat2idx.forEach((v, k) => uniqLabels.push(v));
+  //   return [labels, uniqLabels];
+  // })
 
-  _groupByArgs(): undefined | [number[], number[]] {
-    const {distGroupBy, columns} = this.props;
-    const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
-    assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
-    return labelColumn && this._getRowLabels(labelColumn);
-  }
+  // _groupByArgs(): undefined | [number[], number[]] {
+  //   const {distGroupBy, columns} = this.props;
+  //   const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
+  //   assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
+  //   return labelColumn && this._getRowLabels(labelColumn);
+  // }
 
-  _chartCellRenderer(cellProps: GridCellProps) {
-    const { columnIndex, key, style } = cellProps;
-    const { chartHeight, columns } = this.props;
-    const column = columns[columnIndex];
-    const {width } = column;
-    const groupByArgs = this._groupByArgs();
-    console.debug("render chart cell");
-    return (
-      <div
-        className={`cell row-chart col-${columnIndex}`}
-        key={key}
-        style={style}
-      >
-        {column.type === "numerical" ? (
-          <Histogram
-            data={groupByArgs ? column.series.groupBy(...groupByArgs) : column.series.toArray()}
-            allData={column.prevSeries && (groupByArgs ? column.prevSeries.groupBy(...groupByArgs) : column.prevSeries.toArray())}
-            width={width}
-            height={chartHeight}
-            margin={columnMargin}
-            xScale={column.xScale}
-            onSelectRange={column.onFilter}
-            selectedRange={column.filter}
-            extent={column.extent}
-          />
-        ) : (
-          <BarChart
-            data={column.series.toArray()}
-            width={width}
-            height={chartHeight}
-            margin={columnMargin}
-            xScale={column.xScale}
-            onSelectCategories={column.onFilter}
-            selectedCategories={column.filter}
-            allData={column.prevSeries?.toArray()}
-          />
-        )}
-      </div>
-    );
-  }
+  // _chartCellRenderer(cellProps: GridCellProps) {
+  //   const { columnIndex, key, style } = cellProps;
+  //   const { chartHeight, columns } = this.props;
+  //   const column = columns[columnIndex];
+  //   const {width } = column;
+  //   const groupByArgs = this._groupByArgs();
+  //   console.debug("render chart cell");
+  //   return (
+  //     <div
+  //       className={`cell row-chart col-${columnIndex}`}
+  //       key={key}
+  //       style={style}
+  //     >
+  //       <HeaderChart
+  //         column={column}
+  //         groupByArgs={groupByArgs}
+  //         width={width}
+  //         height={chartHeight}
+  //         margin={columnMargin}
+  //       />
+        
+  //     </div>
+  //   );
+  // }
 
   _leftGridStyle = memoize(
     (leftGridStyle?: React.CSSProperties): React.CSSProperties => {
@@ -313,7 +311,6 @@ export default class Header extends React.PureComponent<
 }
 
 interface IColumnTitleProps {
-  className?: string;
   style?: React.CSSProperties;
   column: TableColumn;
 }
@@ -321,16 +318,16 @@ interface IColumnTitleProps {
 const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
   props: IColumnTitleProps
 ) => {
-  const { column, style, ...rest } = props;
+  const { column, style } = props;
   const { width, onChangeColumnWidth } = column;
   const { onSort, sorted, name } = column;
   return (
-    <div style={style} {...props}>
+    <div className="row-title" style={style}>
       <div
         className="cell-content cut-text"
-        style={{ width: width - 18, height: "100%", margin: "0 9px" }}
+        style={{ width, height: "100%", padding: "0 9px" }}
       >
-        {name}
+        <span title={name}>{name}</span>
       </div>
       {onSort && (
         <Icon

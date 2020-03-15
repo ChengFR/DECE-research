@@ -9,11 +9,11 @@ import {
   getChildOrAppend,
   getScaleLinear
 } from "./common";
-import "./histogram.css";
-import { shallowCompare, WithDefault } from '../../common/utils';
+import { shallowCompare, WithDefault, number2string } from '../../common/utils';
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 import { defaultCategoricalColor } from './common';
+import "./histogram.scss";
 
 function isArrays<T>(a:T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
@@ -264,7 +264,7 @@ export type IHistogramProps = (IHistogramOptions | IGHistogramOptions) & {
 const defaultProps = {
   ...defaultOptions,
   drawAxis: false,
-  drawRange: true
+  drawRange: false
 }
 
 export interface IHistogramState {
@@ -294,10 +294,11 @@ export class Histogram extends React.PureComponent<
     if (svg) {
       const { data, allData, className, style, svgStyle, height, drawRange, ...rest } = this.props;
       const xScale = rest.xScale || this.getXScale();
+      const chartHeight = drawRange ? (height - 24) : (height - 4);
       if (isArrays(data)) {
         if (allData && !isArrays(allData)) throw "Mismatched array form between data and allData";
         drawGroupedHistogram(svg, data, allData, {
-          height: height - 24,
+          height: chartHeight,
           ...rest,
           xScale,
           onRectMouseOver: this.onMouseOverBins,
@@ -307,7 +308,7 @@ export class Histogram extends React.PureComponent<
       } else {
         if (allData && isArrays(allData)) throw "Mismatched array form between data and allData";
         drawHistogram(svg, data, allData, {
-          height: height - 24,
+          height: chartHeight,
           ...rest,
           xScale,
           onRectMouseOver: this.onMouseOverBin,
@@ -356,12 +357,12 @@ export class Histogram extends React.PureComponent<
           ref={this.svgRef}
           style={{ marginTop: 4, ...svgStyle }}
           width={width}
-          height={height - 24}
+          height={drawRange ? (height - 24) : (height - 4)}
         />
         {drawRange && <div className="info">
           {hoveredBin
             ? `${hoveredBin[0]} - ${hoveredBin[1]}`
-            : (extent && `${extent[0]} - ${extent[1]}`)
+            : (extent && `${number2string(extent[0],3)} - ${number2string(extent[1],3)}`)
           }
         </div>}
 
@@ -440,7 +441,7 @@ export function drawGroupedHistogram(
 
   const nGroups = data.length;
   if (nGroups == 0) throw "data length equals to 0";
-  const binPad = 2;
+  const binPad = 1;
 
   const margin = getMargin(opts.margin);
   const color = opts.color || defaultCategoricalColor;
@@ -457,6 +458,7 @@ export function drawGroupedHistogram(
   const nBins = d3.thresholdSturges(flatX);
   const [min, max] = getNBinsRange(width, 9, 12);
   const ticks = x.ticks(Math.min(Math.max(min, nBins), max));
+  if (ticks[ticks.length - 1] === x.domain()[1]) ticks.splice(ticks.length - 1, 1);
 
   const histogram = d3
     .histogram()
