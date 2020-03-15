@@ -5,14 +5,16 @@ import shutil
 import collections
 import torch
 import pandas as pd
+import numpy as np
 
 from cf_engine.counterfactual import CounterfactualExampleBySubset
 
 OUTPUT_ROOT = os.path.join(os.path.dirname(__file__), 'output')
 
+
 class DirectoryManager:
     """A class to manage the path of the model files and output files"""
-    
+
     def __init__(self, dataset, model_manager, root=OUTPUT_ROOT, auto_save=True):
         self.root = root
         self.createifnotexist(self.root)
@@ -20,9 +22,11 @@ class DirectoryManager:
         self._init = False
         self.dataset = dataset
         self.model_manager = model_manager
+        self.desc = self.dataset.get_description()
         self.data_meta = {}
         self.model_meta = {}
         self.cf_setting = []
+        self.cache_capacity = 100
         self.auto_save = auto_save
 
     def load_meta_from_path(self, dirpath):
@@ -40,7 +44,8 @@ class DirectoryManager:
     def load_meta(self):
         dataset_name = self.dataset.get_name()
         model_name = self.model_manager.get_name()
-        self.load_meta_from_path(os.path.join(self.root, dataset_name, model_name))
+        self.load_meta_from_path(os.path.join(
+            self.root, dataset_name, model_name))
 
     def init(self):
         dataset_name = self.dataset.get_name()
@@ -55,20 +60,21 @@ class DirectoryManager:
         self._init = True
 
     def update_dataset_meta(self):
-        self.data_meta = {'name': self.dataset.get_name(), \
-            'description': self.dataset.get_description(), \
-            'target_name': self.dataset.get_target_names(preprocess=False)}
+        self.data_meta = {'name': self.dataset.get_name(),
+                          'description': self.desc,
+                          'target_name': self.dataset.get_target_names(preprocess=False)}
 
     def update_model_meta(self):
-        self.model_meta = {'name': self.model_manager.get_name(), \
-            'train_accuracy': self.model_manager.get_train_accuracy(), \
-            'test_accuracy': self.model_manager.get_test_accuracy()}
+        self.model_meta = {'name': self.model_manager.get_name(),
+                           'train_accuracy': self.model_manager.get_train_accuracy(),
+                           'test_accuracy': self.model_manager.get_test_accuracy()}
 
     def save_meta(self):
         if self._init is False:
             raise ValueError('DirectoryManager save before init.')
         with open(os.path.join(self.dir, 'meta.json'), 'w') as f:
-            f.write(json.dumps({'data_meta': self.data_meta, 'model_meta': self.model_meta, 'cf_setting': self.cf_setting}))
+            f.write(json.dumps({'data_meta': self.data_meta,
+                                'model_meta': self.model_meta, 'cf_setting': self.cf_setting}))
 
     def _get_model_path(self):
         return os.path.join(self.dir, '{}_test_accuracy_{:.3f}'.format(self.model_meta['name'], self.model_meta['test_accuracy']))
@@ -101,88 +107,92 @@ class DirectoryManager:
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
         data_df = pd.read_csv(os.path.join(self.dir, dataset_name+'.csv'))
-        des = self.dataset.get_description()
         if only_valid:
             for col in self.dataset.get_feature_names(preprocess=False):
-                if des[col]['type'] == 'numerical':
-                    data_df = data_df[data_df[col] >= des[col]['min']]
-                    data_df = data_df[data_df[col] <= des[col]['max']]
+                if self.desc[col]['type'] == 'numerical':
+                    data_df = data_df[data_df[col] >= self.desc[col]['min']]
+                    data_df = data_df[data_df[col] <= self.desc[col]['max']]
                 else:
-                    data_df = data_df[data_df[col].isin(des[col]['category'])]
+                    data_df = data_df[data_df[col].isin(
+                        self.desc[col]['category'])]
         return data_df
+
+    def equal_setting(self, s1, s2):
+        return self.equal_attributes(s1.get('changeable_attribute', []), s2.get('changeable_attribute', [])) \
+            and s1.get('index', 'all') == s1.get('index', 'all') \
+            and s1.get('k', -1) == s1.get('k', -1) \
+            and s1.get('cf_num', 1) == s1.get('cf_num', 1) \
+            and self.equal_ranges(s1.get('cf_range', {}), s1.get('cf_range', {})) \
+            and self.equal_ranges(s1.get('data_range', {}), s2.get('data_range', {})) \
+            and s1.get('desired_class', 'opposite') == s2.get('desired_class', 'opposite')
+
+    def contain_setting(self, s1, s2):
+        pass
+
+    def equal_attributes(self, a1, a2):
+        if isinstance(a1, str) and isinstance(a2, str):
+            return a1 == a2
+        elif isinstance(a1, list) and isinstance(a2, list):
+            return len(sorted(a1)) == len(sorted(a2)) and '_'.join(sorted(a1)) == '_'.join(sorted(a2))
+        else:
+            return False
+
+    def equal_ranges(self, r1, r2):
+        return self.contain_ranges(r1, r2) and self.contain_ranges(r2, r1)
+
+    def contain_ranges(self, r1, r2):
+        flag = True
+        r1 = self.simplify_ranges(r1)
+        r2 = self.simplify_ranges(r2)
+        for col, info in self.desc.items():
+            if col in r2:
+                if col in r1:
+                    if info['type'] == 'categorical':
+                        if not np.array([cat in r1[col]['category'] for cat in r2[col]['category']]).all():
+                            flag = False
+                            break
+                    else:
+                        if r2[col]['min'] < r1[col]['min'] or r2[col]['max'] > r1[col]['max']:
+                            flag = False
+                            break
+                else:
+                    flag = False
+                    break
+        return flag
+
+    def simplify_ranges(self, r):
+        new_range = {}
+        for col, info in r.items():
+            if self.desc[col]['type'] == 'categorical':
+                if not np.array([cat in self.desc[col]['category'] for cat in info['category']]).all():
+                    new_range[col] = info
+            if self.desc[col]['type'] == 'numerical':
+                if info['min'] > (self.desc[col]['min']+1e-4) or info['max'] < (self.desc[col]['max']-1e-4):
+                    new_range[col] = info
+        return new_range
+
+    def save_cf_with_setting(self, subset_cf, setting):
+        index = self.indexof_setting(setting)
+        if index < 0:
+            index = len(self.cf_setting)
+            self.cf_setting.append(setting)
+        subset_cf.to_csv('{}'.format(index), self.dir)
+        if self.auto_save:
+            self.save_meta()
+
+    def load_cf_with_setting(self, setting):
+        index = self.indexof_setting(setting)
+        subset_cf = CounterfactualExampleBySubset(self.dataset, setting['cf_num'])
+        subset_cf.from_csv('{}'.format(index), self.dir)
+        return subset_cf
 
     def indexof_setting(self, setting):
         index = -1
         for i, s in enumerate(self.cf_setting):
-            if self._setting2str(s) == self._setting2str(setting):
+            if self.equal_setting(s, setting):
                 index = i
+                break
         return index
-
-    def save_cf_with_setting(self, subset_cf, setting):
-        """
-        """
-        if self.indexof_setting(setting) >= 0:
-            self.cf_setting[self.indexof_setting(setting)] = setting
-        else:
-            self.cf_setting.append(setting)
-
-        file_header = self._setting2str(setting)
-
-        subset_cf.to_csv(file_header, self.dir)
-
-        if self.auto_save:
-            self.save_meta()
-        
-    def load_cf_with_setting(self, setting):
-        """
-        """
-        file_header = self._setting2str(setting)
-        subset_cf = CounterfactualExampleBySubset(self.dataset, setting['cf_num'])
-        subset_cf.from_csv(file_header, self.dir)
-        return subset_cf
-
-    def rm_cf_with_setting(self, setting):
-        """tmp"""
-        file_header = self._setting2str(setting)
-        cf_file_path = os.path.join(self.dir, '{}_cf.csv'.format(file_header))
-        instance_file_path = os.path.join(self.dir, '{}_data.csv'.format(file_header))
-        if os.path.exists(cf_file_path):
-            os.remove(cf_file_path)
-        if os.path.exists(instance_file_path):
-            os.remove(instance_file_path)
-        if self.indexof_setting(setting) >= 0:
-            del self.cf_setting[self.indexof_setting(setting)]
-
-
-    def _equal_setting(self, s1, s2):
-        pass
-    
-    def _setting2str(self, setting):
-        if type(setting) is str:
-            return setting
-        c_att = setting['changeable_attribute']
-        filters = setting['filters']
-        cf_num = setting['cf_num']
-        desired_class = setting['desired_class']
-
-        c_att_str = c_att if type(c_att) == str else '-'.join(sorted(c_att))
-        filters_str = '&'.join([self._filter2str(f) for f in sorted(filters)])
-        cf_num_str = str(cf_num)
-        desired_class_str = desired_class if type(desired_class) == str else '-'.join(sorted(desired_class))
-
-        return '_'.join([c_att_str, filters_str, cf_num_str, desired_class_str])
-
-    def _filter2str(self, f):
-        col = f[0]
-        col_description = self.dataset.get_description()
-        if col_description[col]['type'] == 'categorical':
-            filter_str = "{}-{}-{}".format(col, '^'.join(sorted(f[1])), f[2])
-        elif col_description[col]['type'] == 'numerical':
-            filter_str = "{}-{}-{}-{}".format(col, round(f[1], col_description[col]['decile']), \
-                round(f[2], col_description[col]['decile']), f[3])
-        else:
-            raise ValueError('{}: illegal filter.'.format(col))
-        return filter_str
 
     def init_dir(self):
         if os.path.exists(self.dir):
