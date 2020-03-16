@@ -179,7 +179,6 @@ export default class DataFrame implements IDataFrame {
   }
 
   public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
-    
 
     let filteredIndex: number[] = _.range(0, this.length);
     filters.forEach(({columnName, filter}) => {
@@ -201,8 +200,11 @@ export default class DataFrame implements IDataFrame {
 
     })
     
-    const data = filteredIndex.map(idx => this.data[idx]);
-    const index = filteredIndex.map(i => this._index[i]);
+    return this.filterByIndex(filteredIndex);
+  }
+
+  public filterByIndex(index: number[]) {
+    const data = index.map(idx => this.data[idx]);
     const columns = this.columns.map(c => {
       const {series, ...rest} = c;
       return rest;
