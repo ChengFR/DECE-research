@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import timeit
 import math
+import copy
 from collections import OrderedDict
 
 import torch
@@ -21,6 +22,17 @@ class CFEnginePytorch:
         self.desc = self.dataset.get_description()
         self.features = self.dataset.get_feature_names()
 
+    def generate_cfs_subset(self, subset={}, weight='mads', **kwargs):
+        """
+        """
+        results = {}
+        for feature in self.dataset.get_feature_names(False):
+            setting = {'data_range': copy.deepcopy(subset), 'cf_range': copy.deepcopy(subset)}
+            if feature in subset:
+                del setting['cf_range'][feature]
+            results[feature] = self.generate_cfs_from_setting(setting, None, **kwargs)
+        return results
+
     def generate_cfs_from_setting(self, setting, data=None, weight='mads', proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
                                   loss_diff=5e-6, post_step=5, batch_size=1, evaluate=1, verbose=True, use_cache=True, cache=True):
         """
@@ -35,7 +47,7 @@ class CFEnginePytorch:
         if data is None and use_cache and self.dir_manager.indexof_setting(setting) >= 0:
             subset_cf = self.dir_manager.load_cf_with_setting(setting)
         else:
-            changeable_attribute = setting['changeable_attribute']
+            changeable_attribute = setting.get('changeable_attribute', 'all')
             data_range = setting.get('data_range', {})
             cf_num = setting.get('cf_num', 1)
             desired_class = setting.get('desired_class', 'opposite')
