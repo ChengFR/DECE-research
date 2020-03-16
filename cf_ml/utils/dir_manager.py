@@ -119,10 +119,10 @@ class DirectoryManager:
 
     def equal_setting(self, s1, s2):
         return self.equal_attributes(s1.get('changeable_attribute', []), s2.get('changeable_attribute', [])) \
-            and s1.get('index', 'all') == s1.get('index', 'all') \
-            and s1.get('k', -1) == s1.get('k', -1) \
-            and s1.get('cf_num', 1) == s1.get('cf_num', 1) \
-            and self.equal_ranges(s1.get('cf_range', {}), s1.get('cf_range', {})) \
+            and s1.get('index', 'all') == s2.get('index', 'all') \
+            and s1.get('k', -1) == s2.get('k', -1) \
+            and s1.get('cf_num', 1) == s2.get('cf_num', 1) \
+            and self.equal_ranges(s1.get('cf_range', {}), s2.get('cf_range', {})) \
             and self.equal_ranges(s1.get('data_range', {}), s2.get('data_range', {})) \
             and s1.get('desired_class', 'opposite') == s2.get('desired_class', 'opposite')
 
@@ -182,7 +182,7 @@ class DirectoryManager:
 
     def load_cf_with_setting(self, setting):
         index = self.indexof_setting(setting)
-        subset_cf = CounterfactualExampleBySubset(self.dataset, setting['cf_num'])
+        subset_cf = CounterfactualExampleBySubset(self.dataset, setting.get('cf_num', 1))
         subset_cf.from_csv('{}'.format(index), self.dir)
         return subset_cf
 
