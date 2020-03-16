@@ -20,7 +20,7 @@ class Dataset:
         self.description = description
         self.target_name = target_name
 
-        self.origin_columns = self.raw_df.columns.values.tolist()
+        self.origin_columns = list(filter(lambda col: col in self.description, self.raw_df.columns.values.tolist()))
         self.dummy_columns = []
 
         self._check_and_complete_description()
@@ -65,7 +65,8 @@ class Dataset:
 
         # add index of attributes in dataframe
         for i, col in enumerate(self.origin_columns):
-            self.description[col]['index'] = i
+            if col in self.description:
+                self.description[col]['index'] = i
 
     def _fit_normalizer(self, data):
         pass
@@ -247,45 +248,3 @@ class Dataset:
 
     def get_description(self):
         return self.description
-
-
-# class DataMeta(object):
-
-#     def __init__(self, features, target, prediction=None):
-#         self.features = features
-#         self.target = target
-#         self.prediction = prediction
-
-#     @classmethod
-#     def from_csv(cls, filename, feature_indices=None, target_index=None, prediction_index=None):
-#         df = pd.read_csv(filename)
-#         dd = df.to_dict('records')
-#         return cls.from_records(dd, feature_indices, target_index, prediction_index)
-
-#     @classmethod
-#     def from_records(cls, records, feature_indices=None, target_index=None, prediction_index=None):
-#         for i, d in enumerate(records):
-#             d["index"] = i
-#         target = None if target_index is None else records[target_index]
-#         prediction = None if prediction_index is None else records[prediction_index]
-#         features = records
-#         if feature_indices is not None:
-#             features = [records[i] for i in feature_indices]
-#         # make sure no column is used twice
-#         features = [f for f in features if f is not target and f is not prediction]
-#         assert len(features) + (int(target is not None) + int(prediction is not None)) == len(records)
-#         return cls(features, target, prediction)
-
-
-#     @classmethod
-#     def from_json(cls, filename):
-#         with open(filename, 'r') as f:
-#             data = json.load(f)
-#         return cls(data['features'], data['target'], data.get('prediction', None))
-
-#     def to_json(self, filename):
-#         data = dict(features=self.features, target=self.target)
-#         if self.prediction:
-#             data['prediction'] = self.prediction
-#         with open(filename, 'w') as f:
-#             json.dump(data, f)

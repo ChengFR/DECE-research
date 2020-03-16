@@ -22,7 +22,7 @@ class CFEnginePytorch:
         self.features = self.dataset.get_feature_names()
 
     def generate_cfs_from_setting(self, setting, data=None, weight='mads', proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
-                                  loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True, use_cache=True, cache=True):
+                                  loss_diff=5e-6, post_step=5, batch_size=1, evaluate=1, verbose=True, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
                         'changeable_attribute': str or list of str, 
@@ -54,14 +54,14 @@ class CFEnginePytorch:
             else:
                 data_df = data
             subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
-                                          k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, post_step, batch_size, evaluate, verbose)
+                                          k, cf_range, init_cat, max_iter, min_iter, loss_diff, post_step, batch_size, evaluate, verbose)
         if data is None and cache:
             self.dir_manager.save_cf_with_setting(subset_cf, setting)
         return subset_cf
 
     def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', weight='mads', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
                      changeable_attr='all', k=-1, cf_range={}, init_cat='rand', 
-                     max_iter=2000, min_iter=100, loss_diff=5e-6, loss_threshold=0.01, post_step=5, batch_size=1, evaluate=True, verbose=True):
+                     max_iter=2000, min_iter=100, loss_diff=5e-6, post_step=5, batch_size=1, evaluate=True, verbose=1):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
         :param data_df: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
@@ -74,6 +74,7 @@ class CFEnginePytorch:
         :param k: int, number of changeable attribute, if k > 0 and k < len(changeable_attr), for each cf, 
             a post-hoc process will be made to ensure only k attributes finally changed.
         :param cf_range: dict, range of attribute
+        :param init_cat: 'rand' or 'avg', initialization of dummy attribute values
         :param max_iter: int, maximum iteration
         :param min_iter: int, minimun iteraction
         :param loss_diff: float, an early stop happends when the difference of loss is below loss_diff
@@ -81,7 +82,7 @@ class CFEnginePytorch:
         :param verbose: boolean, whether to print out the log information
         """
         self.update_config(cf_num, desired_class, proximity_weight, weight,
-                           diversity_weight, clip_frequency, changeable_attr, k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr)
+                           diversity_weight, clip_frequency, changeable_attr, k, cf_range, init_cat, max_iter, min_iter, loss_diff, lr)
         # init timer
         start_time = timeit.default_timer()
         # init result contrainer
@@ -129,7 +130,7 @@ class CFEnginePytorch:
             # post steps to refine counterfactual examples
             for _ in range(post_step):
                 projected_cfs = self.post_step(
-                    projected_cfs, instances, targets, expanded_mask)
+                    projected_cfs, instances, targets, expanded_mask, verbose=verbose>1)
 
             # store the final counterfactuals and the original instances into the container
             predicted_cfs = self.model_manager.predict(
@@ -143,7 +144,7 @@ class CFEnginePytorch:
             if evaluate:
                 eval_result = self.evaluate_cfs(
                     predicted_cfs, predicted_instances)
-            if verbose:
+            if verbose > 0:
                 print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, validation rate: {:.3f}".format(
                     end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss, iter, eval_result['valid_rate']))
         if evaluate:
@@ -154,7 +155,7 @@ class CFEnginePytorch:
         return subset_cf
 
     def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute,
-                      k, cf_range, init_cat, max_iter, min_iter, loss_diff, loss_threshold, lr):
+                      k, cf_range, init_cat, max_iter, min_iter, loss_diff, lr):
         self.cf_num = cf_num
         self.desired_class = desired_class
         self.proximity_weight = proximity_weight
@@ -170,7 +171,6 @@ class CFEnginePytorch:
         self.max_iter = max_iter
         self.min_iter = min_iter
         self.loss_diff = loss_diff
-        self.loss_threshold = loss_threshold
         self.lr = lr
         self.k = k
         # set mask of changeable attributes; numerical attributes; categorical attributes
