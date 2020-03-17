@@ -270,7 +270,7 @@ export default class CFTableView extends React.Component<
     const fixedColumns =
       Number(Boolean(dataset?.dataMeta.prediction)) +
       Number(Boolean(dataset?.dataMeta.target));
-
+    console.debug(columns);
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
         {this.renderToolBox()}
