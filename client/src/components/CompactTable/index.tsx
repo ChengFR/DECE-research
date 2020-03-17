@@ -38,7 +38,7 @@ import HeaderChart from './HeaderChart';
 import { isColumnNumerical } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn } from '../Table/common';
-import { CFTableColumn } from './common';
+import { CFTableColumn, filterByColumnStates } from './common';
 import "./index.scss";
 
 const collapsedCellMargin = {
@@ -139,7 +139,7 @@ export interface ICompactTableProps {
 }
 
 export interface ICompactTableState {
-  columns: TableColumn[];
+  columns: CFTableColumn[];
   dataFrame: DataFrame;
   prevDataFrame?: DataFrame;
   rows: RowState[];
@@ -205,6 +205,7 @@ export default class CFTableView extends React.Component<
     if (cf) {
       c.cf = cf;
       c.allCF = cf;
+      c.onFilterCF = (filter: any) => this.onChangeCFFilter(c.name, filter);
     }
     return c;
   }
@@ -365,21 +366,11 @@ export default class CFTableView extends React.Component<
     }
   }
 
-  onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
-    const { columns, rows } = this.state;
+  private doFiltering(columns: CFTableColumn[]) {
+    const { rows } = this.state;
     const baseDataFrame = this.state.prevDataFrame || this.state.dataFrame;
-    const index = columns.findIndex(c => c.name === columnName);
-    columns[index].filter = filter;
-    const filters: {
-      columnName: string;
-      filter: string[] | [number, number];
-    }[] = [];
-    columns.forEach(c => {
-      c.filter && filters.push({ columnName: c.name, filter: c.filter });
-    });
-
-    const newState = this.changeDataFrame(baseDataFrame.filterBy(filters));
-    console.debug("onChangeFilter", columnName, filter);
+    const newDataFrame = filterByColumnStates(baseDataFrame, columns);
+    const newState = this.changeDataFrame(newDataFrame);
     // console.debug("onChangeFilter", filters, newState);
     if (newState) {
       newState.columns.forEach(
@@ -393,6 +384,46 @@ export default class CFTableView extends React.Component<
         rows: newRows
       });
     }
+  }
+
+  onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
+    const { columns, rows } = this.state;
+    // const baseDataFrame = this.state.prevDataFrame || this.state.dataFrame;
+    const index = columns.findIndex(c => c.name === columnName);
+    columns[index].filter = filter;
+    console.debug("onChangeFilter", columnName, filter);
+    this.doFiltering(columns);
+    // const filters: {
+    //   columnName: string;
+    //   filter: string[] | [number, number];
+    // }[] = [];
+    // columns.forEach(c => {
+    //   c.filter && filters.push({ columnName: c.name, filter: c.filter });
+    // });
+
+    // const newState = this.changeDataFrame(baseDataFrame.filterBy(filters));
+    // console.debug("onChangeFilter", columnName, filter);
+    // // console.debug("onChangeFilter", filters, newState);
+    // if (newState) {
+    //   newState.columns.forEach(
+    //     (c, i) => (c.prevSeries = baseDataFrame.columns[i].series)
+    //   );
+    //   const newIndex = newState.dataFrame.index;
+    //   const newRows = filterRows(rows, newIndex);
+    //   this.setState({
+    //     ...newState,
+    //     prevDataFrame: baseDataFrame,
+    //     rows: newRows
+    //   });
+    // }
+  }
+
+  onChangeCFFilter(columnName: string, filter?: string[] | [number, number]) {
+    const { columns, rows } = this.state;
+    const index = columns.findIndex(c => c.name === columnName);
+    columns[index].cfFilter = filter;
+    console.debug("onChangeCFFilter", columnName, filter);
+    this.doFiltering(columns);
   }
 
   onHover(row: number | null, column: number | null) {
