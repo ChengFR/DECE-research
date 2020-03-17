@@ -121,7 +121,7 @@ export function drawHistogram(
     );
     rangeBrushing = [startIndex, endIndex];
   }
-  console.debug("brushed Range", rangeBrushing);
+  // console.debug("brushed Range", rangeBrushing);
   let brushing: boolean = false;
 
   const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
@@ -482,12 +482,12 @@ export function drawGroupedHistogram(
 
   let rangeBrushing: [number, number] | null = null;
   if (selectedRange) {
-    const startIndex = xs.findIndex(
-      (x) => selectedRange[0] < x
-    ) - 1;
+    const startIndex = bins[0].findIndex(
+      ({ x1 }) => x1 !== undefined && selectedRange[0] < x1
+    );
     const endIndex = _.findLastIndex(
-      xs,
-      (x0) => x0 < selectedRange[1]
+      bins[0],
+      ({ x0 }) => x0 !== undefined && x0 < selectedRange[1]
     );
     rangeBrushing = [startIndex, endIndex];
   }
@@ -607,8 +607,8 @@ export function drawGroupedHistogram(
       if (rangeBrushing) {
         rangeBrushing[1] = idx;
         console.debug("select range:", rangeBrushing);
-        const x0 = xs[Math.min(...rangeBrushing)],
-          x1 = xs[Math.max(...rangeBrushing)+1];
+        const x0 = bins[0][Math.min(...rangeBrushing)].x0,
+          x1 = bins[0][Math.max(...rangeBrushing)].x1;
         onSelectRange && onSelectRange([x0 as number, x1 as number]);
       } else {
         onSelectRange && onSelectRange();

@@ -33,13 +33,13 @@ import {
   ITableProps
 } from "../Table";
 import { number2string } from "common/utils";
-import "./index.css";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
 import HeaderChart from './HeaderChart';
 import { isColumnNumerical } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn } from '../Table/common';
 import { CFTableColumn } from './common';
+import "./index.scss";
 
 const collapsedCellMargin = {
   ...columnMargin,
@@ -379,7 +379,7 @@ export default class CFTableView extends React.Component<
     });
 
     const newState = this.changeDataFrame(baseDataFrame.filterBy(filters));
-    // console.debug("onChangeFilter", columns);
+    console.debug("onChangeFilter", columnName, filter);
     // console.debug("onChangeFilter", filters, newState);
     if (newState) {
       newState.columns.forEach(
@@ -447,6 +447,7 @@ export default class CFTableView extends React.Component<
     console.debug("render chart cell");
     return (
       <HeaderChart
+        className="header-chart"
         column={column}
         groupByColumn={columns[groupByColumn]}
         width={width}
