@@ -82,14 +82,16 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
 
   public render() {
     const { column, groupByColumn, className, style, width, height, margin} = this.props;
+    const {hoveredBin} = this.state;
 
     if (isNumericalVColumn(column)) {
       const groupArgs = groupByColumn && getRowLabels(groupByColumn);
       let data = groupArgs ? column.series.groupBy(...groupArgs) : column.series.toArray();
       const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
       const allData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-      console.log(column);
+      // console.log(column);
       if (column.cf) {
+        const chartHeight = (height - 24)/2;
         return (
           <div className={className} style={style}>
             <Histogram 
@@ -99,7 +101,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               selectedRange={column.filter}
               xScale={column.xScale}
               width={width}
-              height={height/2}
+              height={chartHeight}
               margin={margin}
               extent={column.extent}
             />
@@ -110,10 +112,16 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               selectedRange={column.cfFilter}
               xScale={column.xScale}
               width={width}
-              height={height/2}
+              height={chartHeight}
               margin={margin}
               extent={column.extent}
             />
+            <div className="info">
+              {hoveredBin
+                ? `${hoveredBin[0]} - ${hoveredBin[1]}`
+                : (column.extent && `${number2string(column.extent[0],3)} - ${number2string(column.extent[1],3)}`)
+              }
+            </div>
           </div>
         );
       }
