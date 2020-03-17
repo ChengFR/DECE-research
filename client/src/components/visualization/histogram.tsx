@@ -259,6 +259,7 @@ export type IHistogramProps = (IHistogramOptions | IGHistogramOptions) & {
   className?: string;
   extent?: [number, number];
   drawRange?: boolean;
+  onHoverRange?: (range?: [number, number]) => any;
 }
 
 const defaultProps = {
@@ -292,6 +293,7 @@ export class Histogram extends React.PureComponent<
 
   public paint(svg: SVGSVGElement | null = this.svgRef.current) {
     if (svg) {
+      console.debug("paint histogram");
       const { data, allData, className, style, svgStyle, height, drawRange, ...rest } = this.props;
       const xScale = rest.xScale || this.getXScale();
       const chartHeight = drawRange ? (height - 24) : (height - 4);
@@ -329,7 +331,7 @@ export class Histogram extends React.PureComponent<
     prevState: IHistogramState
   ) {
     const excludedProperties = new Set(["style", "svgStyle", "className"]);
-    if (!shallowCompare(this.props, prevProps, excludedProperties)) {
+    if (!shallowCompare(this.props, prevProps, excludedProperties, true)) {
       this.shouldPaint = true;
       const delayedPaint = () => {
         if (this.shouldPaint) this.paint();
@@ -339,6 +341,11 @@ export class Histogram extends React.PureComponent<
 
     // }
   }
+
+  // public shouldRePaint(prevProps: IHistogramProps, prevState: IHistogramState) {
+  //   const excludedProperties = new Set(["style", "svgStyle", "className"]);
+  //   !shallowCompare(this.props, prevProps, excludedProperties);
+  // }
 
   memoizedXScaler = memoizeOne(getScaleLinear);
 
@@ -372,15 +379,17 @@ export class Histogram extends React.PureComponent<
 
   onMouseOverBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
     data,
-    index
+    index,
+    groups
   ) => {
     const { x0, x1 } = data;
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
+    const hoveredBin: [number, number] = [
+      x0 === undefined ? -Infinity : x0,
+      x1 === undefined ? Infinity : x1
+    ];
+    const {onHoverRange} = this.props;
+    onHoverRange && onHoverRange(hoveredBin);
+    this.setState({hoveredBin});
   };
 
   onMouseOverBins: d3.ValueFn<any, d3.Bin<number, number>[], void> = (
@@ -389,18 +398,20 @@ export class Histogram extends React.PureComponent<
   ) => {
     // console.log(data);
     const { x0, x1 } = data[0];
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
+    const hoveredBin: [number, number] = [
+      x0 === undefined ? -Infinity : x0,
+      x1 === undefined ? Infinity : x1
+    ];
+    const {onHoverRange} = this.props;
+    onHoverRange && onHoverRange(hoveredBin);
+    this.setState({hoveredBin});
   };
 
   onMouseLeaveBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
     data,
     index
   ) => {
+    this.props.onHoverRange && this.props.onHoverRange();
     this.setState({ hoveredBin: null });
   };
 
@@ -408,6 +419,7 @@ export class Histogram extends React.PureComponent<
     data,
     index
   ) => {
+    this.props.onHoverRange && this.props.onHoverRange();
     this.setState({ hoveredBin: null });
   };
 }

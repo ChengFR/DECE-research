@@ -31,13 +31,19 @@ function label2nums(labels: string[], categories?: string[]): [number[], number[
 const getRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   return label2nums(c.series.toArray(), c.categories);
-});
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
+}});
 
 const getAllRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   const prevSeries = c.prevSeries;
   return prevSeries && label2nums(prevSeries.toArray(), c.categories);
-});
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
+}});
 
 function filterUndefined<T>(series: (T | undefined)[]): T[] {
   return series.filter(c => c !== undefined) as T[];
@@ -74,10 +80,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
     super(props);
 
     this.state = { hoveredBin: null };
-    this.onMouseOverBin = this.onMouseOverBin.bind(this);
-    this.onMouseOverBins = this.onMouseOverBins.bind(this);
-    this.onMouseLeaveBin = this.onMouseLeaveBin.bind(this);
-    this.onMouseLeaveBins = this.onMouseLeaveBins.bind(this);
+    this.onHoverRange = this.onHoverRange.bind(this);
   }
 
   public render() {
@@ -104,10 +107,11 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               height={chartHeight}
               margin={margin}
               extent={column.extent}
+              onHoverRange={this.onHoverRange}
             />
             <Histogram 
               data={this.validateCFs(column.cf)}
-              allData={column.allCF && this.validateCFs(column.allCF)}
+              allData={column.allCF && this.validateAllCFs(column.allCF)}
               onSelectRange={column.onFilterCF}
               selectedRange={column.cfFilter}
               xScale={column.xScale}
@@ -115,6 +119,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               height={chartHeight}
               margin={margin}
               extent={column.extent}
+              onHoverRange={this.onHoverRange}
             />
             <div className="info">
               {hoveredBin
@@ -162,44 +167,8 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
     return groupByColumn && getRowLabels(groupByColumn);
   }
 
-  onMouseOverBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
-    data,
-    index
-  ) => {
-    const { x0, x1 } = data;
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
+  onHoverRange(hoveredBin?: [number, number]) {
+    this.setState({hoveredBin: hoveredBin || null});
   };
 
-  onMouseOverBins: d3.ValueFn<any, d3.Bin<number, number>[], void> = (
-    data,
-    index
-  ) => {
-    // console.log(data);
-    const { x0, x1 } = data[0];
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
-  };
-
-  onMouseLeaveBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
-    data,
-    index
-  ) => {
-    this.setState({ hoveredBin: null });
-  };
-
-  onMouseLeaveBins: d3.ValueFn<any, d3.Bin<number, number>[], void> = (
-    data,
-    index
-  ) => {
-    this.setState({ hoveredBin: null });
-  };
 }
