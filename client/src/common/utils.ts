@@ -1,3 +1,4 @@
+import { AssertionError } from "assert";
 
 export const getTextWidth = function() {
   const canvas = document.createElement("canvas");
@@ -11,15 +12,21 @@ export const getTextWidth = function() {
   return func;
 }();
 
-export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>) => {
+export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>, debug: boolean = false) => {
   for (let key in v) {
     if (excludeKeys && excludeKeys.has(key)) continue;
-    if (!(key in o) || v[key] !== o[key]) return false;
+    if (!(key in o) || v[key] !== o[key]) {
+      if (debug) console.debug(`key ${key}`);
+      return false;
+    }
   }
 
   for (let key in o) {
     if (excludeKeys && excludeKeys.has(key)) continue;
-    if (!(key in v) || v[key] !== o[key]) return false;
+    if (!(key in v) || v[key] !== o[key]) {
+      if (debug) console.debug(`key ${key}`);
+      return false;
+    }
   }
 
   return true;
@@ -33,7 +40,7 @@ export function number2string(x: number, precision: number = 4): string {
 
 export function assert(cond: any, message: any = ""): asserts cond {
   if(cond) return;
-  throw message;
+  throw new AssertionError(message);
 }
 
 export type WithDefault<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;

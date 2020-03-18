@@ -60,18 +60,17 @@ export function drawCFNumerical(
     })
     .attr("transform", (d, i) => `translate(0,${i * pixel})`);
 
-  const xs = data.map((d, i) => {
-    const cf = cfData[i];
-    return cf ? (cf < d ? xScale(cf) : xScale(d)) : 0;
-  });
-  const widths = data.map((d, i) => {
-    return cfData[i] ? Math.abs(xs[i] - xScale(d)) : 0;
-  });
   cf.select("path.base").attr("d", d => `M ${xScale(d)},0 v ${pixel}`);
   cf.select("rect.diff")
-    .attr("x", (d, i) => xs[i])
-    .attr("width", (d, i) => widths[i])
-    .attr("class", (d, i) => `diff ${cfData[i] ? (cfData[i]! < d ? "decrease" : "increase") : ''}`);
+    .attr("x", (d, i) => {
+      const cf = cfData[i];
+      return cf !== undefined ? (cf < d ? xScale(cf) : xScale(d)) : 0;
+    })
+    .attr("width", (d, i) => {
+      const cf = cfData[i];
+      return cf !== undefined ? Math.abs(xScale(cf) - xScale(d)) : 0;
+    })
+    .attr("class", (d, i) => `diff ${cfData[i] !== undefined ? (cfData[i]! < d ? "decrease" : "increase") : ''}`);
 }
 
 export function drawCFCategorical(
@@ -239,7 +238,7 @@ export class CompactCFColumn extends React.Component<
     return (
       <svg
         className={
-          className ? `${className} stacked-feature` : "stacked-feature"
+          className ? `${className} compact-cf` : "compact-cf"
         }
         style={style}
         ref={this.svgRef}
