@@ -20,3 +20,13 @@
 .compact-table {
   height: calc(100% - 30px);
 }
+
+.header-chart {
+  .info {
+    line-height: 18px;
+    height: 18px;
+    font-size: 12px;
+    text-align: left;
+    margin-left: 6px;
+  }
+}

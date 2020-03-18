@@ -117,6 +117,7 @@ export default class DataFrame implements IDataFrame {
     }
     return this._data;
   }
+  // Note that row is the loc in the array rather than the this.index which could be discontinued.
   public at = (row: number, col: number) => {
     if (this._data)
       return this._data[row][col];
@@ -179,9 +180,8 @@ export default class DataFrame implements IDataFrame {
   }
 
   public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
-    
 
-    let filteredIndex: number[] = _.range(0, this.length);
+    let filteredLocs: number[] = _.range(0, this.length);
     filters.forEach(({columnName, filter}) => {
       const columnIndex = this.columns.findIndex(c => c.name === columnName);
       if (columnIndex < 0) throw "No column named " + columnName;
@@ -192,21 +192,36 @@ export default class DataFrame implements IDataFrame {
           throw `Column type ${column.type} does not match filter ${filter}`;
         const at = column.series.at;
         const kept = new Set(filter as string[]);
-        filteredIndex = filteredIndex.filter(i => kept.has(at(i)));
+        filteredLocs = filteredLocs.filter(i => kept.has(at(i)));
       } else {
         if (filter.length !== 2) throw `Column type ${column.type} does not match filter: ${filter}`;
         const at = column.series.at;
-        filteredIndex = filteredIndex.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
+        filteredLocs = filteredLocs.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
       }
 
-    })
+    });
     
-    const data = filteredIndex.map(idx => this.data[idx]);
-    const index = filteredIndex.map(i => this._index[i]);
+    return this.filterByLoc(filteredLocs);
+  }
+
+  public filterByLoc(locs: number[]) {
+    const index = locs.map(i => this.index[i]);
+    const data = locs.map(i => this.data[i]);
     const columns = this.columns.map(c => {
       const {series, ...rest} = c;
       return rest;
     })
     return new DataFrame({data, index, columns}, false);
   }
+
+  // public filterByIndex(index: number[]) {
+  //   const validSet = new Set(index);
+  //   const newIndex = this.index.filter((idx => validSet.has(idx)));
+  //   const data = index.map(idx => this.data[idx]);
+  //   const columns = this.columns.map(c => {
+  //     const {series, ...rest} = c;
+  //     return rest;
+  //   })
+  //   return new DataFrame({data, index, columns}, false);
+  // }
 }

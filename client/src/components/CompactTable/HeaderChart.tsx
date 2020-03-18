@@ -31,13 +31,19 @@ function label2nums(labels: string[], categories?: string[]): [number[], number[
 const getRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   return label2nums(c.series.toArray(), c.categories);
-});
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
+}});
 
 const getAllRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   const prevSeries = c.prevSeries;
   return prevSeries && label2nums(prevSeries.toArray(), c.categories);
-});
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
+}});
 
 function filterUndefined<T>(series: (T | undefined)[]): T[] {
   return series.filter(c => c !== undefined) as T[];
@@ -74,22 +80,21 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
     super(props);
 
     this.state = { hoveredBin: null };
-    this.onMouseOverBin = this.onMouseOverBin.bind(this);
-    this.onMouseOverBins = this.onMouseOverBins.bind(this);
-    this.onMouseLeaveBin = this.onMouseLeaveBin.bind(this);
-    this.onMouseLeaveBins = this.onMouseLeaveBins.bind(this);
+    this.onHoverRange = this.onHoverRange.bind(this);
   }
 
   public render() {
     const { column, groupByColumn, className, style, width, height, margin} = this.props;
+    const {hoveredBin} = this.state;
 
     if (isNumericalVColumn(column)) {
       const groupArgs = groupByColumn && getRowLabels(groupByColumn);
       let data = groupArgs ? column.series.groupBy(...groupArgs) : column.series.toArray();
       const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
       const allData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-      console.log(column);
+      // console.log(column);
       if (column.cf) {
+        const chartHeight = (height - 24)/2;
         return (
           <div className={className} style={style}>
             <Histogram 
@@ -99,21 +104,29 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               selectedRange={column.filter}
               xScale={column.xScale}
               width={width}
-              height={height/2}
+              height={chartHeight}
               margin={margin}
               extent={column.extent}
+              onHoverRange={this.onHoverRange}
             />
             <Histogram 
               data={this.validateCFs(column.cf)}
-              allData={column.allCF && this.validateCFs(column.allCF)}
+              allData={column.allCF && this.validateAllCFs(column.allCF)}
               onSelectRange={column.onFilterCF}
               selectedRange={column.cfFilter}
               xScale={column.xScale}
               width={width}
-              height={height/2}
+              height={chartHeight}
               margin={margin}
               extent={column.extent}
+              onHoverRange={this.onHoverRange}
             />
+            <div className="info">
+              {hoveredBin
+                ? `${hoveredBin[0]} - ${hoveredBin[1]}`
+                : (column.extent && `${number2string(column.extent[0],3)} - ${number2string(column.extent[1],3)}`)
+              }
+            </div>
           </div>
         );
       }
@@ -154,44 +167,8 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
     return groupByColumn && getRowLabels(groupByColumn);
   }
 
-  onMouseOverBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
-    data,
-    index
-  ) => {
-    const { x0, x1 } = data;
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
+  onHoverRange(hoveredBin?: [number, number]) {
+    this.setState({hoveredBin: hoveredBin || null});
   };
 
-  onMouseOverBins: d3.ValueFn<any, d3.Bin<number, number>[], void> = (
-    data,
-    index
-  ) => {
-    // console.log(data);
-    const { x0, x1 } = data[0];
-    this.setState({
-      hoveredBin: [
-        x0 === undefined ? -Infinity : x0,
-        x1 === undefined ? Infinity : x1
-      ]
-    });
-  };
-
-  onMouseLeaveBin: d3.ValueFn<any, d3.Bin<number, number>, void> = (
-    data,
-    index
-  ) => {
-    this.setState({ hoveredBin: null });
-  };
-
-  onMouseLeaveBins: d3.ValueFn<any, d3.Bin<number, number>[], void> = (
-    data,
-    index
-  ) => {
-    this.setState({ hoveredBin: null });
-  };
 }
