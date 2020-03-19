@@ -252,9 +252,9 @@ class CFEnginePytorch:
         cfs = np.repeat(data, self.cf_num, axis=0)
         cfs += mask * self.mask_num * np.random.rand(cfs.shape[0], cfs.shape[1])*0.1
         if self.init_cat == 'rand':
-            cfs[:, self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
+            cfs[:, mask * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
         elif self.init_cat == 'avg':
-            cfs[:, self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
+            cfs[:, mask * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
         return cfs
 
     def init_targets(self, target):
