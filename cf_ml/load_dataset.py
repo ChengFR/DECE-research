@@ -28,6 +28,11 @@ def load_german_credit_dataset():
                 info['category'] = info['category'].split(' ')
     return Dataset('german-credit', data_df, description, 'Output')
 
+def load_simplified_german_credit_dataset():
+    description = pd.read_csv(os.path.join(DATA_DIR,'german-credit-simplified/description.csv'), index_col='name').to_dict('index')
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit-simplified/german_credit_data.csv'), index_col='Unnamed: 0')
+    return Dataset('german-credit-simplified', data_df, description, 'Risk')
+
 def load_boston_housing_dataset():
     pass
 
