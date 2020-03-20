@@ -1,0 +1,41 @@
+.hist-slider {
+    rect.bar {
+        fill: #eee;
+    }
+    rect.selected-bar {
+        fill: #ccc;
+    }
+    div.controller-contrainer {
+        margin-left: 5px;
+        float: left;
+    }
+    div.connector {
+        margin-left: 8px;
+        margin-right: 8px;
+        margin-top: 12px;
+        height: 2px;
+        width: 10px;
+        float: left;
+        background-color: #eee
+    }
+    div.place-holder {
+        margin-left: 8px;
+        margin-right: 8px;
+        margin-top: 12px;
+        width: 10px;
+        float: left;
+    }
+    .row-text {
+        /* margin-top: 5px; */
+    }
+    span.feature-name {
+        float: left;
+        font: bold;
+    }
+    .row-range {
+        /* margin-top: 10px; */
+    }
+    .row-value {
+        margin-top: 10px;
+    }
+}
