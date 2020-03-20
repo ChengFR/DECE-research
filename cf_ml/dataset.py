@@ -34,7 +34,7 @@ class Dataset:
 
     def _check_and_complete_description(self):
         # check whether each column is noted as numerical or categorical
-        assert len(self.raw_df.columns.values) == len(self.description)
+        # assert len(self.raw_df.columns.values) == len(self.description)
         for col, info in self.description.items():
             if not (col in self.origin_columns
                     and info['type'] in ['numerical', 'categorical']):

@@ -30,7 +30,7 @@ def load_german_credit_dataset():
 
 def load_simplified_german_credit_dataset():
     description = pd.read_csv(os.path.join(DATA_DIR,'german-credit-simplified/description.csv'), index_col='name').to_dict('index')
-    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit-simplified/german_credit_data.csv'), index_col='Unnamed: 0')
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit-simplified/refined.csv'))
     return Dataset('german-credit-simplified', data_df, description, 'Risk')
 
 def load_boston_housing_dataset():
@@ -44,6 +44,13 @@ def load_diabetes_dataset():
             info['category'] = [int(cat) for cat in info['category'].split(' ')]
     return Dataset('diabetes', data_df, description, 'Outcome')
 
+def load_admission_dataset():
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'admission/admission.csv'))
+    description = pd.read_csv(os.path.join(DATA_DIR,'admission/description.csv'), index_col='name').to_dict('index')
+    for _, info in description.items():
+        if type(info['category']) is str:
+            info['category'] = [int(cat) for cat in info['category'].split(' ')]
+    return Dataset('admission', data_df[list(description.keys())], description, 'Admit')
 
 if __name__ == '__main__':
     dataset = load_HELOC_dataset()
