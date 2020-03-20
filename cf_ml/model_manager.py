@@ -149,8 +149,10 @@ class PytorchModelManager(ModelManager):
         for param in self.model.parameters():
             param.requires_grad = True
 
-    def train(self, batch_size=32, epoch=40, lr=0.002, verbose=True):
-        data_loader = DataLoader(dataset=self.train_dataset, batch_size=batch_size, shuffle=True)
+    def train(self, dataset=None, batch_size=32, epoch=40, lr=0.002, verbose=True):
+        if dataset is None:
+            dataset = self.train_dataset
+        data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
         criterion = nn.BCELoss()
         self.release_model()
         # optimizer = optim.SGD(self.model.parameters(), lr=lr)
