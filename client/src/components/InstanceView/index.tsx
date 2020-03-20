@@ -4,7 +4,7 @@ import { Card, Divider, Button, Icon, InputNumber, Select, Row, Col, Slider } fr
 import { Dataset, DataMeta, IColumn } from "../../data";
 import { CounterFactual, Filter, QueryParams } from "../../api"
 import { drawHistogram, Histogram } from "../visualization/histogram"
-import { drawSimpleSlider, HistSlider } from "../visualization/slider"
+import { HistSlider } from "../visualization/HistSlider"
 import { drawPcp } from "../visualization/pcp"
 import { createColumn, TableColumn } from "../Table/common"
 import "./index.css"
@@ -149,14 +149,15 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                         height={histogramHeight}
                                         className={`Instance-hist-${column.name}`}
                                         style={{ float: "left", height: histogramHeight }}
-                                        svgStyle={{ marginTop: "0px", marginBottom: "0px" }}
                                         margin={margin}
                                         xScale={column.xScale}
                                         ticks={10}
-                                        editable={true}
+                                        editable={editable}
                                         drawInput={true}
                                         onValueChange={newValue => this.updateAttributeValue(i, newValue)}
                                         onRangeChange={newRange => this.updateAttributeRange(i, newRange)}
+                                        drawRange={true}
+                                        drawTick={true}
                                     /> : <div></div>}
                             </div>
 
@@ -182,7 +183,10 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     }
 
     public componentDidUpdate(oldProps: InstanceViewProps, oldState: InstanceViewState) {
-        this._drawPcp();
+        const {editable} = this.state;
+        if (!editable){
+            this._drawPcp();
+        }
     }
     public init() {
 
@@ -193,7 +197,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         const { histogramHeight, histogramWidth } = this.styleProps;
         const node = this.svgRef.current;
         const margin = { bottom: 20, top: 5, left: 10, right: 10 }
-        console.log(queryResults);
         if (node && queryResults && this.yScale) {
             drawPcp(node, queryResults, {
                 width: histogramWidth,

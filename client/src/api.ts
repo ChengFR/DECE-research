@@ -52,6 +52,7 @@ export async function getDataset(params: {
   data = data.slice(1);
   const dataMeta = await getDataMeta(params);
   const categoricalColumns = [];
+  console.log(dataMeta)
   if (dataMeta.target.type === "categorical") {
     categoricalColumns.push(columnNames[0]);
   }
