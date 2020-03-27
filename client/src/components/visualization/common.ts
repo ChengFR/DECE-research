@@ -92,7 +92,7 @@ export function getScaleLinear(
     .range([x0, x1]);
 }
 
-export function countCategories(data: Array<string | number>, categories?: string[]) {
+export function countCategories(data: ArrayLike<string | number>, categories?: string[]) {
   const counter = _.countBy(data);
   const domain: string[] = categories || _.keys(counter).sort();
   return domain.map(
@@ -117,7 +117,7 @@ function getOuterPadding(
 }
 
 export function getScaleBand(
-  data: Array<string>,
+  data: ArrayLike<string>,
   x0: number,
   x1: number,
   categories?: string[],

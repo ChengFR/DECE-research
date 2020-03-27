@@ -4,36 +4,45 @@ import { Slider, InputNumber, Row, Col, Divider, Icon } from 'antd';
 // import {SwapRightOutlined} from '@ant-design/icons';
 import { FeatureDisc } from "../../data/dataset"
 
-import {drawSimpleSlider, SliderOptions} from './slider'
-// import {drawSimpleHistogram, HistOption} from './_histogram'
+import { BandSliderOptions, drawBandSlider} from './slider'
+import {drawSimpleBarchart} from './_barchart'
 
 import './BarSlider.scss'
 
-export interface BarSliderProps extends SliderOptions{
-    data: ArrayLike<string|number>;
+export interface BarSliderProps extends BandSliderOptions{
+    data: ArrayLike<string>;
     style?: React.CSSProperties;
     svgStyle?: React.CSSProperties;
     className?: string;
-    defaultInstanceValue?: number,
-    defaultInstanceRange?: [number, number],
+    defaultInstanceValue?: string,
+    defaultBarActivation?: boolean[]
     feature: FeatureDisc;
-    cfValue?: number;
+    cfValue?: string;
+    xScale?: d3.ScaleBand<string>;
     editable: boolean;
     drawInput: boolean;
-    onRangeChange: (newRange: [number, number]) => void;
+    onValueChange: (newValue: string) => void;
+    onUpdateCats: (newCats: string[]) => void;
 }
 
 export interface BarSliderState {
-    instanceValue: number|string,
-    range: string[],
+    instanceValue: string,
+    barActivation: boolean[],
 }
 
-export default class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
-    private barSvgGRef: React.RefObject<SVGGElement> = React.createRef();
-    private sliderSvgGRef: React.RefObject<SVGGElement> = React.createRef();
+export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
+    private barRef: React.RefObject<SVGGElement> = React.createRef();
+    private sliderRef: React.RefObject<SVGGElement> = React.createRef();
     constructor(props: BarSliderProps) {
         super(props);
+        const {defaultValue, defaultBarActivation, feature} = this.props;
+        this.state = {
+            instanceValue: defaultValue?defaultValue: feature.categories![0],
+            barActivation: defaultBarActivation?defaultBarActivation: feature.categories!.map(d => true)
+        }
 
+        this.onBarSelected = this.onBarSelected.bind(this);
+        this.onValueChanged =  this.onValueChanged.bind(this);
     }
 
     render(){
@@ -50,21 +59,46 @@ export default class BarSlider extends React.Component<BarSliderProps, BarSlider
                 height={height}
                 className='hist-slider'
             >
-                <g ref={this.barSvgGRef} />
-                <g ref={this.sliderSvgGRef} />
+                <g ref={this.barRef} />
+                <g ref={this.sliderRef} />
             </svg>
         </div>
     </div>
     }
 
     componentDidMount(){
-
+        this.drawAll();
     }
     componentDidUpdate(){
-        
+        this.drawAll();
     }
 
     drawAll(){
+        const {width, height, margin, data, xScale} = this.props;
+        const {instanceValue, barActivation} = this.state;
+        const sliderNode = this.sliderRef.current;
+        const barChartNode = this.barRef.current;
+        if (barChartNode) {
+            drawSimpleBarchart(barChartNode, {width, height, margin, xScale}, data)
+        }
+        if (sliderNode){
+            drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue}, data);
+        }
+        
 
+    }
+
+    onBarSelected(index: number){
+        const {onUpdateCats, feature} = this.props;
+        const {barActivation} = this.state;
+        barActivation[index] = !barActivation[index];
+        this.setState({barActivation});
+        onUpdateCats && onUpdateCats(feature.categories!.filter((d, i) => barActivation[i]));
+    }
+
+    onValueChanged(newValue: string){
+        const {onValueChange} = this.props;
+        this.setState({instanceValue: newValue});
+        onValueChange && onValueChange(newValue);
     }
 }
