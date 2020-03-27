@@ -3,8 +3,8 @@ import * as d3 from "d3";
 import { Card, Divider, Button, Icon, InputNumber, Select, Row, Col, Slider } from "antd"
 import { Dataset, DataMeta, IColumn } from "../../data";
 import { CounterFactual, Filter, QueryParams } from "../../api"
-import { drawHistogram, Histogram } from "../visualization/histogram"
 import { HistSlider } from "../visualization/HistSlider"
+import { BarSlider } from '../visualization/BarSlider'
 import { drawPcp } from "../visualization/pcp"
 import { createColumn, TableColumn } from "../Table/common"
 import "./index.css"
@@ -49,8 +49,9 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         this.styleProps = { ...defaultStypeProps, ...props.style };
         this.svgRef = React.createRef();
         this.xScales = [];
-        this.updateAttributeRange = this.updateAttributeRange.bind(this);
+        this.updateNumAttributeRange = this.updateNumAttributeRange.bind(this);
         this.updateAttributeValue = this.updateAttributeValue.bind(this);
+        this.updateCatAttributeRange = this.updateCatAttributeRange.bind(this);
     }
     public render() {
 
@@ -64,7 +65,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             return createColumn(rawColumn);
         })
 
-        const margin = { bottom: 20, top: 5, left: 10, right: 10 }
+        const margin = { bottom: 40, top: 5, left: 10, right: 10 }
 
         this.xScales = columns.map(d => d.xScale);
         this.yScale = d3.scaleLinear<number, number>()
@@ -155,10 +156,24 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                         editable={editable}
                                         drawInput={true}
                                         onValueChange={newValue => this.updateAttributeValue(i, newValue)}
-                                        onRangeChange={newRange => this.updateAttributeRange(i, newRange)}
+                                        onRangeChange={newRange => this.updateNumAttributeRange(i, newRange)}
                                         drawRange={true}
                                         drawTick={true}
-                                    /> : <div></div>}
+                                    /> : 
+                                    <BarSlider 
+                                        data={column.series.toArray()}
+                                        feature={CFMeta.features[i]}
+                                        width={histogramWidth}
+                                        height={histogramHeight}
+                                        className={`Instance-bar-${column.name}`}
+                                        style={{ float: "left", height: histogramHeight }}
+                                        margin={margin}
+                                        xScale={column.xScale}
+                                        editable={editable}
+                                        drawInput={true}
+                                        onValueChange={newValue => this.updateAttributeValue(i, newValue)}
+                                        onUpdateCats={newValue => this.updateCatAttributeRange(i, newValue)}
+                                    />}
                             </div>
 
                         })}
@@ -214,11 +229,18 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         this.setState({queryInstance});
     }
 
-    updateAttributeRange(attrIndex: number, newRange: [number, number]){
+    updateNumAttributeRange(attrIndex: number, newRange: [number, number]){
         const {attrRange} = this.state;
         if (attrRange)
             attrRange[attrIndex] = {id: attrIndex, min: newRange[0], max: newRange[1]};
         this.setState({attrRange})
+    }
+
+    updateCatAttributeRange(attrIndex: number, newCats: string[]) {
+        const {attrRange} = this.state;
+        if (attrRange)
+            attrRange[attrIndex] = {id: attrIndex, categories: newCats};
+        this.setState({attrRange});
     }
 }
 

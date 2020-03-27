@@ -4,12 +4,12 @@ import { Slider, InputNumber, Row, Col, Divider, Icon } from 'antd';
 // import {SwapRightOutlined} from '@ant-design/icons';
 import { FeatureDisc } from "../../data/dataset"
 
-import {drawSimpleSlider, SliderOptions} from './slider'
+import {drawLinearSlider, LinearSliderOptions} from './slider'
 import {drawSimpleHistogram, HistOption} from './_histogram'
 
 import './HistSlider.scss'
 
-export interface HistSliderProps extends SliderOptions, HistOption{
+export interface HistSliderProps extends LinearSliderOptions, HistOption{
     data: ArrayLike<number>;
     style?: React.CSSProperties;
     svgStyle?: React.CSSProperties;
@@ -21,6 +21,7 @@ export interface HistSliderProps extends SliderOptions, HistOption{
     editable: boolean;
     drawInput: boolean;
     onRangeChange: (newRange: [number, number]) => void;
+    onValueChange: (newValue: number) => void;
 }
 
 export interface HistSliderState {
@@ -65,7 +66,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
             )
         }
         if (sliderNode) {
-            drawSimpleSlider(sliderNode,
+            drawLinearSlider(sliderNode,
                 {
                     defaultValue: instanceValue,
                     defaultRange: range,

@@ -34,8 +34,6 @@ export function drawPcp(node: SVGGElement | SVGGElement,
                 .attr("class", "polyline")
         );
     const lineGenerator = d3.line();
-    console.log(x);
-    console.log(data);
     polylines.attr("d", cf => lineGenerator(cf.map((d, i) =>
         [typeof d === 'string' ? (x[i] as d3.ScaleBand<string>)(d)!
             : (x[i] as d3.ScaleLinear<number, number>)(d), y(i)])))
