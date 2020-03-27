@@ -125,7 +125,7 @@ class CFEnginePytorch:
             cfs, _, loss, iter = self.optimize(
                 init_cfs, instances, targets, expanded_mask, lr)
             # regenerate counterfactual examples if the number of changeable attributes is fixed
-            if self.k > 0 and self.k < mask.sum():
+            if self.k > 0 and self.k < self.mask_change.sum():
                 diff = (cfs - instances).abs()
                 key_features = diff.argsort(dim=1, descending=True)[:, :k]
                 new_mask = torch.zeros(cfs.shape[0], cfs.shape[1])
