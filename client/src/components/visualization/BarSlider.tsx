@@ -42,7 +42,8 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         }
 
         this.onBarSelected = this.onBarSelected.bind(this);
-        this.onValueChanged =  this.onValueChanged.bind(this);
+        this.onValueChange =  this.onValueChange.bind(this);
+        this.drawAll = this.drawAll.bind(this);
     }
 
     render(){
@@ -78,11 +79,12 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         const {instanceValue, barActivation} = this.state;
         const sliderNode = this.sliderRef.current;
         const barChartNode = this.barRef.current;
+        const onValueChange = this.onValueChange;
         if (barChartNode) {
             drawSimpleBarchart(barChartNode, {width, height, margin, xScale}, data)
         }
         if (sliderNode){
-            drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue}, data);
+            drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue, onValueChange}, data);
         }
         
 
@@ -96,7 +98,7 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         onUpdateCats && onUpdateCats(feature.categories!.filter((d, i) => barActivation[i]));
     }
 
-    onValueChanged(newValue: string){
+    onValueChange(newValue: string){
         const {onValueChange} = this.props;
         this.setState({instanceValue: newValue});
         onValueChange && onValueChange(newValue);

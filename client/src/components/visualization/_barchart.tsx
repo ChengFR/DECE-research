@@ -46,7 +46,7 @@ export function drawSimpleBarchart(
             return enter.append("rect")
                 .attr("class", "bar");
         })
-        .attr("transform", d => `translate(${x(d.name)}, ${yRange[1] - y(d.count)})`)
+        .attr("transform", d => `translate(${x(d.name)! - x.bandwidth()/2}, ${yRange[1] - y(d.count)})`)
         .attr("width", d => {
             return x.bandwidth();
         })

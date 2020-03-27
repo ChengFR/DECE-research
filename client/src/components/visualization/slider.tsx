@@ -181,7 +181,7 @@ export function drawBandSlider(
                     .attr("class", "tick");
             }
         )
-        .attr("transform", d => `translate(${x(d) as number +x.bandwidth()/2}, ${6})`);
+        .attr("transform", d => `translate(${x(d) as number}, ${6})`);
     // getChildOrAppend(tick, "line", "tick-line")
     //     .attr("y2", 6)
     //     .attr("class", "tick-line");
@@ -205,7 +205,6 @@ export function drawBandSlider(
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             const xIndex = Math.max(Math.round((xPos-x.range()[0]-x.step()/2) / x.step()) - 1, 0);
             const xValue = x.domain()[xIndex];
-            console.log(xPos-x.range()[0]-x.bandwidth()/2, x.bandwidth(), (xPos-x.range()[0]-x.bandwidth()/2) / x.bandwidth());
 
             d3.select(n[i]).attr("transform", `translate(${x(xValue)!+x.bandwidth()/2}, ${0})`)
             onValueChange && onValueChange(xValue);
