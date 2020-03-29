@@ -9,8 +9,8 @@ import {
   IndexRange,
   InfiniteLoaderChildProps
 } from "react-virtualized";
-import { CFResponse } from "api";
-import { Dataset, DataMeta, DataFrame, IColumn } from "data";
+import { CFResponse, SubsetCFResponse } from "api";
+import { Dataset, DataMeta, DataFrame, IColumn, buildCFSeries } from "data";
 import Panel from "components/Panel";
 import Table, { CellProps, columnMargin } from "components/Table";
 import {
@@ -35,6 +35,7 @@ import {
 import { number2string } from "common/utils";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
 import HeaderChart from './HeaderChart';
+import GroupChart from './GroupChart';
 import { isColumnNumerical } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn } from '../Table/common';
@@ -136,6 +137,7 @@ export interface ICompactTableProps {
   pixel: number;
   getCFs: (params: IndexRange | {index: number[]}) => Promise<CFResponse[]>;
   getCF: (index: number) => Promise<CFResponse>;
+  getSubsetCF: () => Promise<SubsetCFResponse>;
 }
 
 export interface ICompactTableState {
@@ -187,7 +189,7 @@ export default class CFTableView extends React.Component<
       rows: initRowStates(dataFrame.length),
       dataFrame,
       columns: dataFrame.columns.map((c, i) =>
-        this.initColumn(c, cfs && cfs[i])
+        this.initColumn(c, cfs && cfs[i].toRawArray() as ((number | undefined)[] | (string | undefined)[]))
       ),
       hovered: null,
       showCF: false,
@@ -196,7 +198,7 @@ export default class CFTableView extends React.Component<
    
   }
 
-  public initColumn(column: IColumn<string> | IColumn<number>, cf?: CFSeries): CFTableColumn {
+  public initColumn(column: IColumn, cf?: CFSeries): CFTableColumn {
     const c: CFTableColumn = createColumn(column);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
@@ -239,13 +241,13 @@ export default class CFTableView extends React.Component<
       return {
         dataFrame,
         columns: dataFrame.columns.map((c, i) => {
-          const cf = cfs ? cfs[i] : undefined;
+          const cf = cfs ? cfs[i].toRawArray() : undefined;
           if (c.name in name2column) {
             // merge and update the column
             return { ...name2column[c.name], ...c, cf } as CFTableColumn;
           }
           // init new column
-          return this.initColumn(c, cf);
+          return this.initColumn(c, cf?cf as ((number | undefined)[] | (string | undefined)[]):undefined);
         })
       };
     }
@@ -550,7 +552,7 @@ export default class CFTableView extends React.Component<
           <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
             <CompactCFColumn 
               data={columns[columnIndex].series.toArray()}
-              cfData={showCF ? (cfs && cfs[columnIndex]) : undefined}
+              cfData={showCF ? (cfs && cfs[columnIndex].toRawArray() as ((number|undefined)[] | (string|undefined)[])) : undefined}
               startIndex={rowState.startIndex}
               endIndex={rowState.endIndex}
               pixel={pixel}
@@ -644,7 +646,7 @@ export default class CFTableView extends React.Component<
     return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
   });
 
-  getCFs = memoizeOne(processCFs);
+  getCFs = memoizeOne(buildCFSeries);
   public get cfs() {
     const {cfs, CFMeta} = this.props;
     return cfs ? this.getCFs(cfs, CFMeta, this.state.dataFrame) : undefined;
@@ -668,20 +670,3 @@ const CornerInfo: React.FunctionComponent<ICornerInfoProps> = props => {
 
 
 type CFSeries = (string | undefined)[] | (number | undefined)[];
-
-function processCFs(cfs: (CFResponse | undefined)[], cfMeta: DataMeta, df: DataFrame): (CFSeries | undefined)[] {
-  const index = df.index;
-  const columnNames = df.getColumnNames();
-  return columnNames.map(c => {
-    const col = cfMeta.getColumnDisc(c);
-    if (col) {
-      const idx = col.index;
-      return index.map(i => {
-        const cf = cfs[i];
-        if (cf && cf.counterfactuals.length > 0) return cf.counterfactuals[0][idx];
-        return undefined;
-      }) as CFSeries;
-    }
-    return undefined;
-  })
-}

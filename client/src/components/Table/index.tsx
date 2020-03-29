@@ -22,7 +22,7 @@ import { sum } from "../../common/math";
 export interface ITableProps {
   // dataFrame: IDataFrame;
   className?: string;
-  columns: (IColumn<string> | IColumn<number> | TableColumn)[];
+  columns: (IColumn | TableColumn)[];
   onScroll?: (params: ScrollParams) => any;
   style?: React.CSSProperties;
   rowCount: number;
@@ -75,7 +75,7 @@ export default class Table extends React.PureComponent<
   }
 
   updateColumns(
-    columns: (IColumn<string> | IColumn<number> | TableColumn)[],
+    columns: (IColumn | TableColumn)[],
     prevColumns?: TableColumn[]
   ): TableColumn[] {
     return columns.map((c, i) => {

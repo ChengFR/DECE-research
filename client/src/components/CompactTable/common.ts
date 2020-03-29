@@ -9,6 +9,9 @@ import { assert } from "../../common/utils";
 import { isColumnNumerical } from '../../data/column';
 import { isNumericalVColumn } from '../Table/common';
 
+import { isArray } from "util";
+import memoize from 'fast-memoize';
+
 interface CFColumn {}
 
 export interface CFCategoricalColumn extends CategoricalColumn {
@@ -45,7 +48,7 @@ export function filterByColumnStates(
       if (filter) {
         const at = dfColumn.series.at;
         const kept = new Set(filter as string[]);
-        filteredLocs = filteredLocs.filter(i => kept.has(at(i)));
+        filteredLocs = filteredLocs.filter(i => at(i) && kept.has(at(i)!));
       }
       if (cfFilter && allCF) {
         if (prevSeries)
@@ -59,7 +62,7 @@ export function filterByColumnStates(
       if (filter) {
         const at = dfColumn.series.at;
         filteredLocs = filteredLocs.filter(
-          i => filter[0] <= at(i) && at(i) < filter[1]
+          i => at(i) ? (filter[0] <= at(i)! && at(i)! < filter[1]): false
         );
       }
       if (cfFilter && allCF) {
@@ -76,4 +79,41 @@ export function filterByColumnStates(
   });
 
   return dataFrame.filterByLoc(filteredLocs);
+}
+
+export function isArrays<T>(a:T[] | T[][]): a is T[][] {
+  return a.length > 0 && isArray(a[0]);
+}
+
+export function label2nums(labels: string[], categories?: string[]): [number[], number[]] {
+  const cat2idx: Map<string, number> = new Map();
+  categories?.map((c, i) => cat2idx.set(c, i));
+  const nums = labels.map(v => {
+    if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
+    return cat2idx.get(v) as number;
+  });
+  const uniqNums: number[] = [];
+  cat2idx.forEach((v, k) => uniqNums.push(v));
+  return [nums, uniqNums];
+}
+
+export const getRowLabels = memoize((c: TableColumn) => {
+  assert(!isColumnNumerical(c));
+  return label2nums(c.series.toArray(), c.categories);
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
+}});
+
+export const getAllRowLabels = memoize((c: TableColumn) => {
+  assert(!isColumnNumerical(c));
+  const prevSeries = c.prevSeries;
+  return prevSeries && label2nums(prevSeries.toArray(), c.categories);
+}, {serializer: (args: any) => {
+  const c = args as TableColumn;
+  return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
+}});
+
+export function filterUndefined<T>(series: (T | undefined)[]): T[] {
+  return series.filter(c => c !== undefined) as T[];
 }
