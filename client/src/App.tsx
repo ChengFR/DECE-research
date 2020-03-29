@@ -10,7 +10,7 @@ import {
 
 import { Layout } from "antd"
 
-import { getDataset, getCFs, getCFMeta, getCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse } from './api';
+import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse } from './api';
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
@@ -96,6 +96,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                     getCFs({ dataId, modelId, ...params })
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
+                  getSubsetCF={() => getSubsetCF({})}
                 />
                 </div>
             </div>

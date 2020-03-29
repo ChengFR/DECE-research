@@ -1,6 +1,6 @@
 import axios, { AxiosResponse } from "axios";
 import * as d3 from "d3";
-import { DataFrame, DataMeta, Dataset } from "./data";
+import { DataFrame, DataMeta, Dataset, buildDataFrame } from "./data";
 import { ROOT_URL, DEV_MODE } from "./env";
 
 const API = `${ROOT_URL}/api`;
@@ -48,29 +48,8 @@ export async function getDataset(params: {
   modelId?: string;
 }): Promise<Dataset> {
   let data = await getData(params);
-  const columnNames = data[0];
-  data = data.slice(1);
   const dataMeta = await getDataMeta(params);
-  const categoricalColumns = [];
-  console.log(dataMeta)
-  if (dataMeta.target.type === "categorical") {
-    categoricalColumns.push(columnNames[0]);
-  }
-  const columns = columnNames.map((name, i) => {
-    const columnDisc = dataMeta.getColumnDisc(name);
-    return {
-      name,
-      description: columnDisc?.description,
-      type: columnDisc?.type || "unknown",
-      ...columnDisc
-    };
-  });
-
-  const index = data.map((row, i) =>
-    dataMeta.index ? Number(row[dataMeta.index.index]) : i
-  );
-  const dataFrame = new DataFrame({ data, columns, index });
-  // console.debug(dataFrame);
+  const dataFrame = buildDataFrame(dataMeta, data);
   return new Dataset(dataFrame, dataMeta);
 }
 
@@ -81,16 +60,27 @@ export async function getDataset(params: {
 
 export type CounterFactual = (string | number)[];
 
-export type Filter = {
-  id: number;
-  min?: number;
-  max?: number;
-  categories?: string[];
-};
+export type NumFilter = {
+  id: number,
+  min?: number,
+  max?: number,
+}
+
+export type CatFilter = {
+  id: number,
+  categories?: string[],
+}
+
+export type Filter = NumFilter | CatFilter;
 
 export interface CFResponse {
   index: number;
   counterfactuals: CounterFactual[];
+}
+
+export interface SubsetCFResponse {
+  index: number[];
+  counterfactuals: CounterFactual[][];
 }
 
 export interface QueryParams {
@@ -109,6 +99,14 @@ export async function getCF(params: {
   index: number;
 }): Promise<CFResponse> {
   const url = `${API}/cf`;
+  const response = await axios.get(url, { params });
+  const data = checkResponse(response, []);
+  return data;
+}
+
+export async function getSubsetCF(params: {
+}): Promise<SubsetCFResponse> {
+  const url = `${API}/cf_subset`;
   const response = await axios.get(url, { params });
   const data = checkResponse(response, []);
   return data;
@@ -134,6 +132,8 @@ export async function getCFs(params: {
   const data = checkResponse(response, []);
   return data;
 }
+
+
 
 export async function GetInstanceCF(
   params: QueryParams

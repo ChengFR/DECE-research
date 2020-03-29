@@ -132,6 +132,17 @@ def get_cf():
     cf_dict = group_cf(cf_df[cols])
     return jsonify(cf_dict)
 
+@api.route('/cf_subset', methods=['GET', 'POST'])
+def get_cf_subset():
+    subset = {}
+    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
+    index_col = 'OriginIndex'
+    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(subset)
+    subset_cf_data = [subset_cf.get_cf()[cols].values.tolist() for _, subset_cf in subset_cf_dict.items()]
+    subset_cf_index = [subset_cf.get_cf()[index_col].values.tolist() for _, subset_cf in subset_cf_dict.items()][0]
+    return jsonify({'index': subset_cf_index, 'counterfactuals': subset_cf_data})
+
+
 @api.route('/cf_instance', methods=['GET', 'POST'])
 def get_cf_instance():
 
