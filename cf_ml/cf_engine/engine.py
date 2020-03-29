@@ -25,7 +25,7 @@ class CFEnginePytorch:
     def generate_cfs_subset(self, subset={}, weight='mads', **kwargs):
         """
         """
-        results = {}
+        results = OrderedDict()
         for feature in self.dataset.get_feature_names(False):
             setting = {'data_range': copy.deepcopy(subset), 'cf_range': copy.deepcopy(subset)}
             if feature in subset:
