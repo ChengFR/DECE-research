@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as d3 from "d3";
 import { Card, Divider, Button, Icon, InputNumber, Select, Row, Col, Slider } from "antd"
-import { Dataset, DataMeta, IColumn } from "../../data";
+import { Dataset, DataMeta, IColumn, isNumericalFeature, CatFeatureDisc, NumFeatureDisc } from "../../data";
 import { CounterFactual, Filter, QueryParams } from "../../api"
 import { HistSlider } from "../visualization/HistSlider"
 import { BarSlider } from '../visualization/BarSlider'
@@ -93,7 +93,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                             <Select style={{float: "left", minWidth: 120 }} 
                                 // value = {target}
                                 onChange={v => this.setState({target: v as string})}>
-                                {CFMeta.target.categories?.map((d, i) => {
+                                {!isNumericalFeature(CFMeta.target) && CFMeta.target.categories.map((d, i) => {
                                     return (<Option key={i}>{d}</Option>)
                                 })}
                             </Select>
@@ -145,7 +145,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                 {(column.type === 'numerical') ?
                                     <HistSlider
                                         data={column.series.toArray()}
-                                        feature={CFMeta.features[i]}
+                                        feature={CFMeta.features[i] as NumFeatureDisc}
                                         width={histogramWidth}
                                         height={histogramHeight}
                                         className={`Instance-hist-${column.name}`}
@@ -162,7 +162,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                     /> : 
                                     <BarSlider 
                                         data={column.series.toArray()}
-                                        feature={CFMeta.features[i]}
+                                        feature={CFMeta.features[i] as CatFeatureDisc}
                                         width={histogramWidth}
                                         height={histogramHeight}
                                         className={`Instance-bar-${column.name}`}
@@ -247,11 +247,11 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
 export function defaultInstance(dataMeta: DataMeta): (string|number)[]{
     const instance:(string|number)[]  = [];
     dataMeta.features.forEach(d => {
-        if (d.type === 'categorical'){
-            instance.push(d.categories![0]);
+        if (!isNumericalFeature(d)){
+            instance.push(d.categories[0]);
         }
         else {
-            instance.push(d.min!);
+            instance.push(d.extent[0]);
         }
     })
     return instance
@@ -259,13 +259,14 @@ export function defaultInstance(dataMeta: DataMeta): (string|number)[]{
 
 export function defaultSetting(dataMeta: DataMeta): QueryParams {
     const queryInstance: CounterFactual = defaultInstance(dataMeta);
-    const target: number | string = dataMeta.target.type === 'categorical'?
-        dataMeta.target.categories![0]: dataMeta.target.min!
+    const target: number | string = isNumericalFeature(dataMeta.target)?
+        dataMeta.target.extent[0]: dataMeta.target.categories[0]
     const prototypeCf: CounterFactual | null = defaultInstance(dataMeta);
     const k: number = dataMeta.features.length;
     const cfNum: number = 12;
     const attrFlex: boolean[] = dataMeta.features.map(d => true);
     // const filters: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
-    const attrRange: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
+    const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d)? {id: i, min: d.extent[0], max: d.extent[1]}: 
+        {id: i, categories: d.categories});
     return {queryInstance, target, prototypeCf, k, cfNum, attrFlex, attrRange};
 }

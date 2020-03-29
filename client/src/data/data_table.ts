@@ -5,6 +5,9 @@ import memoizeOne from 'memoize-one';
 import * as d3 from 'd3';
 import * as _ from 'lodash';
 import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
+import {Filter, NumFilter, CatFilter} from '../api'
+import {notEmpty} from '../common/utils'
+import { DataMeta } from './dataset';
 
 export type Row<T> = T[];
 
@@ -29,16 +32,16 @@ function validate(value: string | number, type: FeatureType) {
 export type DataFrameInput = {  
   data?: (string | number)[][];
   dataT?: (string | number)[][];
-  columns: (ColumnSpec | IColumn<string> | IColumn<number>)[];
+  columns: (ColumnSpec | IColumn)[];
   index?: number[];
 };
 
 export default class DataFrame implements IDataFrame {
-  private _columns?: (IColumn<string> | IColumn<number>)[];
+  private _columns?: IColumn[];
   private _columnSpecs: ColumnSpec[];
   private _data?: Row<string | number>[];
   private _dataT?: Array<(string | number)[]>;
-  private _name2column: {[k: string]: IColumn<string> | IColumn<number>};
+  private _name2column: {[k: string]: IColumn};
   private _index: number[];
 
   static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean=false): Row<string | number>[] {
@@ -59,7 +62,7 @@ export default class DataFrame implements IDataFrame {
     return data;
   }
 
-  static fromColumns(columns: (IColumn<string> | IColumn<number>)[], index?: number[]) {
+  static fromColumns(columns: IColumn[], index?: number[]) {
     // console.debug(columns);
     const dataT = columns.map(c => c.series.toArray());
     const newDF = new DataFrame({dataT, columns, index}, false);
@@ -96,11 +99,11 @@ export default class DataFrame implements IDataFrame {
           description: "",
           ...c,
           series: new Series(this.length, j => at(j, i))
-        } as IColumn<number> | IColumn<string>;
+        } as IColumn;
         if (isColumnNumerical(column)) {
-          if (!column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
+          if (column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
         } else {
-          if (!column.categories) {
+          if (column.categories) {
             const counter = _.countBy(column.series.toArray());
             column.categories = _.keys(counter).sort();
           }
@@ -158,11 +161,18 @@ export default class DataFrame implements IDataFrame {
     let comp: (a: number, b: number) => number;
     if (isColumnNumerical(column)) {
       const at = column.series.at;
-      comp = (a: number, b: number) => at(a) - at(b);
+      comp = (a: number, b: number) => {
+        if (!at(a)) return -1;
+        else if (!at(b)) return 1;
+        else return at(a)! - at(b)!
+      };
     } else {
       const at = column.series.at;
       comp = (a: number, b: number) => {
         const xa = at(a), xb = at(b);
+        if (!xa) return -1;
+        else if (!xb) return 1;
+        else
         return xa == xb ? 0 : (xa < xb ? -1 : 1);
       };
     }
@@ -179,28 +189,48 @@ export default class DataFrame implements IDataFrame {
     return new DataFrame({data, index, columns}, false);
   }
 
-  public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
+  // public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
 
-    let filteredLocs: number[] = _.range(0, this.length);
-    filters.forEach(({columnName, filter}) => {
-      const columnIndex = this.columns.findIndex(c => c.name === columnName);
-      if (columnIndex < 0) throw "No column named " + columnName;
-      const column = this.columns[columnIndex];
+  //   let filteredLocs: number[] = _.range(0, this.length);
+  //   filters.forEach(({columnName, filter}) => {
+  //     const columnIndex = this.columns.findIndex(c => c.name === columnName);
+  //     if (columnIndex < 0) throw "No column named " + columnName;
+  //     const column = this.columns[columnIndex];
 
-      if (!isColumnNumerical(column)) {
-        if (filter.length > 0 && typeof filter[0] !== 'string') 
-          throw `Column type ${column.type} does not match filter ${filter}`;
-        const at = column.series.at;
-        const kept = new Set(filter as string[]);
-        filteredLocs = filteredLocs.filter(i => kept.has(at(i)));
-      } else {
-        if (filter.length !== 2) throw `Column type ${column.type} does not match filter: ${filter}`;
-        const at = column.series.at;
-        filteredLocs = filteredLocs.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
-      }
+  //     if (!isColumnNumerical(column)) {
+  //       if (filter.length > 0 && typeof filter[0] !== 'string') 
+  //         throw `Column type ${column.type} does not match filter ${filter}`;
+  //       const at = column.series.at;
+  //       const kept = new Set(filter as string[]);
+  //       filteredLocs = filteredLocs.filter(i => kept.has(at(i)));
+  //     } else {
+  //       if (filter.length !== 2) throw `Column type ${column.type} does not match filter: ${filter}`;
+  //       const at = column.series.at;
+  //       filteredLocs = filteredLocs.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
+  //     }
 
-    });
+  //   });
     
+  //   return this.filterByLoc(filteredLocs);
+  // }
+  public filterBy(filters: Filter[]): DataFrame {
+    let filteredLocs: number[] = _.range(0, this.length);
+    filters.forEach((filter: Filter) => {
+      const columnIndex = filter.id;
+      const column = this.columns[columnIndex];
+      if (!isColumnNumerical(column)) {
+        const _filter = filter as CatFilter;
+        const at = column.series.at;
+        const kept = new Set(_filter.categories as string[]);
+        filteredLocs = filteredLocs.filter(i => (at(i) && kept.has(at(i)!)));
+      }
+      else {
+        const _filter = filter as NumFilter;
+        const at = column.series.at;
+        _filter.min && filteredLocs.filter(i => (at(i) && (_filter.min! <= at(i)!)));
+        _filter.max && filteredLocs.filter(i => (at(i) && (_filter.max! >= at(i)!)));
+      }
+    })
     return this.filterByLoc(filteredLocs);
   }
 
@@ -224,4 +254,24 @@ export default class DataFrame implements IDataFrame {
   //   })
   //   return new DataFrame({data, index, columns}, false);
   // }
+}
+
+export function buildDataFrame (dataMeta: DataMeta, data: (string | number)[][]) : DataFrame {
+  const columnNames = data[0] as string[];
+  data = data.slice(1);
+  
+  const columns = columnNames.map((name, i) => {
+    const columnDisc = dataMeta.getColumnDisc(name);
+    return {
+      name,
+      description: columnDisc?.description,
+      type: columnDisc?.type || "unknown",
+      ...columnDisc
+    };
+  });
+
+  const index = data.map((row, i) =>
+    dataMeta.index ? Number(row[dataMeta.index.index]) : i
+  );
+  return new DataFrame({ data, columns, index });
 }

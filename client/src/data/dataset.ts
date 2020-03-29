@@ -4,16 +4,38 @@ import { FeatureType } from './column';
 import memoize from 'fast-memoize';
 import DataFrame from './data_table';
 
-export interface FeatureDisc {
+// export interface FeatureDisc {
+//   name: string;
+//   description?: string;
+//   type: FeatureType;
+//   index: number;
+//   categories?: string[];
+//   extent?: [number, number];
+//   min?: number,
+//   max?: number,
+//   precision?: number
+// }
+
+export interface BasicFeatureDisc {
   name: string;
   description?: string;
   type: FeatureType;
   index: number;
-  categories?: string[];
-  extent?: [number, number];
-  min?: number,
-  max?: number,
-  precision?: number
+}
+
+export interface NumFeatureDisc extends BasicFeatureDisc{
+  extent: [number, number];
+  precision: number;
+}
+
+export interface CatFeatureDisc extends BasicFeatureDisc{
+  categories: string[];
+}
+
+export type FeatureDisc = NumFeatureDisc | CatFeatureDisc;
+
+export function isNumericalFeature(featureDisc: FeatureDisc): featureDisc is NumFeatureDisc{
+  return featureDisc.type === 'numerical';
 }
 
 export class DataMeta {
@@ -40,6 +62,8 @@ export class DataMeta {
     if (this.prediction && name === this.prediction.name) return this.prediction;
     return this.getFeatureDisc(name);
   }
+  // public getAllNames(): string[] {
+  // }
 }
 
 export class Dataset {

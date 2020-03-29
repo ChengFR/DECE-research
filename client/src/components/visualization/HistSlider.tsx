@@ -2,7 +2,7 @@ import * as _ from "lodash";
 import * as React from "react";
 import { Slider, InputNumber, Row, Col, Divider, Icon } from 'antd';
 // import {SwapRightOutlined} from '@ant-design/icons';
-import { FeatureDisc } from "../../data/dataset"
+import { FeatureDisc, NumFeatureDisc } from "../../data/dataset"
 
 import {drawLinearSlider, LinearSliderOptions} from './slider'
 import {drawSimpleHistogram, HistOption} from './_histogram'
@@ -16,7 +16,7 @@ export interface HistSliderProps extends LinearSliderOptions, HistOption{
     className?: string;
     defaultInstanceValue?: number,
     defaultInstanceRange?: [number, number],
-    feature: FeatureDisc;
+    feature: NumFeatureDisc;
     cfValue?: number;
     editable: boolean;
     drawInput: boolean;
@@ -37,8 +37,8 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
         super(props);
         const { data, defaultInstanceRange, defaultInstanceValue, feature } = props;
         this.state = {
-            instanceValue: defaultInstanceValue ? defaultInstanceValue : feature.min!,
-            range: defaultInstanceRange ? defaultInstanceRange : [feature.min!, feature.max!],
+            instanceValue: defaultInstanceValue ? defaultInstanceValue : feature.extent[0],
+            range: defaultInstanceRange ? defaultInstanceRange : [feature.extent[0], feature.extent[1]],
         };
         this.onInstanceValueChange = this.onInstanceValueChange.bind(this);
         this.onRangeChange = this.onRangeChange.bind(this);

@@ -44,3 +44,7 @@ export function assert(cond: any, message: any = ""): asserts cond {
 }
 
 export type WithDefault<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+export function notEmpty<T>(value: T | null | undefined): value is T{
+  return value !== null && value !== undefined
+}
