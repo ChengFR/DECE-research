@@ -56,7 +56,7 @@ class Dataset:
         # complete category for categorial attribtues and generate dummy attributes
         for col, info in self.description.items():
             if info['type'] == 'categorical':
-                if info['category'] is None or np.isnan(info['category']) or len(info['category']) == 0:
+                if info['category'] is None or len(info['category']) == 0:
                     info['category'] = self.raw_df[col].unique().tolist()
                 self.dummy_columns += ['{}_{}'.format(col, cat)
                                        for cat in info['category']]
