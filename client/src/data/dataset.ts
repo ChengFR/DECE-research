@@ -16,6 +16,13 @@ export interface FeatureDisc {
   precision?: number
 }
 
+function validateFeatureDisc(disc: FeatureDisc): FeatureDisc {
+  if (disc.type === 'categorical') {
+    disc.categories = disc.categories?.map(c => String(c));
+  }
+  return disc;
+}
+
 export class DataMeta {
   private name2feature: {[k: string]: FeatureDisc};
   public features: FeatureDisc[];
@@ -25,7 +32,7 @@ export class DataMeta {
   public index?: FeatureDisc;
   constructor(input: {features: FeatureDisc[], target: FeatureDisc, prediction?: FeatureDisc, index?: FeatureDisc}) {
     this.features = input.features;
-    this.target = input.target;
+    this.target = validateFeatureDisc(input.target);
     this.prediction = input.prediction;
     this.index = input.index;
     this.name2feature = _.keyBy(this.features, (f) => f.name);
