@@ -2,7 +2,7 @@ import * as _ from "lodash";
 import * as React from "react";
 import { Slider, InputNumber, Row, Col, Divider, Icon } from 'antd';
 // import {SwapRightOutlined} from '@ant-design/icons';
-import { FeatureDisc } from "../../data/dataset"
+import { FeatureDisc, CatFeatureDisc } from "../../data/dataset"
 
 import { BandSliderOptions, drawBandSlider} from './slider'
 import {drawSimpleBarchart} from './_barchart'
@@ -16,7 +16,7 @@ export interface BarSliderProps extends BandSliderOptions{
     className?: string;
     defaultInstanceValue?: string,
     defaultBarActivation?: boolean[]
-    feature: FeatureDisc;
+    feature: CatFeatureDisc;
     cfValue?: string;
     xScale?: d3.ScaleBand<string>;
     editable: boolean;
