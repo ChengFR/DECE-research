@@ -1,5 +1,5 @@
 import memoize from "fast-memoize";
-import { IColumn, isColumnNumerical, ISeries } from 'data';
+import { IColumn, isColumnNumerical, ISeries, ICatColumn, INumColumn } from 'data';
 import { getScaleLinear, getScaleBand } from "../visualization/common";
 import { getTextWidth } from '../../common/utils';
 
@@ -15,14 +15,14 @@ export const getFixedGridWidth = memoize(
 
 export const IndexWidth = 25;
 
-export interface VColumn<T> extends IColumn<T> {
+export interface VColumn<T> {
   onSort?: (order: "descend" | "ascend") => any;
   sorted?: 'descend' | 'ascend' | null;
   onChangeColumnWidth?: (width: number) => any;
   prevSeries?: ISeries<T>;
 }
 
-export interface CategoricalColumn extends VColumn<string> {
+export interface CategoricalColumn extends VColumn<string>, ICatColumn{
   type: "categorical";
   width: number;
   xScale: d3.ScaleBand<string>;
@@ -30,7 +30,7 @@ export interface CategoricalColumn extends VColumn<string> {
   onFilter?: (filters?: string[]) => any;
 }
 
-export interface NumericalColumn extends VColumn<number> {
+export interface NumericalColumn extends VColumn<number>, INumColumn {
   type: "numerical";
   width: number;
   xScale: d3.ScaleLinear<number, number>;
@@ -81,7 +81,7 @@ export function initColumnWidth(
 const memoizedScaleLinear = memoize(getScaleLinear);
 const memoizedScaleBand = memoize(getScaleBand);
 
-export function createColumn(column: IColumn<string> | IColumn<number> | TableColumn): TableColumn {
+export function createColumn(column: IColumn | TableColumn): TableColumn {
   const width = "width" in column ? column.width : initColumnWidth(column.name);
   const chartWidth = width - columnMargin.left - columnMargin.right;
   if (isColumnNumerical(column))

@@ -1,53 +1,16 @@
 import * as React from 'react';
 import * as _ from "lodash";
 import memoizeOne from "memoize-one";
-import { isArray } from "util";
+
 
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn } from './common';
+import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
 import BarChart from '../visualization/barchart';
-import { isColumnNumerical } from '../../data/column';
-import memoize from 'fast-memoize';
 import { TableColumn, isNumericalVColumn } from '../Table/common';
 
-function isArrays<T>(a:T[] | T[][]): a is T[][] {
-  return a.length > 0 && isArray(a[0]);
-}
 
-function label2nums(labels: string[], categories?: string[]): [number[], number[]] {
-  const cat2idx: Map<string, number> = new Map();
-  categories?.map((c, i) => cat2idx.set(c, i));
-  const nums = labels.map(v => {
-    if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
-    return cat2idx.get(v) as number;
-  });
-  const uniqNums: number[] = [];
-  cat2idx.forEach((v, k) => uniqNums.push(v));
-  return [nums, uniqNums];
-}
-
-const getRowLabels = memoize((c: TableColumn) => {
-  assert(!isColumnNumerical(c));
-  return label2nums(c.series.toArray(), c.categories);
-}, {serializer: (args: any) => {
-  const c = args as TableColumn;
-  return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
-}});
-
-const getAllRowLabels = memoize((c: TableColumn) => {
-  assert(!isColumnNumerical(c));
-  const prevSeries = c.prevSeries;
-  return prevSeries && label2nums(prevSeries.toArray(), c.categories);
-}, {serializer: (args: any) => {
-  const c = args as TableColumn;
-  return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
-}});
-
-function filterUndefined<T>(series: (T | undefined)[]): T[] {
-  return series.filter(c => c !== undefined) as T[];
-}
 
 
 export interface IHeaderChartProps {
