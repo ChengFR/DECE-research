@@ -10,7 +10,7 @@ import {
 
 import { Layout } from "antd"
 
-import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse } from './api';
+import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse } from './api';
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
@@ -29,6 +29,7 @@ export interface IAppProps {
 export interface IAppState {
   dataset?: Dataset;
   cfs?: (CFResponse | undefined)[];
+  defaultSetsubCF?: SubsetCFResponse;
   CFMeta?: DataMeta;
   queryInstance?: CounterFactual;
   queryResults: CounterFactual[];
@@ -55,9 +56,11 @@ export class App extends React.Component<IAppProps, IAppState> {
     if (modelId) {
       const params = { dataId, modelId };
       newState.CFMeta = await getCFMeta(params);
+      // console.log(newState.CFMeta);
       const cfs = await getCFs({...params, index: newState.dataset.dataFrame.index});
       newState.cfs = [];
       cfs.forEach(cf => newState.cfs![cf.index] = cf);
+      newState.defaultSetsubCF = await getSubsetCF({});
     }
     // console.log(dataset);
     this.setState({ ...this.state, ...newState });
@@ -72,11 +75,11 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta, queryInstance, queryResults, cfs } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults, cfs, defaultSetsubCF } = this.state;
     return (
       <div className="App">
         {dataset &&
-          (modelId && CFMeta ? (
+          (modelId && CFMeta && defaultSetsubCF? (
             <div className="main-container">
               <div className="instance-view-container">
                 <InstanceView
@@ -97,11 +100,13 @@ export class App extends React.Component<IAppProps, IAppState> {
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
                   getSubsetCF={() => getSubsetCF({})}
+                  defaultSetsubCF={defaultSetsubCF}
                 />
                 </div>
             </div>
           ) : (
-              <TableView dataset={dataset} />
+              // <TableView dataset={dataset} />
+              <div />
             ))}
       </div>
     );

@@ -60,18 +60,24 @@ export async function getDataset(params: {
 
 export type CounterFactual = (string | number)[];
 
-export type NumFilter = {
+// export type NumFilter = {
+//   id: number,
+//   min?: number,
+//   max?: number,
+// }
+
+// export type CatFilter = {
+//   id: number,
+//   categories?: string[],
+// }
+
+// export type Filter = NumFilter | CatFilter;
+export type Filter = {
   id: number,
   min?: number,
   max?: number,
+  categories?: string[]
 }
-
-export type CatFilter = {
-  id: number,
-  categories?: string[],
-}
-
-export type Filter = NumFilter | CatFilter;
 
 export interface CFResponse {
   index: number;
