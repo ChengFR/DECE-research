@@ -43,32 +43,24 @@ import pandas as pd
 #     n = len(idx2cfs)
 #     return [idx2cfs[idx] for idx in range(n)]
 
-# export interface FeatureDisc {
-#   name: string;
-#   description?: string;
-#   type: FeatureType;
-#   index: number;
-#   categories?: string[];
-#   extent?: [number, number];
-# }
-
-def data_meta_translate(des, target):
+def data_meta_translate(des, target, mode="data"):
     data_meta = {'features': [], 'target': None, 'prediction': None}
     for col in des.keys():
         if col == target:
-            data_meta['target'] = {
-                'name': col,
-                # 'description': des[col]['description'],
-                'type': des[col]['type'],
-                'index': des[col]['index']
-            }
-            if des[col]['type'] == 'categorical':
-                data_meta['target']['categories'] = des[col]['category']
-            elif des[col]['type'] == 'numerical':
-                # attr['min'] = des[col]['min']
-                # attr['max'] = des[col]['max']
-                attr['extent'] = [des[col]['min'], des[col]['max']]
-                attr['precision'] = des[col]['decile']
+            if mode == 'data':
+                data_meta['target'] = {
+                    'name': col,
+                    # 'description': des[col]['description'],
+                    'type': des[col]['type'],
+                    'index': des[col]['index']
+                }
+                if des[col]['type'] == 'categorical':
+                    data_meta['target']['categories'] = des[col]['category']
+                elif des[col]['type'] == 'numerical':
+                    # attr['min'] = des[col]['min']
+                    # attr['max'] = des[col]['max']
+                    attr['extent'] = [des[col]['min'], des[col]['max']]
+                    attr['precision'] = des[col]['decile']
         else:
             attr = ({
                 'name': col,
@@ -88,14 +80,15 @@ def data_meta_translate(des, target):
     data_meta['prediction'] = {
         'name': 'Score',
         'type': 'numerical',
-        'index': len(des.keys()),
+        'index': len(des.keys()) if mode == 'data' else len(des.keys())-1,
         'extend': [0.0, 1.0]
     }
-    data_meta['index'] = {
-        'name': 'index',
-        'type': 'numerical',
-        'index': len(des.keys())+1,
-    }
+    if mode == 'data':
+        data_meta['index'] = {
+            'name': 'index',
+            'type': 'numerical',
+            'index': len(des.keys())+1,
+        }
     return data_meta
 
 def group_cf(cf_df):
