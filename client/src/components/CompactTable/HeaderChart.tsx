@@ -73,8 +73,8 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
               onHoverRange={this.onHoverRange}
             />
             <Histogram 
-              data={this.validateCFs(column.cf)}
-              allData={column.allCF && this.validateAllCFs(column.allCF)}
+              data={this.validateCFs(column.cf.toArray()) as number[]}
+              allData={column.allCF && this.validateAllCFs(column.allCF.toArray()) as number[]}
               onSelectRange={column.onFilterCF}
               selectedRange={column.cfFilter}
               xScale={column.xScale}

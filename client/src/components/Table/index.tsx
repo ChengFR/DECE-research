@@ -18,6 +18,7 @@ import {
 import { number2string } from "common/utils";
 import "./index.scss";
 import { sum } from "../../common/math";
+import SubsetGrid from "./SubsetGrid";
 
 export interface ITableProps {
   // dataFrame: IDataFrame;
@@ -35,6 +36,9 @@ export interface ITableProps {
   headerRowCount: number;
   headerRowHeight: number | ((params: Index) => number);
   headerCellRenderer?: CellRenderer;
+  subsetRowCount: number;
+  subsetRowHeight: number | ((params: Index) => number);
+  subsetCellRenderer: CellRenderer[];
 }
 
 interface ITableState {
@@ -46,7 +50,7 @@ interface ITableState {
 export default class Table extends React.PureComponent<
   ITableProps,
   ITableState
-> {
+  > {
   public static defaultProps = {
     rowHeight: 20,
     fixedColumns: 1,
@@ -125,7 +129,10 @@ export default class Table extends React.PureComponent<
       onSectionRendered,
       headerRowCount,
       headerRowHeight,
-      headerCellRenderer
+      headerCellRenderer,
+      subsetRowCount,
+      subsetRowHeight,
+      subsetCellRenderer,
     } = this.props;
     const { columns, scrollLeft, scrollTop } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
@@ -137,6 +144,11 @@ export default class Table extends React.PureComponent<
     const headerHeight = typeof headerRowHeight === "number" ? headerRowHeight : sum(
       _.range(headerRowCount).map(r => headerRowHeight({ index: r }))
     );
+
+    const subsetHeight = typeof subsetRowHeight === "number" ? subsetRowHeight : sum(
+      _.range(headerRowCount).map(r => subsetRowHeight({ index: r }))
+    );
+
     return (
       <div
         className={"table-container" + (className ? ` ${className}` : "")}
@@ -159,11 +171,27 @@ export default class Table extends React.PureComponent<
                 onChangeColumnWidth={this.onChangeColumnWidth}
                 style={{ left: showIndex ? IndexWidth : 0 }}
               />
+              {subsetCellRenderer.map((renderer, i) =>
+                <SubsetGrid
+                  columns={columns}
+                  rowCount={subsetRowCount}
+                  rowHeight={subsetRowHeight}
+                  height={subsetHeight}
+                  chartHeight={60}
+                  width={width - (showIndex ? IndexWidth : 0)}
+                  cellRenderer={renderer}
+                  fixedColumns={fixedColumns}
+                  onScroll={this._onScrollLeft}
+                  scrollLeft={scrollLeft}
+                  onChangeColumnWidth={this.onChangeColumnWidth}
+                  style={{ left: showIndex ? IndexWidth : 0 }}
+                  key={i}
+                />)}
               <TableGrid
                 rowCount={rowCount}
                 columns={columns}
                 rowHeight={rowHeight}
-                height={height - headerHeight}
+                height={height - headerHeight * subsetCellRenderer.length -headerHeight}
                 width={width}
                 cellRenderer={this.cellRenderer}
                 fixedColumns={fixedColumns}

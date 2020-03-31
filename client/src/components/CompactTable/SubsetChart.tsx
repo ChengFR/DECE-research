@@ -6,16 +6,16 @@ import memoizeOne from "memoize-one";
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
+import { SubsetCFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
 import BarChart from '../visualization/barchart';
 import { TableColumn, isNumericalVColumn } from '../Table/common';
 
-export interface IGroupChartProps {
+export interface ISubsetChartProps {
     width: number;
     height: number;
     margin: IMargin;
-    column: CFTableColumn;
-    groupByColumn?: Readonly<CFTableColumn>;
+    column: SubsetCFTableColumn;
+    groupByColumn?: Readonly<SubsetCFTableColumn>;
     cfFilter?: [number, number];
     style?: React.CSSProperties;
     className?: string;
@@ -26,7 +26,7 @@ export interface IGroupChartProps {
     hoveredBin: [number, number] | null;
   }
 
-  export default class GroupChart extends React.PureComponent<IGroupChartProps, IGroupChartState> {
+  export default class SubsetChart extends React.PureComponent<ISubsetChartProps, IGroupChartState> {
     static defaultProps = { 
       width: 300,
       height: 200,
@@ -36,7 +36,7 @@ export interface IGroupChartProps {
       drawRange: true
     };
   
-    constructor(props: IGroupChartProps) {
+    constructor(props: ISubsetChartProps) {
       super(props);
   
       this.state = { hoveredBin: null };
@@ -70,8 +70,8 @@ export interface IGroupChartProps {
                 onHoverRange={this.onHoverRange}
               />
               <Histogram 
-                data={this.validateCFs(column.cf)}
-                allData={column.allCF && this.validateAllCFs(column.allCF)}
+                data={this.validateCFs(column.cf.toArray()) as number[]}
+                allData={column.allCF && this.validateAllCFs(column.allCF.toArray()) as number[]}
                 onSelectRange={column.onFilterCF}
                 selectedRange={column.cfFilter}
                 xScale={column.xScale}
