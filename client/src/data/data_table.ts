@@ -5,7 +5,7 @@ import memoizeOne from 'memoize-one';
 import * as d3 from 'd3';
 import * as _ from 'lodash';
 import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
-import {Filter, NumFilter, CatFilter} from '../api'
+import {Filter} from '../api'
 import {notEmpty} from '../common/utils'
 import { DataMeta } from './dataset';
 
@@ -219,16 +219,16 @@ export default class DataFrame implements IDataFrame {
       const columnIndex = filter.id;
       const column = this.columns[columnIndex];
       if (!isColumnNumerical(column)) {
-        const _filter = filter as CatFilter;
+        // const _filter = filter as CatFilter;
         const at = column.series.at;
-        const kept = new Set(_filter.categories as string[]);
+        const kept = new Set(filter.categories as string[]);
         filteredLocs = filteredLocs.filter(i => (at(i) && kept.has(at(i)!)));
       }
       else {
-        const _filter = filter as NumFilter;
+        // const _filter = filter as NumFilter;
         const at = column.series.at;
-        _filter.min && filteredLocs.filter(i => (at(i) && (_filter.min! <= at(i)!)));
-        _filter.max && filteredLocs.filter(i => (at(i) && (_filter.max! >= at(i)!)));
+        filter.min && filteredLocs.filter(i => (at(i) && (filter.min! <= at(i)!)));
+        filter.max && filteredLocs.filter(i => (at(i) && (filter.max! >= at(i)!)));
       }
     })
     return this.filterByLoc(filteredLocs);
