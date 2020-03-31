@@ -99,8 +99,9 @@ def get_cf_meta():
     data_meta = current_app.dir_manager.get_dataset_meta()
     des = data_meta['description']
     target_name = data_meta['target_name']
+    res = data_meta_translate(des, target_name, "cf")
     # return Response(data_meta, mimetype="text/json")
-    return jsonify(data_meta_translate(des, target_name))
+    return jsonify(res)
 
 @api.route('/data', methods=['GET'])
 def get_data():
