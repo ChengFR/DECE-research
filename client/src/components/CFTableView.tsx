@@ -82,19 +82,21 @@ export default class CFTableView extends React.Component<
                 });
               };
               return (
-                <Table
-                  columns={dataset.reorderedDataFrame.columns}
-                  rowCount={dataset.reorderedDataFrame.length}
-                  fixedColumns={fixedColumns}
-                  showIndex={true}
-                  rowHeight={this.rowHeight}
-                  onSectionRendered={onSectionRendered}
-                  ref={(child: Table | null) => {
-                    this.tableRef = child;
-                    return registerChild(child);
-                  }}
-                  cellRenderer={this.renderCell}
-                />
+                
+                // <Table
+                //   columns={dataset.reorderedDataFrame.columns}
+                //   rowCount={dataset.reorderedDataFrame.length}
+                //   fixedColumns={fixedColumns}
+                //   showIndex={true}
+                //   rowHeight={this.rowHeight}
+                //   onSectionRendered={onSectionRendered}
+                //   ref={(child: Table | null) => {
+                //     this.tableRef = child;
+                //     return registerChild(child);
+                //   }}
+                //   cellRenderer={this.renderCell}
+                // />
+                <div />
               );
             }}
           </InfiniteLoader>
@@ -108,7 +110,7 @@ export default class CFTableView extends React.Component<
     const { CFMeta, dataset } = this.props;
     const { dataMeta, reorderedDataFrame } = dataset;
     if (columnIndex === -1) return undefined;
-    if (columnIndex === dataMeta.target.index) return undefined;
+    if (dataMeta.target && columnIndex === dataMeta.target.index) return undefined;
     const cfs = this.loadedCFs[rowIndex];
     if (!cfs) return undefined;
     // render CFs
