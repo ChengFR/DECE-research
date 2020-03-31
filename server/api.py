@@ -110,13 +110,15 @@ def get_data():
     data_df.reset_index(inplace=True)
     return Response(data_df[cols].to_csv(index=False), mimetype="text/csv")
 
+# will be soon deprecated
 @api.route('/cf', methods=['GET', 'POST'])
 def get_cf():
-    changeable_attr = request.args.get('changeable_attr', default='all', type=str)
-    cf_num = request.args.get('cf_num', default=1, type=int)
-    data_range = {}
-    desired_class = 'opposite'
-    setting = {'changeable_attribute': changeable_attr, 'data_range': data_range, 'cf_num': cf_num, 'desired_class': desired_class}
+    # changeable_attr = request.args.get('changeable_attr', default='all', type=str)
+    # cf_num = request.args.get('cf_num', default=1, type=int)
+    # data_range = {}
+    # desired_class = 'opposite'
+    # setting = {'changeable_attribute': changeable_attr, 'data_range': data_range, 'cf_num': cf_num, 'desired_class': desired_class}
+    setting = {'data_range': {}, 'cf_range': {}}
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, batch_size=512)
 
     index = None
