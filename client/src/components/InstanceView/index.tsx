@@ -12,7 +12,7 @@ import "./index.css"
 const { Option } = Select;
 
 export interface InstanceViewProps {
-    CFMeta: DataMeta,
+    CFMeta: Readonly<DataMeta>,
     dataset: Dataset,
     queryInstance?: CounterFactual,
     queryResults?: CounterFactual[],
@@ -43,7 +43,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     constructor(props: InstanceViewProps) {
         super(props);
         this.state = {
-            ...defaultSetting(this.props.CFMeta),
+            ...defaultSetting(this.props.dataset.dataMeta),
             editable: true
         };
         this.styleProps = { ...defaultStypeProps, ...props.style };
@@ -55,11 +55,12 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     }
     public render() {
 
-        const { queryFunction, CFMeta, dataset } = this.props;
+        const { queryFunction, dataset } = this.props;
         const { editable, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target } = this.state;
         const { histogramHeight, histogramWidth } = this.styleProps;
+        const dataMeta = dataset.dataMeta;
 
-        const columns = CFMeta.features.map((d, i) => {
+        const columns = dataMeta.features.map((d, i) => {
             const rawColumn = createColumn(dataset.features[i])
             rawColumn.width = histogramWidth;
             return createColumn(rawColumn);
@@ -88,15 +89,15 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                             <span className="target-title">Target:</span>
                         </Col>
                         <Col span={12}>
-                        {CFMeta.target.type === 'numerical' ?
+                        { dataMeta.target && (dataMeta.target.type === 'numerical' ?
                             <InputNumber size="default" style={{float: "left", minWidth: 120 }} /> :
                             <Select style={{float: "left", minWidth: 120 }} 
                                 // value = {target}
                                 onChange={v => this.setState({target: v as string})}>
-                                {!isNumericalFeature(CFMeta.target) && CFMeta.target.categories.map((d, i) => {
+                                {!isNumericalFeature(dataMeta.target) && dataMeta.target.categories.map((d, i) => {
                                     return (<Option key={i}>{d}</Option>)
                                 })}
-                            </Select>
+                            </Select>)
                         }
                         </Col>
                         <Col span={6}>
@@ -144,8 +145,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                             return <div key={i}>
                                 {(column.type === 'numerical') ?
                                     <HistSlider
-                                        data={column.series.toArray()}
-                                        feature={CFMeta.features[i] as NumFeatureDisc}
+                                        column={column}
                                         width={histogramWidth}
                                         height={histogramHeight}
                                         className={`Instance-hist-${column.name}`}
@@ -161,8 +161,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                         drawTick={true}
                                     /> : 
                                     <BarSlider 
-                                        data={column.series.toArray()}
-                                        feature={CFMeta.features[i] as CatFeatureDisc}
+                                        column={column}
                                         width={histogramWidth}
                                         height={histogramHeight}
                                         className={`Instance-bar-${column.name}`}
@@ -259,14 +258,19 @@ export function defaultInstance(dataMeta: DataMeta): (string|number)[]{
 
 export function defaultSetting(dataMeta: DataMeta): QueryParams {
     const queryInstance: CounterFactual = defaultInstance(dataMeta);
-    const target: number | string = isNumericalFeature(dataMeta.target)?
-        dataMeta.target.extent[0]: dataMeta.target.categories[0]
-    const prototypeCf: CounterFactual | null = defaultInstance(dataMeta);
-    const k: number = dataMeta.features.length;
-    const cfNum: number = 12;
-    const attrFlex: boolean[] = dataMeta.features.map(d => true);
-    // const filters: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
-    const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d)? {id: i, min: d.extent[0], max: d.extent[1]}: 
-        {id: i, categories: d.categories});
-    return {queryInstance, target, prototypeCf, k, cfNum, attrFlex, attrRange};
+    if (dataMeta.target) {
+        const target: number | string = isNumericalFeature(dataMeta.target!)?
+            dataMeta.target!.extent[0]: dataMeta.target!.categories[0]
+        const prototypeCf: CounterFactual | null = defaultInstance(dataMeta);
+        const k: number = dataMeta.features.length;
+        const cfNum: number = 12;
+        const attrFlex: boolean[] = dataMeta.features.map(d => true);
+        // const filters: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
+        const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d)? {id: i, min: d.extent[0], max: d.extent[1]}: 
+            {id: i, categories: d.categories});
+        return {queryInstance, target, prototypeCf, k, cfNum, attrFlex, attrRange};
+    }
+    else {
+        throw Error("target info should be provided in the datameta");
+    }
 }

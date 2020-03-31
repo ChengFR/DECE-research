@@ -8,15 +8,15 @@ import { BandSliderOptions, drawBandSlider} from './slider'
 import {drawSimpleBarchart} from './_barchart'
 
 import './BarSlider.scss'
+import { ICatColumn } from "data";
 
 export interface BarSliderProps extends BandSliderOptions{
-    data: ArrayLike<string>;
+    column: ICatColumn
     style?: React.CSSProperties;
     svgStyle?: React.CSSProperties;
     className?: string;
     defaultInstanceValue?: string,
     defaultBarActivation?: boolean[]
-    feature: CatFeatureDisc;
     cfValue?: string;
     xScale?: d3.ScaleBand<string>;
     editable: boolean;
@@ -35,10 +35,10 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
     private sliderRef: React.RefObject<SVGGElement> = React.createRef();
     constructor(props: BarSliderProps) {
         super(props);
-        const {defaultValue, defaultBarActivation, feature} = this.props;
+        const {defaultValue, defaultBarActivation, column} = this.props;
         this.state = {
-            instanceValue: defaultValue?defaultValue: feature.categories![0],
-            barActivation: defaultBarActivation?defaultBarActivation: feature.categories!.map(d => true)
+            instanceValue: defaultValue?defaultValue: column.categories[0],
+            barActivation: defaultBarActivation?defaultBarActivation: column.categories.map(d => true)
         }
 
         this.onBarSelected = this.onBarSelected.bind(this);
@@ -75,27 +75,27 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
     }
 
     drawAll(){
-        const {width, height, margin, data, xScale} = this.props;
+        const {width, height, margin, column, xScale} = this.props;
         const {instanceValue, barActivation} = this.state;
         const sliderNode = this.sliderRef.current;
         const barChartNode = this.barRef.current;
         const onValueChange = this.onValueChange;
         if (barChartNode) {
-            drawSimpleBarchart(barChartNode, {width, height, margin, xScale}, data)
+            drawSimpleBarchart(barChartNode, {width, height, margin, xScale}, column.series.toArray())
         }
         if (sliderNode){
-            drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue, onValueChange}, data);
+            drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue, onValueChange}, column.series.toArray());
         }
         
 
     }
 
     onBarSelected(index: number){
-        const {onUpdateCats, feature} = this.props;
+        const {onUpdateCats, column} = this.props;
         const {barActivation} = this.state;
         barActivation[index] = !barActivation[index];
         this.setState({barActivation});
-        onUpdateCats && onUpdateCats(feature.categories!.filter((d, i) => barActivation[i]));
+        onUpdateCats && onUpdateCats(column.categories.filter((d, i) => barActivation[i]));
     }
 
     onValueChange(newValue: string){

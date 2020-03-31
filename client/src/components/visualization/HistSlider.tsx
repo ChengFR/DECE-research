@@ -8,15 +8,15 @@ import {drawLinearSlider, LinearSliderOptions} from './slider'
 import {drawSimpleHistogram, HistOption} from './_histogram'
 
 import './HistSlider.scss'
+import { IColumn, INumColumn } from "data";
 
 export interface HistSliderProps extends LinearSliderOptions, HistOption{
-    data: ArrayLike<number>;
+    column: INumColumn
     style?: React.CSSProperties;
     svgStyle?: React.CSSProperties;
     className?: string;
     defaultInstanceValue?: number,
     defaultInstanceRange?: [number, number],
-    feature: NumFeatureDisc;
     cfValue?: number;
     editable: boolean;
     drawInput: boolean;
@@ -35,10 +35,10 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
     private sliderSvgGRef: React.RefObject<SVGGElement> = React.createRef();
     constructor(props: HistSliderProps) {
         super(props);
-        const { data, defaultInstanceRange, defaultInstanceValue, feature } = props;
+        const { column, defaultInstanceRange, defaultInstanceValue } = props;
         this.state = {
-            instanceValue: defaultInstanceValue ? defaultInstanceValue : feature.extent[0],
-            range: defaultInstanceRange ? defaultInstanceRange : [feature.extent[0], feature.extent[1]],
+            instanceValue: defaultInstanceValue ? defaultInstanceValue : column.extent?column.extent[0]:0,
+            range: defaultInstanceRange ? defaultInstanceRange : [column.extent?column.extent[0]:0, column.extent?column.extent[1]:0],
         };
         this.onInstanceValueChange = this.onInstanceValueChange.bind(this);
         this.onRangeChange = this.onRangeChange.bind(this);
@@ -58,11 +58,11 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
         const sliderNode = this.sliderSvgGRef.current;
         const { ticks, width, height, margin, xScale } = this.props;
         const { instanceValue, range } = this.state;
-        const { data } = this.props;
+        const { column } = this.props;
         if (histNode) {
             drawSimpleHistogram(histNode,
                 {range,ticks, width, height, margin, xScale},
-                data
+                column.series.toArray()
             )
         }
         if (sliderNode) {
@@ -76,12 +76,12 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                     drawRange: true,
                     drawTick: true
                 },
-                data)
+                column.series.toArray())
         }
     }
 
     public render() {
-        const { style, svgStyle, className, width, height, cfValue, feature, drawInput } = this.props;
+        const { style, svgStyle, className, width, height, cfValue, drawInput, column } = this.props;
         const { instanceValue, range } = this.state;
         return (
             <div className={(className || "") + " histslides"} style={{ ...style, width: width + 250 }}>
@@ -103,7 +103,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                 {drawInput &&
                     <div className="controller-contrainer" style={{ width: 200, height: height, float: "left" }}>
                         <Row className="row-text">
-                            <span className="feature-name">{feature.name}</span>
+                            <span className="feature-name">{column.name}</span>
                         </Row>
                         <Divider style={{ marginTop: 5, marginBottom: 5 }} />
                         <Row className="row-range">
@@ -112,7 +112,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                                 className="range-input-left"
                                 style={{ width: 60, float: "left" }}
                                 value={Math.min(range[0], range[1])}
-                                precision={feature.precision ? feature.precision : 0}
+                                precision={column.precision ? column.precision : 0}
                             />
                             <div className="connector" />
                             <InputNumber
@@ -120,7 +120,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                                 className="range-input-right"
                                 style={{ width: 60, float: "left" }}
                                 value={Math.max(range[0], range[1])}
-                                precision={feature.precision ? feature.precision : 0}
+                                precision={column.precision ? column.precision : 0}
                             />
                         </Row>
                         <Row className="row-value">
@@ -129,7 +129,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                                 className="instance-input"
                                 style={{ width: 60, float: "left" }}
                                 value={instanceValue}
-                                precision={feature.precision ? feature.precision : 0}
+                                precision={column.precision ? column.precision : 0}
                             />
                             {/* <SwapRightOutline /> */}
                             <div className="place-holder" />
@@ -138,7 +138,7 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                                 className="cf-input"
                                 style={{ width: 60, float: "left" }}
                                 value={cfValue ? cfValue : instanceValue}
-                                precision={feature.precision ? feature.precision : 0}
+                                precision={column.precision ? column.precision : 0}
                             />
                         </Row>
                     </div>}
