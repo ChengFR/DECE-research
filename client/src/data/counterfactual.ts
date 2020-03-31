@@ -94,12 +94,9 @@ export class CFSubset extends Dataset {
       const order = this.order;
       const columnName = order[index];
       const columnIndex = this.dataMeta.getFeatureDisc(columnName)?.index;
-      console.log(columnIndex, columnName);
-      if (columnIndex && this.cfFrames[columnIndex]) {
+      if (columnIndex !== undefined && this.cfFrames[columnIndex]) {
         const df: DataFrame = this.cfFrames[columnIndex];
         const columns: (IColumn|undefined)[] = order.map(name => df.getColumnByName(name));
-        
-        console.log(columns);
         return columns;
       }
       else return undefined
