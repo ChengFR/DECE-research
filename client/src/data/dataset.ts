@@ -87,16 +87,16 @@ export class Dataset {
   }
 
   public _reorderedDataFrame = memoize(() => {
-    const columns = [];
-    if (this.target) columns.push(this.target);
-    if (this.prediction) columns.push(this.prediction);
-    const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
-    console.debug(df);
-    return df;
-    // const order = this.order;
-    // const columns = order.map(name => this.dataFrame.getColumnByName(name));
-    // const df = DataFrame.fromColumns([...columns], this.index);
-    // return df
+    // const columns = [];
+    // if (this.target) columns.push(this.target);
+    // if (this.prediction) columns.push(this.prediction);
+    // const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
+    // console.debug(df);
+    // return df;
+    const order = this.order;
+    const columns = order.map(name => this.dataFrame.getColumnByName(name));
+    const df = DataFrame.fromColumns([...columns], this.index);
+    return df
   })
 
   public get reorderedDataFrame() {
