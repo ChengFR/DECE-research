@@ -6,7 +6,7 @@ import {
 } from "../Table/common";
 import DataFrame from "../../data/data_table";
 import { assert } from "../../common/utils";
-import { isColumnNumerical } from '../../data/column';
+import { isColumnNumerical, Series } from '../../data/column';
 import { isNumericalVColumn } from '../Table/common';
 
 import { isArray } from "util";
@@ -14,16 +14,28 @@ import memoize from 'fast-memoize';
 
 interface CFColumn {}
 
+export interface SubsetCFCategoricalColum extends CFCategoricalColumn {
+  datasetFilter?: string[];
+  valid?: boolean[];
+}
+
+export interface SubsetCFNumericalColumn extends CFNumericalColumn {
+  datasetFilter?: [number, number];
+  valid?: boolean[];
+}
+
+export type SubsetCFTableColumn = SubsetCFCategoricalColum | SubsetCFNumericalColumn;
+
 export interface CFCategoricalColumn extends CategoricalColumn {
-  cf?: (string | undefined)[];
-  allCF?: (string | undefined)[];
+  cf?: Series;
+  allCF?: Series;
   cfFilter?: string[];
   onFilterCF?: (range?: string[]) => any;
 }
 
 export interface CFNumericalColumn extends NumericalColumn {
-  cf?: (number | undefined)[];
-  allCF?: (number | undefined)[];
+  cf?: Series;
+  allCF?: Series;
   cfFilter?: [number, number];
   onFilterCF?: (range?: [number, number]) => any;
 }
@@ -54,7 +66,7 @@ export function filterByColumnStates(
         if (prevSeries)
           assert(prevSeries.length === dfColumn.series.length, "this should not happen");
         const kept = new Set(cfFilter as string[]);
-        filteredLocs = filteredLocs.filter(i => allCF[i] !== undefined && kept.has(allCF[i]!));
+        filteredLocs = filteredLocs.filter(i => allCF.at(i) !== undefined && kept.has(allCF.at(i)! as string));
       }
     } else {
       assert(isNumericalVColumn(column), "column type mismatch");
@@ -70,7 +82,7 @@ export function filterByColumnStates(
           assert(prevSeries.length === dfColumn.series.length, "this should not happen");
         filteredLocs = filteredLocs.filter(
           i => {
-            const v = allCF[i];
+            const v = allCF.at(i);
             return v !== undefined && cfFilter[0] <= v && v < cfFilter[1];
           }
         );
