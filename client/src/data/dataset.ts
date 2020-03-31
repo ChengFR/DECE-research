@@ -39,9 +39,9 @@ export function isNumericalFeature(featureDisc: FeatureDisc): featureDisc is Num
 }
 
 export class DataMeta {
-  private name2feature: {[k: string]: FeatureDisc};
+  private name2feature: {[k: string]: Readonly<FeatureDisc>};
   public features: FeatureDisc[];
-  public target: FeatureDisc;
+  public target?: FeatureDisc;
   public prediction?: FeatureDisc;
   // add index attribute
   public index?: FeatureDisc;
@@ -71,7 +71,7 @@ export class Dataset {
 
   }
   public get target() {
-    return this.dataFrame.columns[this.dataMeta.target.index];
+    return this.dataMeta.target && this.dataFrame.columns[this.dataMeta.target.index];
   }
 
   public get prediction() {
@@ -87,15 +87,28 @@ export class Dataset {
   }
 
   public _reorderedDataFrame = memoize(() => {
-    const columns = [this.target];
+    const columns = [];
+    if (this.target) columns.push(this.target);
     if (this.prediction) columns.push(this.prediction);
     const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
     console.debug(df);
     return df;
+    // const order = this.order;
+    // const columns = order.map(name => this.dataFrame.getColumnByName(name));
+    // const df = DataFrame.fromColumns([...columns], this.index);
+    // return df
   })
 
   public get reorderedDataFrame() {
     return this._reorderedDataFrame();
+  }
+
+  public get order() {
+    const order: string[] = [];
+    if (this.target) order.push(this.target.name);
+    if (this.prediction) order.push(this.prediction.name);
+    this.features.forEach(d => order.push(d.name))
+    return order;
   }
 
 }

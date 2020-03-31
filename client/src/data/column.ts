@@ -19,6 +19,7 @@ export interface ColumnSpec {
   description?: string;
   type: FeatureType;
   extent?: [number, number];
+  precision?: number;
   categories?: string[];
 }
 
@@ -30,7 +31,8 @@ export interface ColumnSpec {
 export interface INumColumn extends ColumnSpec {
   series: ISeries<number>;
   type: 'numerical';
-  entent: [number, number]
+  extent: [number, number];
+  precision: number
 }
 
 export interface ICatColumn extends ColumnSpec {
