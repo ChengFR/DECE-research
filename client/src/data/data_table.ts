@@ -162,16 +162,17 @@ export default class DataFrame implements IDataFrame {
     if (isColumnNumerical(column)) {
       const at = column.series.at;
       comp = (a: number, b: number) => {
-        if (!at(a)) return -1;
-        else if (!at(b)) return 1;
-        else return at(a)! - at(b)!
+        const va = at(a), vb = at(b);
+        if (va === undefined) return -1;
+        else if (vb === undefined) return 1;
+        else return va - vb
       };
     } else {
       const at = column.series.at;
       comp = (a: number, b: number) => {
         const xa = at(a), xb = at(b);
-        if (!xa) return -1;
-        else if (!xb) return 1;
+        if (xa === undefined) return -1;
+        else if (xb === undefined) return 1;
         else
         return xa == xb ? 0 : (xa < xb ? -1 : 1);
       };

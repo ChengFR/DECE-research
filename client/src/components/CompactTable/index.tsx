@@ -206,8 +206,7 @@ export default class CFTableView extends React.Component<
       // allColumns: cfSubsets.map(subset => subset.reorderedDataFrame.columns.map((d, i) => 
       //   this.initColumns(subset.reorderedDataFrame, subset.cfFrames[i])))
       allColumns: cfSubsets.map(
-        subset => dataFrame.columns.map((d, i) =>
-          // new SubsetCFTable(this.initColumns(subset.reorderedDataFrame, subset.reorderedSubsetColumns(i)), i, dataMeta, []))
+        subset => _.range(dataFrame.columns.length).map((d, i) =>
           this.initTable(subset.reorderedDataFrame, subset.dataMeta, i, subset.reorderedSubsetColumns(i), []))
       )
 
@@ -369,9 +368,8 @@ export default class CFTableView extends React.Component<
     const { columns, allColumns } = this.state;
     const index = columns.findIndex(c => c.name === columnName);
     columns.splice(index, 1, changeColumnWidth(columns[index], width));
-    allColumns.forEach(tables => tables
-      .forEach(table => table.columns.splice(index, 1, changeColumnWidth(table.columns[index], width))))
-
+    // allColumns.forEach(tables => tables
+    //   .forEach(table => table.columns.splice(index, 1, changeColumnWidth(table.columns[index], width))))
     this.setState({ columns: [...columns] });
   }
 

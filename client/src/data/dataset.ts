@@ -39,8 +39,8 @@ export function isNumericalFeature(featureDisc: FeatureDisc): featureDisc is Num
 }
 
 function validateFeatureDisc(disc: FeatureDisc): FeatureDisc {
-  if (disc.type === 'categorical') {
-    disc.categories = disc.categories?.map(c => String(c));
+  if (!isNumericalFeature(disc)) {
+    disc.categories = disc.categories.map(c => String(c));
   }
   return disc;
 }
@@ -54,7 +54,7 @@ export class DataMeta {
   public index?: FeatureDisc;
   constructor(input: {features: FeatureDisc[], target: FeatureDisc, prediction?: FeatureDisc, index?: FeatureDisc}) {
     this.features = input.features;
-    this.target = validateFeatureDisc(input.target);
+    this.target = input.target?validateFeatureDisc(input.target):undefined;
     this.prediction = input.prediction;
     this.index = input.index;
     this.name2feature = _.keyBy(this.features, (f) => f.name);
