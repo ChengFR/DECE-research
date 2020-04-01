@@ -39,7 +39,7 @@ import GroupChart from './SubsetChart';
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn, isNumericalVColumn } from '../Table/common';
-import { filterByColumnStates, SubsetCFTableColumn, CFCategoricalColumn, SubsetCFNumericalColumn } from './common';
+import { filterByColumnStates, SubsetCFTable, CFCategoricalColumn, CFTableColumn } from './common';
 import "./index.scss";
 import SubsetChart from "./SubsetChart";
 import { group } from "d3";
@@ -145,7 +145,7 @@ export interface ICompactTableProps {
 }
 
 export interface ICompactTableState {
-  columns: SubsetCFTableColumn[];
+  columns: CFTableColumn[];
   dataFrame: DataFrame;
   prevDataFrame?: DataFrame;
   rows: RowState[];
@@ -154,7 +154,7 @@ export interface ICompactTableState {
   groupByColumn: number;
   // loadedCFs: (CFResponse | undefined)[];
   // cfSubsets: CFSubset[];
-  allColumns: SubsetCFTableColumn[][][];
+  allColumns: SubsetCFTable[][];
 }
 
 export default class CFTableView extends React.Component<
@@ -188,9 +188,10 @@ export default class CFTableView extends React.Component<
     this.loadCF = this.loadCF.bind(this);
     this.onSwitchCF = this.onSwitchCF.bind(this);
     this.getCFs = this.getCFs.bind(this);
-    this.initColumns = this.initColumns.bind(this);
+    this.initTable = this.initTable.bind(this);
 
     const dataFrame = props.dataset.reorderedDataFrame;
+    const dataMeta = props.dataset.dataMeta;
     const cfs = this.props.cfs && this.getCFs(this.props.cfs, this.props.dataset.dataMeta, dataFrame);
     const cfSubsets = [new CFSubset({ dataset: props.dataset, filters: [], cfData: this.props.defaultSetsubCF.counterfactuals, cfMeta: this.props.CFMeta })];
     this.state = {
@@ -206,14 +207,15 @@ export default class CFTableView extends React.Component<
       //   this.initColumns(subset.reorderedDataFrame, subset.cfFrames[i])))
       allColumns: cfSubsets.map(
         subset => dataFrame.columns.map((d, i) =>
-          this.initColumns(subset.reorderedDataFrame, subset.reorderedSubsetColumns(i)))
+          // new SubsetCFTable(this.initColumns(subset.reorderedDataFrame, subset.reorderedSubsetColumns(i)), i, dataMeta, []))
+          this.initTable(subset.reorderedDataFrame, subset.dataMeta, i, subset.reorderedSubsetColumns(i), []))
       )
+
     };
-    console.log(this.state.allColumns[0][2][2]);
   }
 
-  public initColumn(column: IColumn, cf?: Series, datasetFilter?: [number, number] | string[], valid?: boolean[]): SubsetCFTableColumn {
-    const c: SubsetCFTableColumn = createColumn(column);
+  public initColumn(column: IColumn, cf?: Series): CFTableColumn {
+    const c: CFTableColumn = createColumn(column);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
       this.onChangeColumnWidth(c.name, width);
@@ -222,29 +224,20 @@ export default class CFTableView extends React.Component<
       c.cf = cf;
       c.allCF = cf;
       c.onFilterCF = (filter: any) => this.onChangeCFFilter(c.name, filter);
-      if (valid) {
-        c.valid = valid;
-      }
-      else {
-        c.valid = Array(cf.length).map(() => true);
-      }
-    }
-    if (datasetFilter) {
-      c.datasetFilter = datasetFilter;
     }
     return c;
   }
 
-  public initColumns(dataFrame: DataFrame, cfColumns?: Readonly<(IColumn | undefined)[]>, valid?: [], filters?: Filter[]): SubsetCFTableColumn[] {
+  public initTable(dataFrame: DataFrame, dataMeta: DataMeta, index: number, cfColumns?: Readonly<(IColumn | undefined)[]>, filters?: Filter[]): SubsetCFTable {
     const dataColumns: IColumn[] = dataFrame.columns.map(column => createColumn(column));
     const cfSeries: (Series | undefined)[] = cfColumns ? cfColumns.map(d => d ? new Series(d.series.length, j => d.series.at(j)) : undefined) : []
-    const ret: SubsetCFTableColumn[] = dataColumns.map((d, i) => {
+    const columns: CFTableColumn[] = dataColumns.map((d, i) => {
       if (isColumnNumerical(d))
-        return this.initColumn(d, cfSeries[i], filters ? [filters[i].min!, filters[i].max!] : undefined, valid ? valid[i] : undefined)
+        return this.initColumn(d, cfSeries[i])
       else
-        return this.initColumn(d, cfSeries[i], filters ? filters[i].categories : undefined, valid ? valid[i] : undefined)
+        return this.initColumn(d, cfSeries[i])
     });
-    return ret;
+    return new SubsetCFTable(columns, index, dataMeta, filters?filters:[]);
   }
 
   public rowHeight({ index }: Index): number {
@@ -279,7 +272,7 @@ export default class CFTableView extends React.Component<
           const cf = cfs ? cfs[i] : undefined;
           if (c.name in name2column) {
             // merge and update the column
-            return { ...name2column[c.name], ...c, cf } as SubsetCFTableColumn;
+            return { ...name2column[c.name], ...c, cf } as CFTableColumn;
           }
           // init new column
           return this.initColumn(c, cf ? cf : undefined);
@@ -373,9 +366,11 @@ export default class CFTableView extends React.Component<
   // }
 
   onChangeColumnWidth(columnName: string, width: number) {
-    const { columns } = this.state;
+    const { columns, allColumns } = this.state;
     const index = columns.findIndex(c => c.name === columnName);
     columns.splice(index, 1, changeColumnWidth(columns[index], width));
+    allColumns.forEach(tables => tables
+      .forEach(table => table.columns.splice(index, 1, changeColumnWidth(table.columns[index], width))))
 
     this.setState({ columns: [...columns] });
   }
@@ -406,7 +401,7 @@ export default class CFTableView extends React.Component<
     }
   }
 
-  private doFiltering(columns: SubsetCFTableColumn[]) {
+  private doFiltering(columns: CFTableColumn[]) {
     const { rows } = this.state;
     const baseDataFrame = this.state.prevDataFrame || this.state.dataFrame;
     const newDataFrame = filterByColumnStates(baseDataFrame, columns);
@@ -531,17 +526,17 @@ export default class CFTableView extends React.Component<
   renderSubsetCell(groupIndex: number, cellProps: CellProps) {
     const { columnIndex } = cellProps;
     const { groupByColumn, allColumns } = this.state;
-    const columns = allColumns[groupIndex];
-    const column = columns[columnIndex][columnIndex];
+    const tables = allColumns[groupIndex];
+    const columns = tables[columnIndex].columns;
+    const column = columns[columnIndex];
     const { width } = column;
     console.debug("render subset cell");
-    console.log(column, this.state.columns[columnIndex]);
     return (
       <SubsetChart
         className="subset-chart"
         column={column}
         // column={columns[columnIndex]}
-        groupByColumn={columns[columnIndex][groupByColumn]}
+        groupByColumn={columns[groupByColumn]}
         width={width}
         height={headerChartHeight}
         margin={columnMargin}

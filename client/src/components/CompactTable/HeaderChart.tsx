@@ -2,16 +2,12 @@ import * as React from 'react';
 import * as _ from "lodash";
 import memoizeOne from "memoize-one";
 
-
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
 import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
 import BarChart from '../visualization/barchart';
 import { TableColumn, isNumericalVColumn } from '../Table/common';
-
-
-
 
 export interface IHeaderChartProps {
   width: number;
