@@ -180,7 +180,7 @@ class DirectoryManager:
         if self.auto_save:
             self.save_meta()
 
-    def load_cf_with_setting(self, setting, verbose=True):
+    def load_cf_with_setting(self, setting, verbose=False):
         index = self.indexof_setting(setting)
         subset_cf = CounterfactualExampleBySubset(self.dataset, setting.get('cf_num', 1))
         subset_cf.from_csv('{}'.format(index), self.dir)
