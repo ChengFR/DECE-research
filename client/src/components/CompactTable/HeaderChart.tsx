@@ -46,7 +46,6 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
     const { column, groupByColumn, className, style, width, height, margin} = this.props;
     const {hoveredBin} = this.state;
 
-    // console.log(column.series.toArray());
 
     if (isNumericalVColumn(column)) {
       const groupArgs = groupByColumn && getRowLabels(groupByColumn);
