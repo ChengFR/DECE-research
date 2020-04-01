@@ -223,13 +223,13 @@ export default class DataFrame implements IDataFrame {
         // const _filter = filter as CatFilter;
         const at = column.series.at;
         const kept = new Set(filter.categories as string[]);
-        filteredLocs = filteredLocs.filter(i => (at(i) && kept.has(at(i)!)));
+        filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && kept.has(at(i)!)));
       }
       else {
         // const _filter = filter as NumFilter;
         const at = column.series.at;
-        filter.min && filteredLocs.filter(i => (at(i) && (filter.min! <= at(i)!)));
-        filter.max && filteredLocs.filter(i => (at(i) && (filter.max! >= at(i)!)));
+        filter.min && filteredLocs.filter(i => (at(i) !== undefined && (filter.min! <= at(i)!)));
+        filter.max && filteredLocs.filter(i => (at(i) !== undefined && (filter.max! >= at(i)!)));
       }
     })
     return this.filterByLoc(filteredLocs);

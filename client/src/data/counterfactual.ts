@@ -65,30 +65,6 @@ export class CFSubset extends Dataset {
       return this.dataMeta.features.map(f => this.dataFrame.columns[f.index]);
     }
 
-    // public _reorderedSubsetDataFrame = memoize((index: number) => {
-    //   // const columns: IColumn[] = [];
-    //   // if (this.getCFPrediction(index)) 
-    //   //   columns.push(this.getCFPrediction(index)!);
-    //   // const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
-    //   // console.debug(df);
-    //   // return df;
-    //   const order = this.order;
-    //   const columnName = order[index];
-    //   const columnIndex = this.dataMeta.getFeatureDisc(columnName)?.index;
-    //   if (this.dataFrame.getColumnByName(columnName) === this.target) return undefined
-    //   else if (this.dataFrame.getColumnByName(columnName) === this.prediction) return undefined
-    //   else if (columnIndex && this.cfFrames[columnIndex]) {
-    //     const df: DataFrame = this.cfFrames[columnIndex];
-    //     // 
-    //     return df;
-    //   }
-    //   else return undefined
-    // })
-  
-    // public reorderedSubsetDataFrame(index: number) {
-    //   return this._reorderedSubsetDataFrame(index);
-    // }
-
     public reorderedSubsetColumns(index: number):(IColumn|undefined)[] | undefined {
       const order = this.order;
       const columnName = order[index];
