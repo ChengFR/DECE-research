@@ -3,7 +3,6 @@ import { Dataset } from './dataset'
 import DataFrame, { IDataFrame } from './data_table'
 import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
 import {Series, IColumn} from './column'
-import { SubsetCFTableColumn } from 'components/CompactTable/common'
 import { memoize } from 'lodash'
 
 // export type CounterFactual = (string | number)[];

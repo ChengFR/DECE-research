@@ -11,20 +11,50 @@ import { isNumericalVColumn } from '../Table/common';
 
 import { isArray } from "util";
 import memoize from 'fast-memoize';
+import { DataMeta } from "data";
+import { Filter } from "api";
 
 interface CFColumn {}
 
-export interface SubsetCFCategoricalColum extends CFCategoricalColumn {
-  datasetFilter?: string[];
-  valid?: boolean[];
+// export interface SubsetCFCategoricalColum extends CFCategoricalColumn {
+//   valid?: boolean[];
+// }
+
+// export interface SubsetCFNumericalColumn extends CFNumericalColumn {
+//   valid?: boolean[];
+// }
+
+// export type SubsetCFTableColumn = SubsetCFCategoricalColum | SubsetCFNumericalColumn;
+
+export class SubsetCFTable {
+  private _columns: CFTableColumn[];
+  private _keyFeatureIndex: number;
+  private _dataMeta: DataMeta;
+  private _filters: Filter[];
+  constructor(columns: CFTableColumn[], keyFeatureIndex: number, dataMeta: DataMeta, filters: Filter[]){
+    this._columns = columns;
+    this._keyFeatureIndex=keyFeatureIndex;
+    this._dataMeta = dataMeta;
+    this._filters = filters;
+  }
+
+  public get columns() {
+    return this._columns;
+  }
+
+  public get keyFeatureIndex() {
+    return this._keyFeatureIndex;
+  }
+
+  public get keyColumns() {
+    return this._columns[this._keyFeatureIndex];
+  }
 }
 
-export interface SubsetCFNumericalColumn extends CFNumericalColumn {
-  datasetFilter?: [number, number];
-  valid?: boolean[];
-}
-
-export type SubsetCFTableColumn = SubsetCFCategoricalColum | SubsetCFNumericalColumn;
+// export class SubsetTableGroup {
+//   private _tables: SubsetCFTable[];
+//   private _deletable: boolean;
+// }
 
 export interface CFCategoricalColumn extends CategoricalColumn {
   cf?: Series;

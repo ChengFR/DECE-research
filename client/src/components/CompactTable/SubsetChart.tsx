@@ -6,7 +6,7 @@ import memoizeOne from "memoize-one";
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { SubsetCFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
+import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn } from './common';
 import BarChart from '../visualization/barchart';
 import { TableColumn, isNumericalVColumn } from '../Table/common';
 
@@ -14,8 +14,8 @@ export interface ISubsetChartProps {
     width: number;
     height: number;
     margin: IMargin;
-    column: SubsetCFTableColumn;
-    groupByColumn?: Readonly<SubsetCFTableColumn>;
+    column: CFTableColumn;
+    groupByColumn?: Readonly<CFTableColumn>;
     cfFilter?: [number, number];
     style?: React.CSSProperties;
     className?: string;
