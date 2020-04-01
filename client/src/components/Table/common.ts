@@ -63,7 +63,8 @@ export function changeColumnWidth(column: TableColumn, width: number) {
       xScale: getScaleLinear(column.series.toArray(), 0, chartWidth, column.extent)
     };
   }
-  return {...column, width, xScale: getScaleBand(column.series.toArray(), 0, chartWidth, column.categories)};
+  else
+    return {...column, width, xScale: getScaleBand(column.series.toArray(), 0, chartWidth, column.categories)};
 }
 
 export function initColumnWidth(
