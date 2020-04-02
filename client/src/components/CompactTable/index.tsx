@@ -368,8 +368,8 @@ export default class CFTableView extends React.Component<
     const { columns, allColumns } = this.state;
     const index = columns.findIndex(c => c.name === columnName);
     columns.splice(index, 1, changeColumnWidth(columns[index], width));
-    // allColumns.forEach(tables => tables
-    //   .forEach(table => table.columns.splice(index, 1, changeColumnWidth(table.columns[index], width))))
+    allColumns.forEach(tables => tables
+      .forEach(table => table.columns.splice(index, 1, changeColumnWidth(table.columns[index], width))))
     this.setState({ columns: [...columns] });
   }
 

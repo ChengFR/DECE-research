@@ -71,8 +71,8 @@ export class Series<T = string | number> implements ISeries<T> {
     const ret: Array<T>[] = [];
     if (uniqLabels) uniqLabels.forEach(l => ret[l] = []);
     labels.forEach((label, i) => {
-      if (ret[label] && this.accessor(i)) ret[label].push(this.accessor(i)!);
-      else if (this.accessor(i)) ret[label] = [this.accessor(i)!];
+      if (ret[label] && this.accessor(i) !== undefined) ret[label].push(this.accessor(i)!);
+      else if (this.accessor(i) !== undefined) ret[label] = [this.accessor(i)!];
     })
     return ret
   })

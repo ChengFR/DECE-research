@@ -90,7 +90,7 @@ export function filterByColumnStates(
       if (filter) {
         const at = dfColumn.series.at;
         const kept = new Set(filter as string[]);
-        filteredLocs = filteredLocs.filter(i => at(i) && kept.has(at(i)!));
+        filteredLocs = filteredLocs.filter(i => at(i) !== undefined && kept.has(at(i)!));
       }
       if (cfFilter && allCF) {
         if (prevSeries)
@@ -104,7 +104,7 @@ export function filterByColumnStates(
       if (filter) {
         const at = dfColumn.series.at;
         filteredLocs = filteredLocs.filter(
-          i => at(i) ? (filter[0] <= at(i)! && at(i)! < filter[1]): false
+          i => at(i) !== undefined ? (filter[0] <= at(i)! && at(i)! < filter[1]): false
         );
       }
       if (cfFilter && allCF) {
