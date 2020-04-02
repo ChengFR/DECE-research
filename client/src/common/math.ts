@@ -1,3 +1,5 @@
+import * as _ from "lodash";
+
 export type Vector =
   | Array<number>
   | Float32Array
@@ -121,4 +123,14 @@ export function argMin<T extends Vector>(arr: T): number {
     if (arr[i] < arr[minIdx]) minIdx = i;
   }
   return minIdx;
+}
+
+
+export function transMax<T>(matrix: T[][]): T[][] {
+  const rows = matrix.length;
+  if (rows < 1)
+  throw Error("Matrix empty")
+  const cols = matrix[0].length;
+  const ret = _.range(cols).map((d, i) => _.range(rows).map((d, j) => matrix[j][i]));
+  return ret;
 }
