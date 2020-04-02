@@ -16,16 +16,6 @@ import { Filter } from "api";
 
 interface CFColumn {}
 
-// export interface SubsetCFCategoricalColum extends CFCategoricalColumn {
-//   valid?: boolean[];
-// }
-
-// export interface SubsetCFNumericalColumn extends CFNumericalColumn {
-//   valid?: boolean[];
-// }
-
-// export type SubsetCFTableColumn = SubsetCFCategoricalColum | SubsetCFNumericalColumn;
-
 export class SubsetCFTable {
   private _columns: CFTableColumn[];
   private _keyFeatureIndex: number;
@@ -57,20 +47,26 @@ export class SubsetCFTable {
 // }
 
 export interface CFCategoricalColumn extends CategoricalColumn {
-  cf?: Series;
-  allCF?: Series;
+  cf?: Series<string>;
+  allCF?: Series<string>;
   cfFilter?: string[];
   onFilterCF?: (range?: string[]) => any;
 }
 
 export interface CFNumericalColumn extends NumericalColumn {
-  cf?: Series;
-  allCF?: Series;
+  cf?: Series<number>;
+  allCF?: Series<number>;
   cfFilter?: [number, number];
   onFilterCF?: (range?: [number, number]) => any;
 }
 
 export type CFTableColumn = CFCategoricalColumn | CFNumericalColumn;
+
+export function isNumericalCFColumn(
+  column: CFTableColumn
+): column is CFNumericalColumn {
+  return column.type === "numerical";
+}
 
 export function filterByColumnStates(
   dataFrame: DataFrame,

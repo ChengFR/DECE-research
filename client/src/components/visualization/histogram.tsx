@@ -473,8 +473,7 @@ export function drawGroupedHistogram(
 
   const layout = new HistogramLayout({
     data: data,
-    // mode: mode,
-    mode: "stacked",
+    mode: mode,
     width: width,
     height: height,
     margin: margin,
@@ -487,8 +486,7 @@ export function drawGroupedHistogram(
 
   const allDataLayout = allData ? new HistogramLayout({
     data: allData,
-    // mode: mode,
-    mode: "stacked",
+    mode: mode,
     width: width,
     height: height,
     margin: margin,
@@ -682,7 +680,8 @@ export class HistogramLayout {
     const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale, ticks } = props;
     this._data = isArrays(data) ? data : [data];
     this._dmcData = dmcData ? (isArrays(dmcData) ? dmcData : [dmcData]) : this._data;
-    this._mode = mode;
+    // this._mode = mode;
+    this._mode = 'side-by-side';
     this._width = width;
     this._height = height;
     this._margin = getMargin(margin);
@@ -690,7 +689,7 @@ export class HistogramLayout {
     this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 1);
 
     this._xScale = this.getXScale(xScale);
-    const [min, max] = getNBinsRange(width, 9, 12);
+    const [min, max] = getNBinsRange(width, 11, 20);
     const tickNum = Math.min(max, Math.max(min, d3.thresholdSturges(_.flatten(this._dmcData))))
     this._ticks = ticks ? ticks : this.x.ticks(tickNum);
     this._yScale = this.getYScales(yScale);
@@ -773,7 +772,6 @@ export class HistogramLayout {
 
     const barWidth = this.barWidth;
     const dx: number[][] = _.range(nGroups).map((d, i) => _.range(nBins).map(() => this._mode === 'side-by-side' ? i * (barWidth + this._groupInnerPadding) : 0));
-    const stakedBinLength = _.range(nGroups).map((d, i) => _.range(nBins).map(() => 0));
     const dy: number[][] = _.range(nGroups).map((d, groupId) => _.range(nBins).map((d, binId) => this._mode === 'side-by-side' ? 0 :
       this.y(d3.sum(
         gBins.map(bins => bins[binId].length).filter((d, i) => i < groupId)
@@ -783,7 +781,7 @@ export class HistogramLayout {
     return this.gBins.map((bins, groupId) => bins.map((bin, binId) => {
       const Layout: BarLayout = {
         ...bin,
-        x: this.xRange[0] + this.x(bin.x0 as number) + dx[groupId][binId],
+        x: this.x(bin.x0 as number) + dx[groupId][binId],
         y: this.yRange[1] - dy[groupId][binId] - this.y(bin.length),
         width: barWidth,
         height: this.y(bin.length),

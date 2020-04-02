@@ -220,8 +220,14 @@ export default class CFTableView extends React.Component<
       this.onChangeColumnWidth(c.name, width);
     c.onFilter = (filter: any) => this.onChangeFilter(c.name, filter);
     if (cf) {
-      c.cf = cf;
-      c.allCF = cf;
+      if (isNumericalVColumn(c)) {
+        c.cf = cf as Series<number>|undefined;
+        c.allCF = cf as Series<number>|undefined;
+      }
+      else {
+        c.cf = cf as Series<string>|undefined;
+        c.allCF = cf as Series<string>|undefined;
+      }
       c.onFilterCF = (filter: any) => this.onChangeCFFilter(c.name, filter);
     }
     return c;
