@@ -228,8 +228,8 @@ export default class DataFrame implements IDataFrame {
       else {
         // const _filter = filter as NumFilter;
         const at = column.series.at;
-        filter.min && filteredLocs.filter(i => (at(i) !== undefined && (filter.min! <= at(i)!)));
-        filter.max && filteredLocs.filter(i => (at(i) !== undefined && (filter.max! >= at(i)!)));
+        filter.min !== undefined && filteredLocs.filter(i => (at(i) !== undefined && (filter.min! <= at(i)!)));
+        filter.max !== undefined && filteredLocs.filter(i => (at(i) !== undefined && (filter.max! >= at(i)!)));
       }
     })
     return this.filterByLoc(filteredLocs);
