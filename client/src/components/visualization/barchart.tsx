@@ -5,11 +5,17 @@ import {
   getMargin,
   CSSPropertiesFn,
   ChartOptions,
-  getChildOrAppend
+  getChildOrAppend,
+  IMargin,
+  getScaleBand
 } from "./common";
 import memoizeOne from "memoize-one";
 import { countCategories, defaultCategoricalColor } from './common';
 import "./barchart.scss";
+import { isArrays } from "components/CompactTable/common";
+import _ from "lodash";
+import { transMax } from "common/math";
+import { merge } from "d3";
 
 type Category = {
   count: number;
@@ -26,7 +32,8 @@ export interface IBarChartOptions extends ChartOptions {
   onRectMouseOver?: d3.ValueFn<any, Category, void>;
   onRectMouseMove?: d3.ValueFn<any, Category, void>;
   onRectMouseLeave?: d3.ValueFn<any, Category, void>;
-  allData?: Category[];
+  // allData?: Category[];
+  allData?: string[]|string[][],
   color: (x: number) => string;
 }
 
@@ -41,13 +48,15 @@ export const defaultOptions: IBarChartOptions = {
 
 export function drawBarChart(
   svg: SVGElement,
-  data: Category[],
+  // data: Category[],
+  data: string[]|string[][],
   xScale: d3.ScaleBand<string>,
   options?: Partial<IBarChartOptions>
 ) {
   const opts = { ...defaultOptions, ...options };
   const {
     height,
+    width,
     rectStyle,
     allData,
     selectedCategories,
@@ -57,83 +66,237 @@ export function drawBarChart(
     onRectMouseLeave,
     color
   } = opts;
+
   const margin = getMargin(opts.margin);
-
-  const yRange: [number, number] = [height - margin.top - margin.bottom, 0];
-
   const root = d3.select(svg);
 
-  const y = d3
-    .scaleLinear()
-    .range(yRange)
-    .domain([0, d3.max(allData || data, d => d.count) as number]);
+  // const y = d3
+  //   .scaleLinear()
+  //   .range(yRange)
+  //   .domain([0, d3.max(allData || data, d => d.count) as number]);
 
+  const layout = new BarChartLayout({
+    data: data,
+    dmcData: allData,
+    width: width,
+    height: height,
+    mode: "side-by-side",
+    margin: margin,
+    xScale: xScale
+  })
 
-  const gBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base").attr(
-    "transform",
-    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  );
+  const bins = layout.layout;
 
-  gBase.selectAll("rect.bar")
-    .data(allData || [])
-    .join<SVGRectElement>(enter => {
-      return enter.append("rect").attr("class", "bar");
+  const AllDatalayout = allData && new BarChartLayout({
+    data: allData,
+    dmcData: allData,
+    width: width,
+    height: height,
+    mode: "side-by-side",
+    margin: margin,
+    xScale: xScale
+  })
+
+  const allBins = AllDatalayout && AllDatalayout.layout;
+
+  const yRange = layout.yRange;
+
+  let rangeBrushing: [number, number] | null = null;
+  // if (selectedCategories) {
+  //   const startIndex = bins[0].findIndex(
+  //     ({ name }) => name !== undefined && selectedCategories.includes(name)
+  //   );
+  //   const endIndex = _.findLastIndex(
+  //     bins[0],
+  //     ({ x0 }) => x0 !== undefined && x0 < selectedRange[1]
+  //   );
+  //   rangeBrushing = [startIndex, endIndex];
+  // }
+  // console.debug("brushed Range", rangeBrushing);
+  let brushing: boolean = false;
+
+  // Render the base histogram (with all data)
+  const base = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
+  // .attr(
+  //   "transform",
+  //   `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  // );
+
+  
+
+  const baseGs = base.selectAll<SVGGElement, BarLayout[]>("g.groups")
+    .data(allBins || [])
+    .join<SVGGElement>(enter => {
+      return enter
+        .append("g")
+        .attr("class", "groups");
     })
-    .attr("x", d => xScale(d.name) || 0)
-    .attr("width", xScale.bandwidth())
-    .attr("y", d => y(d.count))
-    .attr("height", d => yRange[0] - y(d.count))
     .attr("fill", (d, i) => color(i));
 
-  // append the bar rectangles to the svg element
-  const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "bars").attr(
-    "transform",
-    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  );
-  const merged = g
+  baseGs
+    .selectAll<SVGRectElement, BarLayout>("rect.bar")
+    .data(d => d)
+    .join<SVGRectElement>(enter => {
+      return enter
+        .append("rect")
+        .attr("class", "bar");
+    })
+    .attr("transform", (d, i) => `translate(${d.x}, ${d.y})`)
+    .attr("width", d => d.width)
+    .attr("height", d => d.height)
+
+  // Render the current histogram (with filtered data)
+
+  const current = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "current")
+
+  const gs = current.selectAll<SVGGElement, BarLayout[]>("g.groups")
+    .data(bins)
+    .join<SVGGElement>(enter => {
+      return enter
+        .append("g")
+        .attr("class", "groups");
+    })
+    .attr("fill", (d, i) => color(i));
+
+  const merged = gs
     .selectAll("rect.bar")
-    .data(data)
+    .data(d => d)
     .join<SVGRectElement>(enter => {
-      return enter.append("rect").attr("class", "bar");
+      return enter
+        .append("rect")
+        .attr("class", "bar");
     })
-    .attr("x", d => xScale(d.name) || 0)
-    .attr("width", xScale.bandwidth())
-    .attr("y", d => y(d.count))
-    .attr("height", d => yRange[0] - y(d.count))
-    .attr("fill", (d, i) => color(i));
+    .attr("transform", (d, i) => `translate(${d.x}, ${d.y})`)
+    .attr("width", d => d.width)
+    .attr("height", d => d.height);
 
-  const selectedSet = new Set(selectedCategories);
+  if (!isArrays(data)) {
+    merged.attr("fill", (d, i) => color(i));
+    baseGs.attr("fill", (d, i) => color(i));
+  }
+
+  // Render the shades for highlighting selected regions
+  const gShades = getChildOrAppend<SVGGElement, SVGElement>(
+    root,
+    "g",
+    "shades"
+  )
 
   const renderShades = () => {
-    return g.selectAll("rect.shade")
-      .data(data)
+    return gShades
+      .selectAll("rect.shade")
+      .data(bins[0])
       .join<SVGRectElement>(enter => {
-        return enter.append("rect").attr("class", "shade");
+        return enter
+          .append("rect")
+          .attr("class", "shade")
+          .attr("y", yRange[0]);
       })
-      .attr("x", d => xScale(d.name) || 0)
-      .attr("width", xScale.bandwidth())
-      .attr("y", yRange[1])
-      .attr("height", yRange[0])
-      .classed("show", (d) => selectedSet.has(d.name));
+      .attr("x", (d, i) => d.x)
+      .attr("width", layout.groupedBarWidth)
+      .attr("height", yRange[1] - yRange[0])
+      .classed("show", (d, idx) =>
+        rangeBrushing
+          ? Math.min(...rangeBrushing) <= idx &&
+          idx <= Math.max(...rangeBrushing)
+          : false
+      );
   };
 
-  const shades = renderShades();
-  shades
-    .on("mouseover", (onRectMouseOver || null) as null)
-    .on("mousemove", (onRectMouseMove || null) as null)
-    .on("mouseleave", (onRectMouseLeave || null) as null)
-    .on("click", function(data, idx) {
-      if (onSelectCategories) {
-        const selected = selectedCategories?.slice() || [];
-        const idx = selected.findIndex(v => v === data.name);
-        if (idx !== -1) {
-          selected.splice(idx, 1);
-        } else {
-          selected.push(data.name)
-        }
-        onSelectCategories(selected.length > 0 ? selected : undefined);
-      }
-    });
+  // const merged2 = renderShades();
+
+  // merged2
+  //   .on("mouseover", function (data, idx, groups) {
+  //     console.log(bins, idx);
+  //     onRectMouseOver && onRectMouseOver(bins.map(bs => bs[idx]), idx, groups);
+  //     if (brushing && rangeBrushing) {
+  //       rangeBrushing[1] = idx;
+  //       renderShades();
+  //     }
+  //   })
+  //   // .on("mousemove", (onRectMouseMove || null) as null)
+  //   .on("mouseleave", (onRectMouseLeave || null) as null);
+
+  // merged2
+  //   .on("mousedown", function (data, idx) {
+  //     brushing = true;
+  //     if (rangeBrushing === null) rangeBrushing = [idx, idx];
+  //     else rangeBrushing = null;
+  //   })
+  //   .on("mouseup", function (data, idx) {
+  //     if (rangeBrushing) {
+  //       rangeBrushing[1] = idx;
+  //       console.debug("select range:", rangeBrushing);
+  //       const x0 = bins[0][Math.min(...rangeBrushing)].x0,
+  //         x1 = bins[0][Math.max(...rangeBrushing)].x1;
+  //       onSelectRange && onSelectRange([x0 as number, x1 as number]);
+  //     } else {
+  //       onSelectRange && onSelectRange();
+  //     }
+  //     renderShades();
+  //     brushing = false;
+  //   });
+
+  // gBase.selectAll("rect.bar")
+  //   .data(allBins || [])
+  //   .join<SVGRectElement>(enter => {
+  //     return enter.append("rect").attr("class", "bar");
+  //   })
+  //   .attr("x", d => xScale(d.name) || 0)
+  //   .attr("width", xScale.bandwidth())
+  //   .attr("y", d => y(d.count))
+  //   .attr("height", d => yRange[0] - y(d.count))
+  //   .attr("fill", (d, i) => color(i));
+
+  // // append the bar rectangles to the svg element
+  // const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "bars").attr(
+  //   "transform",
+  //   `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  // );
+  // const merged = g
+  //   .selectAll("rect.bar")
+  //   .data(data)
+  //   .join<SVGRectElement>(enter => {
+  //     return enter.append("rect").attr("class", "bar");
+  //   })
+  //   .attr("x", d => xScale(d.name) || 0)
+  //   .attr("width", xScale.bandwidth())
+  //   .attr("y", d => y(d.count))
+  //   .attr("height", d => yRange[0] - y(d.count))
+  //   .attr("fill", (d, i) => color(i));
+
+  // const selectedSet = new Set(selectedCategories);
+
+  // const renderShades = () => {
+  //   return g.selectAll("rect.shade")
+  //     .data(data)
+  //     .join<SVGRectElement>(enter => {
+  //       return enter.append("rect").attr("class", "shade");
+  //     })
+  //     .attr("x", d => xScale(d.name) || 0)
+  //     .attr("width", xScale.bandwidth())
+  //     .attr("y", yRange[1])
+  //     .attr("height", yRange[0])
+  //     .classed("show", (d) => selectedSet.has(d.name));
+  // };
+
+  // const shades = renderShades();
+  // shades
+  //   .on("mouseover", (onRectMouseOver || null) as null)
+  //   .on("mousemove", (onRectMouseMove || null) as null)
+  //   .on("mouseleave", (onRectMouseLeave || null) as null)
+  //   .on("click", function(data, idx) {
+  //     if (onSelectCategories) {
+  //       const selected = selectedCategories?.slice() || [];
+  //       const idx = selected.findIndex(v => v === data.name);
+  //       if (idx !== -1) {
+  //         selected.splice(idx, 1);
+  //       } else {
+  //         selected.push(data.name)
+  //       }
+  //       onSelectCategories(selected.length > 0 ? selected : undefined);
+  //     }
+  //   });
 
   if (rectStyle) {
     Object.keys(rectStyle).forEach(key => {
@@ -146,10 +309,10 @@ export function drawBarChart(
 }
 
 export interface IBarChartProps extends Omit<IBarChartOptions, "allData"> {
-  data: Array<number | string>;
+  data: string[]|string[][];
   barWidth?: number;
   categories?: string[];
-  allData?: Array<number | string>;
+  allData?: string[]|string[][];
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
   xScale: d3.ScaleBand<string>;
@@ -183,14 +346,15 @@ export class BarChart extends React.PureComponent<
     if (svg) {
       console.debug("rendering bar chart");
       const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
-      const barData = this.count(data, xScale.domain());
-      const allBars = allData && this.countAll(allData, xScale.domain());
-      drawBarChart(svg, barData, xScale, {
+      // const barData = this.count(data, xScale.domain());
+      // const allBars = allData && this.countAll(allData, xScale.domain());
+      drawBarChart(svg, data, xScale, {
         ...rest,
-        height: height - 20,
+        // height: height - 20,
+        height: height,
         onRectMouseOver: this.onMouseOverBar,
         onRectMouseLeave: this.onMouseLeaveBar,
-        allData: allBars
+        allData: allData
       });
       this.shouldPaint = false;
     }
@@ -223,20 +387,20 @@ export class BarChart extends React.PureComponent<
       categories
     } = this.props;
     const { hoveredCategory } = this.state;
-    const barData = this.count(data, categories);
+    const barData = this.count(isArrays(data)?data[0]:data, categories);
     return (
       <div className={(className || "") + " bar-chart"} style={style}>
         <svg
           ref={this.ref}
           style={svgStyle}
           width={width}
-          height={height - 20}
+          height={height}
         />
-        <div className="info">
+        {/* <div className="info">
           {hoveredCategory
             ? `${hoveredCategory}`
             : `${barData.length} Categories`}
-        </div>
+        </div> */}
       </div>
     );
   }
@@ -251,3 +415,136 @@ export class BarChart extends React.PureComponent<
 }
 
 export default BarChart;
+
+interface BarChartLayoutProps extends ChartOptions {
+  data: string[] | string[][],
+  mode: 'side-by-side' | 'stacked',
+  dmcData?: string[] | string[][],
+  innerPadding?: number,
+  groupInnerPadding?: number,
+  xScale?: d3.ScaleBand<string>,
+  yScale?: d3.ScaleLinear<number, number>,
+}
+
+interface BarLayout extends Category {
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+}
+
+export class BarChartLayout {
+  private _data: string[][];
+  private _dmcData: string[][];
+  private _mode: 'side-by-side' | 'stacked';
+  private _width: number;
+  private _height: number;
+  private _margin: IMargin;
+  private _innerPadding: number;
+  private _groupInnerPadding: number;
+  private _xScale: d3.ScaleBand<string>;
+  private _yScale: d3.ScaleLinear<number, number>;
+
+  constructor(props: BarChartLayoutProps) {
+    const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale } = props;
+    this._data = isArrays(data) ? data : [data];
+    this._dmcData = dmcData ? (isArrays(dmcData) ? dmcData : [dmcData]) : this._data;
+    // this._mode = mode;
+    this._mode = 'side-by-side';
+    this._width = width;
+    this._height = height;
+    this._margin = getMargin(margin);
+    this._innerPadding = innerPadding ? innerPadding : 1;
+    this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 1);
+
+    this._xScale = this.getXScale(xScale);
+    this._yScale = this.getYScales(yScale);
+  }
+
+  private getXScale(xScale?: d3.ScaleBand<string>): d3.ScaleBand<string> {
+    return xScale ? xScale : getScaleBand(_.flatten(this._dmcData), ...this.xRange);
+  }
+
+  private getYScales(yScale?: d3.ScaleLinear<number, number>):
+  d3.ScaleLinear<number, number> {
+    const dmcBins = this._dmcData.map(d => this.count(d, this.x.domain()));
+    const yMax = this._mode === 'side-by-side' ? d3.max(dmcBins, function (bs) {
+      return d3.max(bs, d => d.count);
+    }) : d3.max(transMax(dmcBins), function (bs) {
+      return d3.sum(bs, d => d.count);
+    });
+    if (yMax === undefined) throw "Invalid bins";
+    const _yScale = yScale ? yScale : d3.scaleLinear().range(this.yRange).domain([0, yMax]);
+    return _yScale;
+  }
+
+  public get xRange(): [number, number] {
+    return [this._margin.left, this._width - this._margin.right];
+  }
+
+  public get yRange(): [number, number] {
+    return [this._margin.top, this._height - this._margin.bottom];
+  }
+
+  public get x(): d3.ScaleBand<string> {
+    return this._xScale;
+  }
+
+  public get y(): d3.ScaleLinear<number, number> {
+    return this._yScale;
+  }
+
+  public get gBins(): Category[][] {
+    return this._data.map(d => this.count(d, this.x.domain()));
+  }
+
+  private count = memoizeOne(countCategories);
+
+  // public get flattenData() {
+  //   return this._data.
+  // }
+  public xScale(newx: d3.ScaleBand<string>) {
+    this._xScale = newx;
+    return this;
+  }
+
+  public yScale(newy: d3.ScaleLinear<number, number>) {
+    this._yScale = newy;
+    return this;
+  }
+
+  public get groupedBarWidth() {
+    return this.x.bandwidth();
+  }
+
+  public get barWidth() {
+    const nGroups = this.gBins.length;
+    const groupedBarWidth = this.groupedBarWidth - this._innerPadding;
+    return Math.max(this._mode === 'side-by-side' ? (groupedBarWidth / nGroups - this._groupInnerPadding) : groupedBarWidth, 1)
+  }
+
+  public get layout(): BarLayout[][] {
+    const gBins = this.gBins;
+    const nGroups = gBins.length;
+    const nBins = gBins[0].length;
+
+    const barWidth = this.barWidth;
+    const dx: number[][] = _.range(nGroups).map((d, i) => _.range(nBins).map(() => this._mode === 'side-by-side' ? i * (barWidth + this._groupInnerPadding) : 0));
+    const dy: number[][] = _.range(nGroups).map((d, groupId) => _.range(nBins).map((d, binId) => this._mode === 'side-by-side' ? 0 :
+      this.y(d3.sum(
+        gBins.map(bins => bins[binId].count).filter((d, i) => i < groupId)
+      )) + (groupId > 0 ? this.yRange[0] : 0)
+    ));
+
+    return this.gBins.map((bins, groupId) => bins.map((bin, binId) => {
+      const Layout: BarLayout = {
+        ...bin,
+        x: this.x(bin.name) as number + dx[groupId][binId],
+        y: this.yRange[1] - dy[groupId][binId] - this.y(bin.count),
+        width: barWidth,
+        height: this.y(bin.count),
+      } as BarLayout;
+      return Layout;
+    }))
+  }
+}
