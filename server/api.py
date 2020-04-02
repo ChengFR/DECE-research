@@ -106,7 +106,9 @@ def get_cf_meta():
 @api.route('/data', methods=['GET'])
 def get_data():
     data_df = current_app.dir_manager.load_prediction('dataset', only_valid=True)
-    cols = current_app.dataset.get_columns(preprocess=False) + ['Score', 'index']
+    data_meta = current_app.dir_manager.get_dataset_meta()
+    target_name = data_meta['target_name']
+    cols = current_app.dataset.get_columns(preprocess=False) + ['{}_pred'.format(target_name), 'index']
     data_df.reset_index(inplace=True)
     return Response(data_df[cols].to_csv(index=False), mimetype="text/csv")
 
@@ -131,7 +133,9 @@ def get_cf():
         cf_df = subset_cf.get_cf_by_origin_index(index)
     else:
         cf_df = subset_cf.get_cf()
-    cols = current_app.dataset.get_columns(preprocess=False) + ['Score', 'OriginIndex']
+    data_meta = current_app.dir_manager.get_dataset_meta()
+    target_name = data_meta['target_name']
+    cols = current_app.dataset.get_columns(preprocess=False) + ['{}_pred'.format(target_name), 'OriginIndex']
     cf_dict = group_cf(cf_df[cols])
     return jsonify(cf_dict)
 

@@ -77,11 +77,17 @@ def data_meta_translate(des, target, mode="data"):
                 attr['precision'] = des[col]['decile']
             data_meta['features'].append(attr)
             
+    # data_meta['prediction'] = {
+    #     'name': 'Score',
+    #     'type': 'numerical',
+    #     'index': len(des.keys()) if mode == 'data' else len(des.keys())-1,
+    #     'extend': [0.0, 1.0]
+    # }
     data_meta['prediction'] = {
-        'name': 'Score',
-        'type': 'numerical',
+        'name': '{}_pred'.format(target),
+        'type': 'categorical',
         'index': len(des.keys()) if mode == 'data' else len(des.keys())-1,
-        'extend': [0.0, 1.0]
+        'categories': des[col]['category']
     }
     if mode == 'data':
         data_meta['index'] = {
