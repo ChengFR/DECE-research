@@ -17,6 +17,7 @@ export interface IHeaderProps {
   onChangeColumnWidth?: (p: { index: number; width: number }) => any;
   height: number;
   width: number;
+  operatorWidth?: number,
   style?: React.CSSProperties;
   styleLeftGrid?: React.CSSProperties;
   styleRightGrid?: React.CSSProperties;
@@ -48,6 +49,7 @@ export default class Header extends React.PureComponent<
     chartHeight: 60,
     fixedColumns: 0,
     rowCount: 1,
+    operatorWidth: 0,
   };
 
   // static getDerivedStateFromProps(
@@ -105,6 +107,7 @@ export default class Header extends React.PureComponent<
       rowHeight,
       styleLeftGrid,
       styleRightGrid,
+      operatorWidth
       // distGroupBy,
     } = this.props;
     console.debug("render table header");
@@ -155,7 +158,7 @@ export default class Header extends React.PureComponent<
         columnWidth={({ index }: { index: number }) => columns[index].width}
       /> : null;
 
-    const rightGridWidth = width - leftGridWidth;
+    const rightGridWidth = width - leftGridWidth - (operatorWidth?operatorWidth: 0);
     // const grid = (
     //   <div
     //     className="right-grid-wrapper"
@@ -346,6 +349,8 @@ export default class Header extends React.PureComponent<
     }
   );
 }
+
+
 
 interface IColumnTitleProps {
   style?: React.CSSProperties;
