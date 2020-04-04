@@ -117,10 +117,10 @@ export function drawBarChart(
 
   // Render the base histogram (with all data)
   const base = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
-  // .attr(
-  //   "transform",
-  //   `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  // );
+  .attr(
+    "transform",
+    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  );
 
   
 
@@ -133,7 +133,7 @@ export function drawBarChart(
     })
     .attr("fill", (d, i) => color(i));
 
-  baseGs
+  const barGs = baseGs
     .selectAll<SVGRectElement, BarLayout>("rect.bar")
     .data(d => d)
     .join<SVGRectElement>(enter => {
@@ -148,6 +148,10 @@ export function drawBarChart(
   // Render the current histogram (with filtered data)
 
   const current = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "current")
+  .attr(
+    "transform",
+    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  );
 
   const gs = current.selectAll<SVGGElement, BarLayout[]>("g.groups")
     .data(bins)
@@ -172,7 +176,7 @@ export function drawBarChart(
 
   if (!isArrays(data)) {
     merged.attr("fill", (d, i) => color(i));
-    baseGs.attr("fill", (d, i) => color(i));
+    barGs.attr("fill", (d, i) => color(i));
   }
 
   // Render the shades for highlighting selected regions
@@ -181,6 +185,10 @@ export function drawBarChart(
     "g",
     "shades"
   )
+  .attr(
+    "transform",
+    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
+  );
 
   const renderShades = () => {
     return gShades
@@ -194,7 +202,7 @@ export function drawBarChart(
       })
       .attr("x", (d, i) => d.x)
       .attr("width", layout.groupedBarWidth)
-      .attr("height", yRange[1] - yRange[0])
+      .attr("height", yRange[0])
       .classed("show", (d, idx) =>
         rangeBrushing
           ? Math.min(...rangeBrushing) <= idx &&
@@ -479,11 +487,12 @@ export class BarChartLayout {
   }
 
   public get xRange(): [number, number] {
-    return [this._margin.left, this._width - this._margin.right];
+    // return [this._margin.left, this._width - this._margin.right];
+    return [0, this._width - this._margin.right - this._margin.left]; 
   }
 
   public get yRange(): [number, number] {
-    return [this._margin.top, this._height - this._margin.bottom];
+    return [0, this._height - this._margin.bottom - this._margin.top];
   }
 
   public get x(): d3.ScaleBand<string> {
