@@ -167,7 +167,7 @@ class DirectoryManager:
                 if not np.array([cat in info['category'] for cat in self.desc[col]['category']]).all():
                     new_range[col] = info
             if self.desc[col]['type'] == 'numerical':
-                if info['min'] > (self.desc[col]['min']+1e-4) or info['max'] < (self.desc[col]['max']-1e-4):
+                if info['min'] > (self.desc[col]['min']+1e-4) or info['max'] < (self.desc[col]['max']+1e-4):
                     new_range[col] = info
         return new_range
 

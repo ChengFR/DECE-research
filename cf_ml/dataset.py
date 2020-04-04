@@ -194,6 +194,7 @@ class Dataset:
 
         for col, info in filters.items():
             if self.description[col]['type'] == 'numerical':
+                print(info)
                 filtered_df = filtered_df[(filtered_df[col] >= info['min']) & (filtered_df[col] < info['max'])]
             else:
                 filtered_df = filtered_df[filtered_df[col].isin(info['category'])]

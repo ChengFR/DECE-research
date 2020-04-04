@@ -55,11 +55,11 @@ def data_meta_translate(des, target, mode="data"):
                     'index': des[col]['index']
                 }
                 if des[col]['type'] == 'categorical':
-                    data_meta['target']['categories'] = des[col]['category']
+                    data_meta['target']['categories'] = [str(cat) for cat in des[col]['category']]
                 elif des[col]['type'] == 'numerical':
                     # attr['min'] = des[col]['min']
                     # attr['max'] = des[col]['max']
-                    attr['extent'] = [des[col]['min'], des[col]['max']]
+                    attr['extent'] = [des[col]['min'], des[col]['max']+10**-des[col]['decile']]
                     attr['precision'] = des[col]['decile']
         else:
             attr = ({
@@ -69,11 +69,11 @@ def data_meta_translate(des, target, mode="data"):
                 'index': des[col]['index']
             })
             if des[col]['type'] == 'categorical':
-                attr['categories'] = des[col]['category']
+                attr['categories'] = [str(cat) for cat in des[col]['category']]
             elif des[col]['type'] == 'numerical':
                 # attr['min'] = des[col]['min']
                 # attr['max'] = des[col]['max']
-                attr['extent'] = [des[col]['min'], des[col]['max']]
+                attr['extent'] = [des[col]['min'], des[col]['max']+10**-des[col]['decile']]
                 attr['precision'] = des[col]['decile']
             data_meta['features'].append(attr)
             
@@ -87,7 +87,7 @@ def data_meta_translate(des, target, mode="data"):
         'name': '{}_pred'.format(target),
         'type': 'categorical',
         'index': len(des.keys()) if mode == 'data' else len(des.keys())-1,
-        'categories': des[col]['category']
+        'categories': [str(cat) for cat in des[col]['category']]
     }
     if mode == 'data':
         data_meta['index'] = {
