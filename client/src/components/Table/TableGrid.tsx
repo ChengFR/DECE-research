@@ -35,6 +35,7 @@ export interface ITableGridProps {
   showIndex: boolean;
   onSectionRendered?: (params: SectionRenderedParams) => any;
   overscanRowCount: number;
+  operatorWidth: number;
 }
 
 export interface ITableGridState { }
@@ -87,12 +88,13 @@ export default class TableGrid extends React.PureComponent<
       onSectionRendered,
       rowCount,
       overscanRowCount,
+      operatorWidth,
     } = this.props;
 
     const leftGridWidth =
       getFixedGridWidth(fixedColumns, columns) +
       (showIndex ? IndexWidth : 0);
-    const rightGridWidth = width - leftGridWidth;
+    const rightGridWidth = width - leftGridWidth - (operatorWidth?operatorWidth:0);
     // const leftGrid = fixedColumns ? (
     //   <div
     //     className="left-grid-wrapper"

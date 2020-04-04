@@ -39,6 +39,9 @@ export interface ITableProps {
   subsetRowCount: number;
   subsetRowHeight: number | ((params: Index) => number);
   subsetCellRenderer: CellRenderer[];
+  onUpdateSubset?: (index: number) => void;
+  onCopySubset?: (index: number) => void;
+  onDeleteSubset?: (index: number) => void;
 }
 
 interface ITableState {
@@ -133,6 +136,9 @@ export default class Table extends React.PureComponent<
       subsetRowCount,
       subsetRowHeight,
       subsetCellRenderer,
+      onUpdateSubset,
+      onCopySubset,
+      onDeleteSubset,
     } = this.props;
     const { columns, scrollLeft, scrollTop } = this.state;
     // const getColumnWidth = ({ index }: { index: number }) => columnWidths[index];
@@ -170,6 +176,7 @@ export default class Table extends React.PureComponent<
                 scrollLeft={scrollLeft}
                 onChangeColumnWidth={this.onChangeColumnWidth}
                 style={{ left: showIndex ? IndexWidth : 0 }}
+                operatorWidth={15}
               />
               {subsetCellRenderer.map((renderer, i) =>
                 <SubsetGrid
@@ -177,7 +184,7 @@ export default class Table extends React.PureComponent<
                   rowCount={subsetRowCount}
                   rowHeight={subsetRowHeight}
                   height={subsetHeight}
-                  chartHeight={60}
+                  // chartHeight={60}
                   width={width - (showIndex ? IndexWidth : 0)}
                   cellRenderer={renderer}
                   fixedColumns={fixedColumns}
@@ -186,6 +193,10 @@ export default class Table extends React.PureComponent<
                   onChangeColumnWidth={this.onChangeColumnWidth}
                   style={{ left: showIndex ? IndexWidth : 0 }}
                   key={i}
+                  operatorWidth={15}
+                  onUpdate={onUpdateSubset && onUpdateSubset.bind(this, i)}
+                  onCopy={onCopySubset && onCopySubset.bind(this, i)}
+                  onDelete={onDeleteSubset && onDeleteSubset.bind(this, i)}
                 />)}
               <TableGrid
                 rowCount={rowCount}
@@ -201,6 +212,7 @@ export default class Table extends React.PureComponent<
                 showIndex={showIndex}
                 onSectionRendered={onSectionRendered}
                 ref={this.tableGrid}
+                operatorWidth={15}
               />
             </div>
           )}
