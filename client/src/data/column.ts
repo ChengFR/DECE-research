@@ -62,10 +62,12 @@ export class Series<T = string | number> implements ISeries<T> {
     this.length = length;
     this.accessor = accessor;
     this.at = this.at.bind(this);
+    this.toArray = this.toArray.bind(this);
   }
   at(n: number) {
     return this.accessor(n);
   }
+  filterBy = memoizeOne((valuefn: (value: T, index?: number) => boolean) => this.toArray().filter(valuefn))
   toArray = memoizeOne(() => Array.from({length: this.length}, (v, i) => this.accessor(i)).filter(notEmpty));
   groupBy = memoizeOne((labels: number[], uniqLabels?: number[]): Array<T>[] => {
     const ret: Array<T>[] = [];

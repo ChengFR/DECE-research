@@ -4,6 +4,7 @@ import DataFrame, { IDataFrame } from './data_table'
 import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
 import {Series, IColumn} from './column'
 import { memoize } from 'lodash'
+import _ from 'lodash'
 
 // export type CounterFactual = (string | number)[];
 
@@ -30,14 +31,17 @@ export interface CFSubsetProps {
 export class CFSubset extends Dataset {
     private _dataset: Readonly<Dataset>;
     private _cfFrames: DataFrame[];
-    private _filters: Filter[];
+    private _filters: (Filter|undefined)[];
     constructor(props: CFSubsetProps) {
       super(props.dataset.dataFrame.filterBy(props.filters), props.dataset.dataMeta);
         const { dataset, filters, cfData, cfMeta } = props;
         const { dataMeta, dataFrame} = dataset;
         
         this._cfFrames = cfData.map(d => buildCFDataFrame(d, cfMeta));
-        this._filters = filters;
+        this._filters = this.features.map(col => {
+          const filter = filters.find(f => f.name === col.name);
+          return filter?filter:undefined
+        });
         this._dataset = dataset;
     }
 
@@ -75,6 +79,14 @@ export class CFSubset extends Dataset {
         return columns;
       }
       else return undefined
+    }
+
+    public reorderedSubsetColMat():((IColumn|undefined)[] | undefined)[] {
+      return _.range(this.order.length).map((d, i) => this.reorderedSubsetColumns(i));
+    }
+
+    public reorderedFilters(): (undefined|Filter)[] {
+      return [undefined, undefined, ...this._filters];
     }
 
 }

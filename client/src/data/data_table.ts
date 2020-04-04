@@ -101,9 +101,9 @@ export default class DataFrame implements IDataFrame {
           series: new Series(this.length, j => at(j, i))
         } as IColumn;
         if (isColumnNumerical(column)) {
-          if (column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
+          if (!column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
         } else {
-          if (column.categories) {
+          if (!column.categories) {
             const counter = _.countBy(column.series.toArray());
             column.categories = _.keys(counter).sort();
           }
@@ -217,8 +217,10 @@ export default class DataFrame implements IDataFrame {
   public filterBy(filters: Filter[]): DataFrame {
     let filteredLocs: number[] = _.range(0, this.length);
     filters.forEach((filter: Filter) => {
-      const columnIndex = filter.id;
-      const column = this.columns[columnIndex];
+      const columnName = filter.name;
+      const columnIndex = this.columns.findIndex(c => c.name === columnName);
+          if (columnIndex < 0) throw "No column named " + columnName;
+          const column = this.columns[columnIndex];
       if (!isColumnNumerical(column)) {
         // const _filter = filter as CatFilter;
         const at = column.series.at;
@@ -228,10 +230,18 @@ export default class DataFrame implements IDataFrame {
       else {
         // const _filter = filter as NumFilter;
         const at = column.series.at;
-        filter.min !== undefined && filteredLocs.filter(i => (at(i) !== undefined && (filter.min! <= at(i)!)));
-        filter.max !== undefined && filteredLocs.filter(i => (at(i) !== undefined && (filter.max! >= at(i)!)));
+        const min = filter.extent && filter.extent[0];
+        const max = filter.extent && filter.extent[1];
+        if (min)
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (min <= at(i)!)));
+        if (max)
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i)!)));
       }
     })
+    console.log(filters, filteredLocs);
+    console.log(this.columns.map(c => {
+      return [c.series.at(106), c.series.at(107)];
+    }))
     return this.filterByLoc(filteredLocs);
   }
 
