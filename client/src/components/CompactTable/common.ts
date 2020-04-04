@@ -11,21 +11,49 @@ import { isNumericalVColumn } from '../Table/common';
 
 import { isArray } from "util";
 import memoize from 'fast-memoize';
-import { DataMeta } from "data";
+import { DataMeta, FeatureDisc } from "data";
 import { Filter } from "api";
 
-interface CFColumn {}
+interface CFColumn { }
 
 export class SubsetCFTable {
   private _columns: CFTableColumn[];
   private _keyFeatureIndex: number;
   private _dataMeta: DataMeta;
-  private _filters: Filter[];
-  constructor(columns: CFTableColumn[], keyFeatureIndex: number, dataMeta: DataMeta, filters: Filter[]){
+  // private _filters: (Filter|undefined)[];
+  constructor(columns: CFTableColumn[], keyFeatureIndex: number, dataMeta: DataMeta, filters?: (Filter | undefined)[]) {
     this._columns = columns;
-    this._keyFeatureIndex=keyFeatureIndex;
+    this._keyFeatureIndex = keyFeatureIndex;
     this._dataMeta = dataMeta;
-    this._filters = filters;
+    // this._filters = filters;
+    if (filters){
+      assert(columns.length === filters.length);
+      _.range(columns.length).forEach((d, i) => {
+        const column = this._columns[i]
+        if (isNumericalCFColumn(column)) {
+          const filter = filters[i];
+          if (filter)
+            column.dataRange = filter.extent?filter.extent:column.extent;
+          else 
+            column.dataRange = column.extent;
+          column.newDataRange = column.dataRange;
+        }
+        else {
+          const filter = filters[i];
+          if (filter)
+            column.dataRange = filter.categories?filter.categories:column.categories;
+          else 
+            column.dataRange = column.categories;
+          column.newDataRange = column.dataRange;
+        }
+      })
+    }
+  }
+
+  private _validData() {
+    const predCol = this._columns.find(col => this._dataMeta.prediction && col.name === this._dataMeta.prediction.name);
+    if (predCol === undefined) throw Error("No prediction column");
+    const validMask: boolean[] = _.range(predCol.series.length).map((d, i) => predCol.cf ? predCol.series.at(i) !== predCol.cf.at(i): false);
   }
 
   public get columns() {
@@ -36,21 +64,78 @@ export class SubsetCFTable {
     return this._keyFeatureIndex;
   }
 
-  public get keyColumns() {
+  public get keyColumn() {
     return this._columns[this._keyFeatureIndex];
+  }
+
+  public copy() {
+    const columns: CFTableColumn[] = this._columns.map(col => ({...col}));
+    return new SubsetCFTable(columns, this._keyFeatureIndex, this._dataMeta);
   }
 }
 
-// export class SubsetTableGroup {
-//   private _tables: SubsetCFTable[];
-//   private _deletable: boolean;
-// }
+export class SubsetTableGroup {
+  private _tables: SubsetCFTable[];
+  private _dataMeta: DataMeta;
+  private _deletable: boolean;
+  private _filters: Filter[];
+  private _stashedFilters: Filter[];
+
+  constructor(columnMat: CFTableColumn[][], dataMeta: DataMeta, filters: (Filter | undefined)[], deleteable: boolean) {
+    // this._filters = filters.map((d, i) => d?d: {...dataMeta.getColumnDisc(columnMat[0][i].name) as FeatureDisc});
+    this._filters = filters.map((d, i) => {
+      if (d) return d
+      else {
+        const disc = dataMeta.getColumnDisc(columnMat[0][i].name);
+        if (disc)
+          return disc
+        else 
+          throw Error(`cannot find discription of: ${columnMat[0][i].name}`)
+      }
+    })
+    this._stashedFilters = this._filters;
+    this._deletable = deleteable;
+    this._tables = columnMat.map((cols, i) => {
+      return new SubsetCFTable(cols, i, dataMeta, this._filters)
+    })
+    this._dataMeta=dataMeta;
+  }
+
+  public get tables() {
+    return this._tables;
+  }
+
+  public get keyColumns(): CFTableColumn[] {
+    return this.tables.map((table, i) => table.keyColumn);
+  }
+
+  public updateFilter(idx: number, extent?: [number, number], categories?: string[]) {
+    if (this._stashedFilters[idx]) {
+      this._stashedFilters[idx].extent = extent;
+      this._stashedFilters[idx].categories = categories;
+    }
+    // console.debug(idx, extent, categories);
+  }
+
+  public get stashedFilters () {
+    return this._stashedFilters;
+  }
+
+  public copy() {
+    const columnMat: CFTableColumn[][] = this._tables.map(table => table.copy().columns);
+    const filters: Filter[] = this._filters.map(f => ({...f}));
+    return new SubsetTableGroup(columnMat, this._dataMeta, filters, this._deletable);
+  }
+}
 
 export interface CFCategoricalColumn extends CategoricalColumn {
   cf?: Series<string>;
   allCF?: Series<string>;
   cfFilter?: string[];
   onFilterCF?: (range?: string[]) => any;
+  dataRange?: string[];
+  newDataRange?: string[];
+  valid?: boolean[];
 }
 
 export interface CFNumericalColumn extends NumericalColumn {
@@ -58,6 +143,9 @@ export interface CFNumericalColumn extends NumericalColumn {
   allCF?: Series<number>;
   cfFilter?: [number, number];
   onFilterCF?: (range?: [number, number]) => any;
+  dataRange?: [number, number];
+  newDataRange?: [number, number];
+  valid?: boolean[];
 }
 
 export type CFTableColumn = CFCategoricalColumn | CFNumericalColumn;
@@ -82,7 +170,7 @@ export function filterByColumnStates(
     console.log()
     if (!isColumnNumerical(dfColumn)) {
       assert(!isNumericalVColumn(column), "column type mismatch");
-      const {filter, cfFilter, allCF, prevSeries} = column;
+      const { filter, cfFilter, allCF, prevSeries } = column;
       if (filter) {
         const at = dfColumn.series.at;
         const kept = new Set(filter as string[]);
@@ -96,11 +184,11 @@ export function filterByColumnStates(
       }
     } else {
       assert(isNumericalVColumn(column), "column type mismatch");
-      const {filter, cfFilter, allCF, prevSeries} = column;
+      const { filter, cfFilter, allCF, prevSeries } = column;
       if (filter) {
         const at = dfColumn.series.at;
         filteredLocs = filteredLocs.filter(
-          i => at(i) !== undefined ? (filter[0] <= at(i)! && at(i)! < filter[1]): false
+          i => at(i) !== undefined ? (filter[0] <= at(i)! && at(i)! < filter[1]) : false
         );
       }
       if (cfFilter && allCF) {
@@ -119,7 +207,7 @@ export function filterByColumnStates(
   return dataFrame.filterByLoc(filteredLocs);
 }
 
-export function isArrays<T>(a:T[] | T[][]): a is T[][] {
+export function isArrays<T>(a: T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
 }
 
@@ -138,19 +226,23 @@ export function label2nums(labels: string[], categories?: string[]): [number[], 
 export const getRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   return label2nums(c.series.toArray(), c.categories);
-}, {serializer: (args: any) => {
-  const c = args as TableColumn;
-  return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
-}});
+}, {
+  serializer: (args: any) => {
+    const c = args as TableColumn;
+    return `${c.name}${JSON.stringify(c.filter)}${c.series.length}`;
+  }
+});
 
 export const getAllRowLabels = memoize((c: TableColumn) => {
   assert(!isColumnNumerical(c));
   const prevSeries = c.prevSeries;
   return prevSeries && label2nums(prevSeries.toArray(), c.categories);
-}, {serializer: (args: any) => {
-  const c = args as TableColumn;
-  return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
-}});
+}, {
+  serializer: (args: any) => {
+    const c = args as TableColumn;
+    return `${c.name}${JSON.stringify(c.filter)}${c.prevSeries?.length}`;
+  }
+});
 
 export function filterUndefined<T>(series: (T | undefined)[]): T[] {
   return series.filter(c => c !== undefined) as T[];
