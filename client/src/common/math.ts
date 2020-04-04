@@ -134,3 +134,4 @@ export function transMax<T>(matrix: T[][]): T[][] {
   const ret = _.range(cols).map((d, i) => _.range(rows).map((d, j) => matrix[j][i]));
   return ret;
 }
+
