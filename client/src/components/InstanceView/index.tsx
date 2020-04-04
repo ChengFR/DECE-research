@@ -230,15 +230,17 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
 
     updateNumAttributeRange(attrIndex: number, newRange: [number, number]){
         const {attrRange} = this.state;
+        const {dataset} = this.props;
         if (attrRange)
-            attrRange[attrIndex] = {id: attrIndex, min: newRange[0], max: newRange[1]};
+            attrRange[attrIndex] = {name: dataset.dataMeta.features[attrIndex].name, extent: [newRange[0], newRange[1]]};
         this.setState({attrRange})
     }
 
     updateCatAttributeRange(attrIndex: number, newCats: string[]) {
         const {attrRange} = this.state;
+        const {dataset} = this.props;
         if (attrRange)
-            attrRange[attrIndex] = {id: attrIndex, categories: newCats};
+            attrRange[attrIndex] = {name: dataset.dataMeta.features[attrIndex].name, categories: newCats};
         this.setState({attrRange});
     }
 }
@@ -266,8 +268,8 @@ export function defaultSetting(dataMeta: DataMeta): QueryParams {
         const cfNum: number = 12;
         const attrFlex: boolean[] = dataMeta.features.map(d => true);
         // const filters: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
-        const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d)? {id: i, min: d.extent[0], max: d.extent[1]}: 
-            {id: i, categories: d.categories});
+        const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d)? {name: dataMeta.features[i].name, min: d.extent[0], max: d.extent[1]}: 
+            {name: dataMeta.features[i].name, categories: d.categories});
         return {queryInstance, target, prototypeCf, k, cfNum, attrFlex, attrRange};
     }
     else {
