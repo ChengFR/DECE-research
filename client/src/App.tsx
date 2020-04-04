@@ -60,7 +60,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       const cfs = await getCFs({...params, index: newState.dataset.dataFrame.index});
       newState.cfs = [];
       cfs.forEach(cf => newState.cfs![cf.index] = cf);
-      newState.defaultSetsubCF = await getSubsetCF({});
+      newState.defaultSetsubCF = await getSubsetCF({filters: []});
     }
     // console.log(dataset);
     this.setState({ ...this.state, ...newState });
@@ -99,7 +99,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                     getCFs({ dataId, modelId, ...params })
                   }
                   getCF={(index) => getCF({ dataId, modelId, index })}
-                  getSubsetCF={() => getSubsetCF({})}
+                  getSubsetCF={getSubsetCF}
                   defaultSetsubCF={defaultSetsubCF}
                 />
                 </div>
