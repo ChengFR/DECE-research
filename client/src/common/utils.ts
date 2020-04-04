@@ -1,6 +1,6 @@
 import { AssertionError } from "assert";
 
-export const getTextWidth = function() {
+export const getTextWidth = function () {
   const canvas = document.createElement("canvas");
   const func = (text: string, font: string = 'bold 14pt Arial'): number => {
     // re-use canvas object for better performance
@@ -32,6 +32,12 @@ export const shallowCompare = (v: any, o: any, excludeKeys?: Set<string>, debug:
   return true;
 };
 
+export function decile2precision(max: number, decile: number = 0): number {
+  if (max >= 1)
+    return Math.ceil(Math.log10(max)) + decile;
+  else 
+    return decile;
+}
 
 export function number2string(x: number, precision: number = 4): string {
   if (Number.isInteger(x)) return x.toFixed(0);
@@ -39,12 +45,12 @@ export function number2string(x: number, precision: number = 4): string {
 }
 
 export function assert(cond: any, message: any = ""): asserts cond {
-  if(cond) return;
+  if (cond) return;
   throw new AssertionError(message);
 }
 
 export type WithDefault<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
-export function notEmpty<T>(value: T | null | undefined): value is T{
+export function notEmpty<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined
 }
