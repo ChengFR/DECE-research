@@ -224,7 +224,6 @@ export default class CFTableView extends React.Component<
 
   public initColumn(column: IColumn, cf?: Series): CFTableColumn {
     const c: CFTableColumn = createColumn(column);
-    if (cf) console.log(`${column.series.length}-${cf.length}`);
     if (cf) assert(column.series.length === cf.length, `instance number does not match cf number: ${column.series.length}-${cf.length}`);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
@@ -763,12 +762,13 @@ export default class CFTableView extends React.Component<
     const { cfSubsets } = this.state;
     const { getSubsetCF, dataset, CFMeta} = this.props;
     const filters = cfSubsets[index].stashedFilters;
-    console.log(filters);
+    const prevColumns = cfSubsets[index].keyColumns;
     const cfResponse = await getSubsetCF({filters});
     const newSubset = new CFSubset({dataset, filters: filters, cfData: cfResponse.counterfactuals, cfMeta: CFMeta})
-    console.debug("subset constructed", newSubset.reorderedSubsetColMat())
+    console.debug("subset constructed");
+    const subsetColMat = newSubset.reorderedSubsetColMat();
     const newTable = this.initTableGroup(newSubset.reorderedDataFrame, newSubset.dataMeta, false, newSubset.reorderedSubsetColMat(), newSubset.reorderedFilters());
-    console.debug("table constructed")
+    console.debug("table constructed");
     cfSubsets.splice(index, 1, newTable);
     this.setState({cfSubsets});
   }

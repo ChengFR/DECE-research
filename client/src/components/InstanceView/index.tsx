@@ -74,14 +74,14 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             .range([histogramHeight - margin.bottom, columns.length * histogramHeight + histogramHeight - margin.bottom])
 
         return (
-            <Card title={
-                <div>
+            <Card title={<div>
                     <span className="ant-card-head-title-text">Instance View</span>
                     <Button type={editable ? "link" : "link"} icon="edit" shape="circle" size="default"
                         ghost={editable} style={{ float: "right" }}
                         onClick={d => this.setState({ editable: !this.state.editable })}>
                     </Button>
-                </div>} style={{ height: "100%", width: "100%" }}>
+                </div>} 
+                style={{ height: "100%", width: "100%" }}>
                 <div style={{ width: "100%" }}>
                     {/* <span className="form-item-font">number</span> */}
                     <Row>
@@ -154,7 +154,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                         xScale={column.xScale}
                                         ticks={10}
                                         editable={editable}
-                                        drawInput={true}
+                                        drawInput={false}
                                         onValueChange={newValue => this.updateAttributeValue(i, newValue)}
                                         onRangeChange={newRange => this.updateNumAttributeRange(i, newRange)}
                                         drawRange={true}
@@ -169,7 +169,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                         margin={margin}
                                         xScale={column.xScale}
                                         editable={editable}
-                                        drawInput={true}
+                                        drawInput={false}
                                         onValueChange={newValue => this.updateAttributeValue(i, newValue)}
                                         onUpdateCats={newValue => this.updateCatAttributeRange(i, newValue)}
                                     />}
