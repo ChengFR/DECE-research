@@ -433,7 +433,8 @@ export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "on
   onHoverRange: (range: [number, number]) => void;
   color?: (x: number) => string;
   mode?: "side-by-side" | "stacked",
-  rangeSelector?: "bin-wise" | "as-a-whole" | "none"
+  rangeSelector?: "bin-wise" | "as-a-whole" | "none",
+  direction?: "up" | "down",
 }
 
 export function drawGroupedHistogram(
@@ -457,7 +458,8 @@ export function drawGroupedHistogram(
     onHoverRange,
     xScale,
     selectedRange,
-    rangeSelector
+    rangeSelector,
+    direction,
   } = opts;
   const mode = opts.mode ? opts.mode : "side-by-side";
   const nGroups = data.length;

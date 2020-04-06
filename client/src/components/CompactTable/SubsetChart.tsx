@@ -24,6 +24,7 @@ export interface ISubsetChartProps {
   className?: string;
   extent?: [number, number];
   onUpdateFilter?: (extent?: [number, number], categories?: string[]) => void;
+  displayMode: 'by-class'|'origin-cf';
 }
 
 export interface IGroupChartState {
@@ -53,7 +54,7 @@ export default class SubsetChart extends React.PureComponent<ISubsetChartProps, 
   }
 
   public render() {
-    const { column, protoColumn, groupByColumn, protoColumnGroupBy, className, style, width, height, margin } = this.props;
+    const { column, protoColumn, groupByColumn, protoColumnGroupBy, className, style, width, height, margin, displayMode } = this.props;
     const { selectedRange: hoveredBin } = this.state;
 
     const groupArgs = groupByColumn && getRowLabels(groupByColumn);
