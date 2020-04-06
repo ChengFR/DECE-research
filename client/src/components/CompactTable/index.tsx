@@ -589,6 +589,7 @@ export default class CFTableView extends React.Component<
         margin={columnMargin}
         key={`${groupIndex}-${columnIndex}`}
         onUpdateFilter={(extent?: [number, number]) => tableGroup.updateFilter(columnIndex, extent)}
+        displayMode='origin-cf'
       />
     );
   }
