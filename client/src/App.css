@@ -52,9 +52,9 @@
 
 .table-view-container {
     position: relative;
-    width: 68vw;
+    width: 75vw;
     height: 90vh;
-    overflow: hidden;
+    overflow: scroll;
 }
 
 .ant-card-head-title-text {

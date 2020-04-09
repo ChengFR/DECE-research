@@ -192,11 +192,13 @@ export default class SubsetGrid extends React.PureComponent<ISubsetGridProps, {}
 
   renderOptionCell(cellProps: GridCellProps) {
     const { onUpdate, onCopy, onDelete, height} = this.props;
+    const {key} = cellProps
     return (<SubsetOperations 
       onUpdate={onUpdate}
       onCopy={onCopy}
       onDelete={onDelete}
       style={{"height": height, "paddingTop": (height/2-7)}}
+      key={key}
     />)
   }
 
@@ -274,6 +276,10 @@ class SubsetOperations extends React.PureComponent<SubsetOperationsProps, Subset
     }
     else if (e.key === '2') {
       onCopy && onCopy();
+      this.setState({ visible: false });
+    }
+    else if (e.key === '3') {
+      onDelete && onDelete();
       this.setState({ visible: false });
     }
   };

@@ -69,12 +69,14 @@ export class Series<T = string | number> implements ISeries<T> {
   }
   filterBy = memoizeOne((valuefn: (value: T, index?: number) => boolean) => this.toArray().filter(valuefn))
   toArray = memoizeOne(() => Array.from({length: this.length}, (v, i) => this.accessor(i)).filter(notEmpty));
-  groupBy = memoizeOne((labels: number[], uniqLabels?: number[]): Array<T>[] => {
+  groupBy = memoizeOne((labels: number[], uniqLabels?: number[], filter?: (idx: number) => boolean): Array<T>[] => {
     const ret: Array<T>[] = [];
     if (uniqLabels) uniqLabels.forEach(l => ret[l] = []);
     labels.forEach((label, i) => {
-      if (ret[label] && this.accessor(i) !== undefined) ret[label].push(this.accessor(i)!);
-      else if (this.accessor(i) !== undefined) ret[label] = [this.accessor(i)!];
+      if (filter === undefined || filter(i)){
+        if (ret[label] && this.accessor(i) !== undefined) ret[label].push(this.accessor(i)!);
+        else if (this.accessor(i) !== undefined) ret[label] = [this.accessor(i)!];
+      }
     })
     return ret
   })

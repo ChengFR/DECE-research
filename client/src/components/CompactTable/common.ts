@@ -14,8 +14,6 @@ import memoize from 'fast-memoize';
 import { DataMeta, FeatureDisc } from "data";
 import { Filter } from "api";
 
-interface CFColumn { }
-
 export class SubsetCFTable {
   private _columns: CFTableColumn[];
   private _keyFeatureIndex: number;

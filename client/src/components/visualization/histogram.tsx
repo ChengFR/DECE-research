@@ -358,9 +358,9 @@ export class Histogram extends React.PureComponent<
       <div className={(className || "") + " histogram"} style={style}>
         <svg
           ref={this.svgRef}
-          style={{ marginTop: 4, ...svgStyle }}
+          style={{ ...svgStyle }}
           width={width}
-          height={drawRange ? (height - 24) : (height - 4)}
+          height={drawRange ? (height - 20) : height}
         />
         {drawRange && <div className="info">
           {hoveredBin
@@ -438,7 +438,7 @@ export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "on
 }
 
 export function drawGroupedHistogram(
-  svg: SVGElement,
+  root: SVGElement | SVGGElement,
   data: number[] | number[][],
   allData?: number[] | number[][],
   dmcData?: number[] | number[][],
@@ -460,6 +460,7 @@ export function drawGroupedHistogram(
     selectedRange,
     rangeSelector,
     direction,
+    drawAxis
   } = opts;
   const mode = opts.mode ? opts.mode : "side-by-side";
   const nGroups = data.length;
@@ -478,6 +479,7 @@ export function drawGroupedHistogram(
     dmcData: dmcData || allData || data,
     xScale: xScale,
     innerPadding: innerPadding,
+    direction:direction
   });
 
   const bins = layout.layout;
@@ -491,6 +493,7 @@ export function drawGroupedHistogram(
     dmcData: dmcData || allData,
     xScale: xScale,
     innerPadding: innerPadding,
+    direction:direction
   }) : undefined;
 
   const allBins = allDataLayout && allDataLayout.layout;
@@ -499,11 +502,11 @@ export function drawGroupedHistogram(
 
   console.debug(bins[0].map(bin => ({ width: bin.width, height: bin.height, x: bin.x, y: bin.y })));
 
-  const root = d3.select(svg);
+  const _root = d3.select(root);
 
   // Render the base histogram (with all data)
   const base = getChildOrAppend<SVGGElement, SVGElement>(
-    root,
+    _root,
     "g",
     "base"
   ).attr(
@@ -534,7 +537,7 @@ export function drawGroupedHistogram(
 
   // Render the current histogram (with filtered data)
 
-  const current = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "current")
+  const current = getChildOrAppend<SVGGElement, SVGElement>(_root, "g", "current")
     .attr(
       "transform",
       `translate(${margin.left}, ${margin.top})`
@@ -559,7 +562,9 @@ export function drawGroupedHistogram(
     })
     .attr("transform", (d, i) => `translate(${d.x}, ${d.y})`)
     .attr("width", d => d.width)
-    .attr("height", d => d.height);
+    .attr("height", d => d.height)
+    .append("title")
+      .text(d => d.length);
 
   // Render the shades for highlighting selected regions
   if (rangeSelector === 'bin-wise') {
@@ -578,7 +583,7 @@ export function drawGroupedHistogram(
     let brushing: boolean = false;
 
     const gShades = getChildOrAppend<SVGGElement, SVGElement>(
-      root,
+      _root,
       "g",
       "shades"
     ).attr(
@@ -643,7 +648,7 @@ export function drawGroupedHistogram(
       });
   }
   else if (rangeSelector === 'as-a-whole') {
-    const selectorBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "selector-base")
+    const selectorBase = getChildOrAppend<SVGGElement, SVGElement>(_root, "g", "selector-base")
       .attr(
         "transform",
         `translate(${margin.left}, ${margin.top})`
@@ -732,6 +737,7 @@ interface HistogramLayoutProps extends ChartOptions {
   xScale?: d3.ScaleLinear<number, number>,
   yScale?: d3.ScaleLinear<number, number>,
   ticks?: number[],
+  direction?: 'up' | 'down',
 }
 
 interface BarLayout extends d3.Bin<number, number> {
@@ -753,9 +759,10 @@ export class HistogramLayout {
   private _xScale: d3.ScaleLinear<number, number>;
   private _yScale: d3.ScaleLinear<number, number>;
   private _ticks: number[];
+  private _direction: 'up' | 'down';
 
   constructor(props: HistogramLayoutProps) {
-    const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale, ticks } = props;
+    const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale, ticks, direction } = props;
     this._data = isArrays(data) ? data : [data];
     this._dmcData = dmcData ? (isArrays(dmcData) ? dmcData : [dmcData]) : this._data;
     this._mode = mode;
@@ -763,6 +770,7 @@ export class HistogramLayout {
     this._width = width;
     this._height = height;
     this._margin = getMargin(margin);
+    this._direction = direction?direction:'up';
     this._innerPadding = innerPadding ? innerPadding : 1;
     this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 1);
 
@@ -785,7 +793,8 @@ export class HistogramLayout {
       .domain(this.x.domain() as [number, number])
       .thresholds(this._ticks);
 
-    const dmcBins = this._dmcData.map(d => histogram(d));
+    // const dmcBins = this._dmcData.map(d => histogram(d));
+    const dmcBins = this.gBins;
     const yMax = this._mode === 'side-by-side' ? d3.max(dmcBins, function (bs) {
       return d3.max(bs, d => d.length);
     }) : d3.max(transMax(dmcBins), function (bs) {
@@ -863,7 +872,7 @@ export class HistogramLayout {
       const Layout: BarLayout = {
         ...bin,
         x: this.x(bin.x0 as number) + dx[groupId][binId],
-        y: this.yRange[1] - dy[groupId][binId] - this.y(bin.length),
+        y: this._direction === 'up' ? (this.yRange[1] - dy[groupId][binId] - this.y(bin.length)): dy[groupId][binId],
         width: barWidth,
         height: this.y(bin.length) - this.y(0),
       } as BarLayout;
