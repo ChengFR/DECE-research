@@ -20,7 +20,7 @@ export interface ColumnSpec {
   type: FeatureType;
   extent?: [number, number];
   precision?: number;
-  categories?: string[];
+  categories?: Readonly<string[]>;
 }
 
 // export interface IColumn<T = any> extends ColumnSpec {
@@ -38,7 +38,7 @@ export interface INumColumn extends ColumnSpec {
 export interface ICatColumn extends ColumnSpec {
   series: ISeries<string>;
   type: 'categorical';
-  categories: string[]
+  categories: Readonly<string[]>
 }
 
 export type IColumn = INumColumn | ICatColumn
@@ -52,7 +52,7 @@ export interface ISeries<T = any> {
   at(n: number): T | undefined;
   toArray(): T[];
   toRawArray(): (T|undefined)[];
-  groupBy(labels: number[], uniqLabels?: number[]): T[][];
+  groupBy(labels: number[], uniqLabels?: number[], filter?: (idx: number) => boolean): T[][];
 }
 
 export class Series<T = string | number> implements ISeries<T> {

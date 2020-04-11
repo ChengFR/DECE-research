@@ -39,10 +39,13 @@ import GroupChart from './SubsetChart';
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn, isNumericalVColumn } from '../Table/common';
-import { filterByColumnStates, SubsetCFTable, CFCategoricalColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn } from './common';
+import { filterByColumnStates, SubsetCFTable, CFCategoricalColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn, CFNumericalColumn } from './common';
 import "./index.scss";
 import SubsetChart from "./SubsetChart";
 import { group } from "d3";
+import SubsetCFHist from "./SubsetCFHist";
+import SubsetCFBar from "./SubsetCFBar";
+import LabelColumn from "./LabelColumn";
 
 const collapsedCellMargin = {
   ...columnMargin,
@@ -235,8 +238,9 @@ export default class CFTableView extends React.Component<
   //   localStorage.setItem("cfSubsets", JSON.stringify(this.state.cfSubsets));
   // }
 
-  public initColumn(column: IColumn, cf?: Series): CFTableColumn {
-    const c: CFTableColumn = createColumn(column);
+  public initColumn(column: IColumn, cf?: Series, prototypeColumn?: CFTableColumn): CFTableColumn {
+    const c: CFTableColumn = prototypeColumn ? createColumn(prototypeColumn) : createColumn(column);
+    c.series = column.series;
     if (cf) assert(column.series.length === cf.length, `instance number does not match cf number: ${column.series.length}-${cf.length}`);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
@@ -257,15 +261,15 @@ export default class CFTableView extends React.Component<
   }
 
   public initTable(dataFrame: DataFrame, dataMeta: DataMeta, index: number,
-    cfColumns?: Readonly<(IColumn | undefined)[]>, filters?: (Filter | undefined)[]): SubsetCFTable {
+    cfColumns?: Readonly<(IColumn | undefined)[]>, filters?: (Filter | undefined)[], prototypeColumns?: CFTableColumn[]): SubsetCFTable {
     const dataColumns: IColumn[] = dataFrame.columns.map(column => createColumn(column));
     const cfSeries: (Series | undefined)[] = cfColumns ? cfColumns.map(d => d ? new Series(d.series.length, j => d.series.at(j)) : undefined) : []
 
     const columns: CFTableColumn[] = dataColumns.map((d, i) => {
-      if (isColumnNumerical(d))
-        return this.initColumn(d, cfSeries[i])
-      else
-        return this.initColumn(d, cfSeries[i])
+      // if (isColumnNumerical(d))
+      return this.initColumn(d, cfSeries[i], prototypeColumns && prototypeColumns[i]);
+      // else
+      //   return this.initColumn(d, cfSeries[i])
     });
 
     const predCol = columns.find(col => dataMeta.prediction && col.name === dataMeta.prediction.name);
@@ -277,17 +281,14 @@ export default class CFTableView extends React.Component<
   }
 
   public initTableGroup(dataFrame: DataFrame, dataMeta: DataMeta, deletable: boolean,
-    cfColumnMat?: ((IColumn | undefined)[] | undefined)[], filters?: (Filter | undefined)[]): SubsetTableGroup {
+    cfColumnMat?: ((IColumn | undefined)[] | undefined)[], filters?: (Filter | undefined)[], prototypeColumns?: CFTableColumn[]): SubsetTableGroup {
     const dataColumns: IColumn[] = dataFrame.columns.map(column => createColumn(column));
     const columnMat: CFTableColumn[][] = _.range(dataColumns.length).map(
       (d, i) => {
         const cfSeries: (Series | undefined)[] = (cfColumnMat && cfColumnMat[i]) ?
           cfColumnMat[i]!.map(d => d ? new Series(d.series.length, j => d.series.at(j)) : undefined) : [];
         const columns: CFTableColumn[] = dataColumns.map((d, i) => {
-          if (isColumnNumerical(d))
-            return this.initColumn(d, cfSeries[i])
-          else
-            return this.initColumn(d, cfSeries[i])
+          return this.initColumn(d, cfSeries[i], prototypeColumns && prototypeColumns[i]);
         });
 
         const predCol = columns.find(col => dataMeta.prediction && col.name === dataMeta.prediction.name);
@@ -297,7 +298,6 @@ export default class CFTableView extends React.Component<
         return columns;
       }
     )
-    console.log(columnMat, filters);
     return new SubsetTableGroup(columnMat, dataMeta, filters ? filters : [], deletable)
   }
 
@@ -354,13 +354,16 @@ export default class CFTableView extends React.Component<
 
   public render() {
     const { dataFrame, hovered } = this.state;
-    const { rows, columns, cfSubsets: allColumns } = this.state;
+    const { rows, cfSubsets: allColumns } = this.state;
     const { dataset } = this.props;
     const rowCount = dataFrame.length;
     const hoveredValue = hovered ? dataFrame.at(...hovered) : "";
-    const fixedColumns =
-      Number(Boolean(dataset?.dataMeta.prediction)) +
-      Number(Boolean(dataset?.dataMeta.target));
+    // const fixedColumns =
+    //   Number(Boolean(dataset?.dataMeta.prediction)) +
+    //   Number(Boolean(dataset?.dataMeta.target));
+    const columns = _.range(1, this.state.columns.length).map(d => this.state.columns[d]);
+    const fixedColumns = 1;
+    console.log(columns);
     console.debug(columns);
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
@@ -383,7 +386,7 @@ export default class CFTableView extends React.Component<
           rowCount={rows.length}
           columns={columns}
           fixedColumns={fixedColumns}
-          showIndex={true}
+          showIndex={false}
           rowHeight={this.rowHeight}
           ref={ref => { this.tableRef = ref; }}
           // tableRef={this.registerTableRef}
@@ -553,8 +556,12 @@ export default class CFTableView extends React.Component<
     }
   }
 
-  onSelectColumn(columns: CFTableColumn[]) {
-    this.setState({ columns });
+  onSelectColumn(groupIndex: number, columnIndex: number) {
+    const { cfSubsets } = this.state;
+    const table = cfSubsets[groupIndex].tables[columnIndex];
+    const columns = table.columns;
+    const dataFrame = DataFrame.fromColumns(columns);
+    this.setState({ columns, dataFrame, prevDataFrame: dataFrame });
   }
 
   renderCell(props: CellProps) {
@@ -573,7 +580,8 @@ export default class CFTableView extends React.Component<
   }
 
   _chartCellRenderer(cellProps: CellProps) {
-    const { columnIndex } = cellProps;
+    // const { columnIndex } = cellProps;
+    const columnIndex = cellProps.columnIndex + 1;
     const { columns, groupByColumn } = this.state;
     const column = columns[columnIndex];
     const { width } = column;
@@ -598,36 +606,75 @@ export default class CFTableView extends React.Component<
   }
 
   renderSubsetCell(groupIndex: number, cellProps: CellProps) {
-    const { columnIndex } = cellProps;
-    const { groupByColumn, cfSubsets} = this.state;
+    // const { columnIndex } = cellProps;
+    const columnIndex = cellProps.columnIndex + 1;
+    const { groupByColumn, cfSubsets } = this.state;
     const tableGroup = cfSubsets[groupIndex];
     const columns = tableGroup.tables[columnIndex].columns;
     const column = columns[columnIndex];
     const { width } = column;
+
     console.debug("render subset cell");
-    return (
-      <SubsetChart
-        className="subset-chart"
-        column={column}
-        protoColumn={this.basicColumns[columnIndex]}
-        // column={columns[columnIndex]}
-        groupByColumn={columns[groupByColumn]}
-        protoColumnGroupBy={this.basicColumns[groupByColumn]}
-        width={width}
-        height={headerChartHeight}
-        margin={columnMargin}
-        key={`${groupIndex}-${columnIndex}`}
-        onUpdateFilter={(extent?: [number, number]) => tableGroup.updateFilter(columnIndex, extent)}
-        displayMode='origin-cf'
-        histogramType='stacked'
-        onSelect={() => this.onSelectColumn(columns)}
+    if (columnIndex === 1) {
+      return <LabelColumn 
+            className={`subset-chart`}
+            predColumn={columns[1] as CFCategoricalColumn}
+            targetColumn={columns[0] as CFCategoricalColumn}
+            // column={columns[columnIndex]}
+            // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+            width={width}
+            height={headerChartHeight}
+            margin={columnMargin}
+            histogramType='stacked'
       />
-    );
+    }
+    else {
+      if (isNumericalCFColumn(column)) {
+        return <SubsetCFHist
+          className={`subset-chart`}
+          column={column}
+          protoColumn={this.basicColumns[columnIndex] as CFNumericalColumn}
+          // column={columns[columnIndex]}
+          groupByColumn={columns[groupByColumn]}
+          // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+          width={width}
+          height={headerChartHeight}
+          margin={columnMargin}
+          k={`subset-${groupIndex}-${columnIndex}`}
+          onUpdateFilter={(extent?: [number, number]) => tableGroup.updateFilter(columnIndex, extent)}
+          histogramType='stacked'
+          onSelect={() => this.onSelectColumn(groupIndex, columnIndex)}
+          expandable={true}
+          drawLineChart={true}
+          drawHandle={true}
+        />
+      }
+      else {
+        return (
+          <SubsetCFBar
+            className={`subset-chart`}
+            column={column}
+            protoColumn={this.basicColumns[columnIndex] as CFCategoricalColumn}
+            // column={columns[columnIndex]}
+            groupByColumn={columns[groupByColumn]}
+            onUpdateFilter={(categories?: string[]) => tableGroup.updateFilter(columnIndex, undefined, categories)}
+            // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+            width={width}
+            height={headerChartHeight}
+            margin={columnMargin}
+            k={`subset-${groupIndex}-${columnIndex}`}
+            histogramType='stacked'
+            drawHandle={true}
+          />
+        );
+      }
+    }
   }
 
 
   renderCellExpanded(props: CellProps, row: ExpandedRow) {
-    const { columnIndex, width, rowIndex } = props;
+    const { width, rowIndex } = props;
+    const columnIndex = props.columnIndex + 1;
     const { dataset } = this.props;
     const { dataFrame, columns } = this.state;
     if (columnIndex === -1) {
@@ -674,7 +721,8 @@ export default class CFTableView extends React.Component<
   }
 
   renderCellCollapsed(props: CellProps, rowState: CollapsedRows) {
-    const { columnIndex, rowIndex, width } = props;
+    const { rowIndex, width } = props;
+    const columnIndex = props.columnIndex + 1;
     const { pixel } = this.props;
     const { columns, showCF } = this.state;
     if (columnIndex === -1) {
@@ -796,18 +844,20 @@ export default class CFTableView extends React.Component<
     const filters = cfSubsets[index].stashedFilters;
     const prevColumns = cfSubsets[index].keyColumns;
     const cfResponse = await getSubsetCF({ filters });
-    const newSubset = new CFSubset({ dataset, filters: filters, cfData: cfResponse.counterfactuals, cfMeta: CFMeta })
+    const newSubset = new CFSubset({ dataset, filters, cfData: cfResponse.counterfactuals, cfMeta: CFMeta })
     console.debug("subset constructed");
     const subsetColMat = newSubset.reorderedSubsetColMat();
-    const newTable = this.initTableGroup(newSubset.reorderedDataFrame, newSubset.dataMeta, false, newSubset.reorderedSubsetColMat(), newSubset.reorderedFilters());
+    const newTable = this.initTableGroup(newSubset.reorderedDataFrame, newSubset.dataMeta, false, newSubset.reorderedSubsetColMat(), newSubset.reorderedFilters(), prevColumns);
     console.debug("table constructed");
     cfSubsets.splice(index, 1, newTable);
+
     this.setState({ cfSubsets });
   }
 
   public copySubset(index: number) {
     const { cfSubsets } = this.state;
     cfSubsets.splice(index, 0, cfSubsets[index].copy());
+    console.log(cfSubsets);
     this.setState({ cfSubsets });
   }
 

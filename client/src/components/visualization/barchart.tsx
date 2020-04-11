@@ -15,7 +15,6 @@ import "./barchart.scss";
 import { isArrays } from "components/CompactTable/common";
 import _ from "lodash";
 import { transMax } from "common/math";
-import { merge } from "d3";
 
 type Category = {
   count: number;
@@ -25,16 +24,18 @@ type Category = {
 export interface IBarChartOptions extends ChartOptions {
   innerPadding: number;
   barWidth?: number;
-  maxStep: number;
+  // maxStep: number;
   rectStyle?: CSSPropertiesFn<SVGRectElement, Category>;
   selectedCategories?: string[];
   onSelectCategories?: (cat?: string[]) => any;
-  onRectMouseOver?: d3.ValueFn<any, Category, void>;
-  onRectMouseMove?: d3.ValueFn<any, Category, void>;
-  onRectMouseLeave?: d3.ValueFn<any, Category, void>;
+  // onRectMouseOver?: d3.ValueFn<any, Category, void>;
+  // onRectMouseMove?: d3.ValueFn<any, Category, void>;
+  // onRectMouseLeave?: d3.ValueFn<any, Category, void>;
   // allData?: Category[];
-  allData?: string[]|string[][],
-  color: (x: number) => string;
+  xScale?: d3.ScaleBand<string>,
+  color: (x: number) => string,
+  direction: 'up' | 'down',
+  renderShades?: boolean,
 }
 
 export const defaultOptions: IBarChartOptions = {
@@ -42,15 +43,17 @@ export const defaultOptions: IBarChartOptions = {
   height: 200,
   margin: 3,
   innerPadding: 0.25,
-  maxStep: 35,
+  // maxStep: 35,
   color: defaultCategoricalColor,
+  direction: 'up'
 };
 
 export function drawBarChart(
   svg: SVGElement,
   // data: Category[],
-  data: string[]|string[][],
-  xScale: d3.ScaleBand<string>,
+  data: string[] | string[][],
+  allData?: string[] | string[][],
+  dmcData?: string[] | string[][],
   options?: Partial<IBarChartOptions>
 ) {
   const opts = { ...defaultOptions, ...options };
@@ -58,13 +61,12 @@ export function drawBarChart(
     height,
     width,
     rectStyle,
-    allData,
     selectedCategories,
     onSelectCategories,
-    onRectMouseOver,
-    onRectMouseMove,
-    onRectMouseLeave,
-    color
+    color,
+    xScale,
+    direction,
+    renderShades
   } = opts;
 
   const margin = getMargin(opts.margin);
@@ -82,7 +84,8 @@ export function drawBarChart(
     height: height,
     mode: "side-by-side",
     margin: margin,
-    xScale: xScale
+    xScale: xScale,
+    direction
   })
 
   const bins = layout.layout;
@@ -94,14 +97,17 @@ export function drawBarChart(
     height: height,
     mode: "side-by-side",
     margin: margin,
-    xScale: xScale
+    xScale: xScale,
+    direction
   })
 
   const allBins = AllDatalayout && AllDatalayout.layout;
 
   const yRange = layout.yRange;
 
-  let rangeBrushing: [number, number] | null = null;
+  let _selectedCategories: string[] | undefined = selectedCategories;
+
+  let _hoveredCategory: string | undefined = undefined;
   // if (selectedCategories) {
   //   const startIndex = bins[0].findIndex(
   //     ({ name }) => name !== undefined && selectedCategories.includes(name)
@@ -117,12 +123,10 @@ export function drawBarChart(
 
   // Render the base histogram (with all data)
   const base = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
-  .attr(
-    "transform",
-    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  );
-
-  
+    .attr(
+      "transform",
+      `translate(${margin.left + layout.x.paddingOuter()}, ${margin.top})`
+    );
 
   const baseGs = base.selectAll<SVGGElement, BarLayout[]>("g.groups")
     .data(allBins || [])
@@ -148,10 +152,10 @@ export function drawBarChart(
   // Render the current histogram (with filtered data)
 
   const current = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "current")
-  .attr(
-    "transform",
-    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  );
+    .attr(
+      "transform",
+      `translate(${margin.left + layout.x.paddingOuter()}, ${margin.top})`
+    );
 
   const gs = current.selectAll<SVGGElement, BarLayout[]>("g.groups")
     .data(bins)
@@ -180,43 +184,91 @@ export function drawBarChart(
   }
 
   // Render the shades for highlighting selected regions
+  if (renderShades){
   const gShades = getChildOrAppend<SVGGElement, SVGElement>(
     root,
     "g",
     "shades"
   )
-  .attr(
-    "transform",
-    `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  );
+    .attr(
+      "transform",
+      `translate(${margin.left + layout.x.paddingOuter()}, ${margin.top})`
+    );
 
-  const renderShades = () => {
-    return gShades
-      .selectAll("rect.shade")
-      .data(bins[0])
-      .join<SVGRectElement>(enter => {
-        return enter
-          .append("rect")
-          .attr("class", "shade")
-          .attr("y", yRange[0]);
-      })
-      .attr("x", (d, i) => d.x)
-      .attr("width", layout.groupedBarWidth)
-      .attr("height", yRange[0])
-      .classed("show", (d, idx) =>
-        rangeBrushing
-          ? Math.min(...rangeBrushing) <= idx &&
-          idx <= Math.max(...rangeBrushing)
-          : false
-      );
-  };
+  const shadeRects = gShades.selectAll("rect.shade")
+    .data(layout.x.domain())
+    .join<SVGRectElement>(enter => {
+      return enter.append("rect")
+        .attr("class", 'shade')
+    })
+    .attr("x", d => layout.x(d)!)
+    .attr("width", layout.groupedBarWidth)
+    .attr("height", yRange[1])
+    .classed("show", (d, idx) =>
+      _selectedCategories?.includes(d) || d === _hoveredCategory
+    );
 
-  // const merged2 = renderShades();
+  const rerenderShades = () => {
+    shadeRects.classed("show", (d, idx) =>
+      _selectedCategories?.includes(d) || d === _hoveredCategory
+    );
+  }
+
+  shadeRects
+    .on("mouseover", function (data, idx, groups) {
+      _hoveredCategory = layout.x.domain()[idx];
+      rerenderShades();
+    })
+    .on("mousemove", function (data, idx, groups) {
+      if (_hoveredCategory === layout.x.domain()[idx])
+        _hoveredCategory = undefined;
+      rerenderShades();
+    })
+    .on("click",function (data, idx) {
+      const selectedCat = layout.x.domain()[idx];
+      
+      if (_selectedCategories) {
+        const indexOfCat = _selectedCategories.indexOf(selectedCat);
+        console.log(indexOfCat);
+        if (indexOfCat > -1) {
+          _selectedCategories.splice(indexOfCat, 1);
+          _hoveredCategory = undefined;
+          rerenderShades();
+          onSelectCategories && onSelectCategories(_selectedCategories);
+        }
+        else {
+          _selectedCategories.push(selectedCat);
+          rerenderShades();
+          onSelectCategories && onSelectCategories(_selectedCategories);
+        }
+      }
+    })
+
+  }
+
+  // const merged2 = gShades
+  //   .selectAll("rect.shade")
+  //   .data(bins[0])
+  //   .join<SVGRectElement>(enter => {
+  //     return enter
+  //       .append("rect")
+  //       .attr("class", "shade")
+  //       .attr("y", yRange[0]);
+  //   })
+  //   .attr("x", (d, i) => d.x)
+  //   .attr("width", layout.groupedBarWidth)
+  //   .attr("height", yRange[0])
+  //   .classed("show", (d, idx) =>
+  //     rangeBrushing
+  //       ? Math.min(...rangeBrushing) <= idx &&
+  //       idx <= Math.max(...rangeBrushing)
+  //       : false
+  //   );
 
   // merged2
   //   .on("mouseover", function (data, idx, groups) {
   //     console.log(bins, idx);
-  //     onRectMouseOver && onRectMouseOver(bins.map(bs => bs[idx]), idx, groups);
+  //     onRectMouseOver && onRectMouseOver(bins[0].map(bs => bs[idx]), idx, groups);
   //     if (brushing && rangeBrushing) {
   //       rangeBrushing[1] = idx;
   //       renderShades();
@@ -293,7 +345,7 @@ export function drawBarChart(
   //   .on("mouseover", (onRectMouseOver || null) as null)
   //   .on("mousemove", (onRectMouseMove || null) as null)
   //   .on("mouseleave", (onRectMouseLeave || null) as null)
-  //   .on("click", function(data, idx) {
+  //   .on("click", function (data, idx) {
   //     if (onSelectCategories) {
   //       const selected = selectedCategories?.slice() || [];
   //       const idx = selected.findIndex(v => v === data.name);
@@ -317,10 +369,10 @@ export function drawBarChart(
 }
 
 export interface IBarChartProps extends Omit<IBarChartOptions, "allData"> {
-  data: string[]|string[][];
+  data: string[] | string[][];
   barWidth?: number;
   categories?: string[];
-  allData?: string[]|string[][];
+  allData?: string[] | string[][];
   style?: React.CSSProperties;
   svgStyle?: React.CSSProperties;
   xScale: d3.ScaleBand<string>;
@@ -334,7 +386,7 @@ export interface IBarChartState {
 export class BarChart extends React.PureComponent<
   IBarChartProps,
   IBarChartState
-> {
+  > {
   static defaultProps = { ...defaultOptions };
   private ref: React.RefObject<SVGSVGElement> = React.createRef();
   private shouldPaint: boolean = false;
@@ -343,8 +395,8 @@ export class BarChart extends React.PureComponent<
 
     this.state = { hoveredCategory: null };
     this.paint = this.paint.bind(this);
-    this.onMouseOverBar = this.onMouseOverBar.bind(this);
-    this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
+    // this.onMouseOverBar = this.onMouseOverBar.bind(this);
+    // this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
   }
 
   count = memoizeOne(countCategories);
@@ -356,13 +408,13 @@ export class BarChart extends React.PureComponent<
       const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
       // const barData = this.count(data, xScale.domain());
       // const allBars = allData && this.countAll(allData, xScale.domain());
-      drawBarChart(svg, data, xScale, {
+      drawBarChart(svg, data, allData, data, {
         ...rest,
         // height: height - 20,
+        xScale,
         height: height,
-        onRectMouseOver: this.onMouseOverBar,
-        onRectMouseLeave: this.onMouseLeaveBar,
-        allData: allData
+        // onRectMouseOver: this.onMouseOverBar,
+        // onRectMouseLeave: this.onMouseLeaveBar,
       });
       this.shouldPaint = false;
     }
@@ -395,7 +447,7 @@ export class BarChart extends React.PureComponent<
       categories
     } = this.props;
     const { hoveredCategory } = this.state;
-    const barData = this.count(isArrays(data)?data[0]:data, categories);
+    const barData = this.count(isArrays(data) ? data[0] : data, categories);
     return (
       <div className={(className || "") + " bar-chart"} style={style}>
         <svg
@@ -413,13 +465,13 @@ export class BarChart extends React.PureComponent<
     );
   }
 
-  onMouseOverBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = data => {
-    this.setState({ hoveredCategory: data.name });
-  };
+  // onMouseOverBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = data => {
+  //   this.setState({ hoveredCategory: data.name });
+  // };
 
-  onMouseLeaveBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = () => {
-    this.setState({ hoveredCategory: null });
-  };
+  // onMouseLeaveBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = () => {
+  //   this.setState({ hoveredCategory: null });
+  // };
 }
 
 export default BarChart;
@@ -432,6 +484,7 @@ interface BarChartLayoutProps extends ChartOptions {
   groupInnerPadding?: number,
   xScale?: d3.ScaleBand<string>,
   yScale?: d3.ScaleLinear<number, number>,
+  direction?: 'up' | 'down',
 }
 
 interface BarLayout extends Category {
@@ -452,9 +505,10 @@ export class BarChartLayout {
   private _groupInnerPadding: number;
   private _xScale: d3.ScaleBand<string>;
   private _yScale: d3.ScaleLinear<number, number>;
+  private _direction: 'up' | 'down';
 
   constructor(props: BarChartLayoutProps) {
-    const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale } = props;
+    const { data, dmcData, mode, width, height, innerPadding, groupInnerPadding, xScale, margin, yScale, direction } = props;
     this._data = isArrays(data) ? data : [data];
     this._dmcData = dmcData ? (isArrays(dmcData) ? dmcData : [dmcData]) : this._data;
     // this._mode = mode;
@@ -464,6 +518,7 @@ export class BarChartLayout {
     this._margin = getMargin(margin);
     this._innerPadding = innerPadding ? innerPadding : 1;
     this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 1);
+    this._direction = direction ? direction : 'up';
 
     this._xScale = this.getXScale(xScale);
     this._yScale = this.getYScales(yScale);
@@ -474,7 +529,7 @@ export class BarChartLayout {
   }
 
   private getYScales(yScale?: d3.ScaleLinear<number, number>):
-  d3.ScaleLinear<number, number> {
+    d3.ScaleLinear<number, number> {
     const dmcBins = this._dmcData.map(d => this.count(d, this.x.domain()));
     const yMax = this._mode === 'side-by-side' ? d3.max(dmcBins, function (bs) {
       return d3.max(bs, d => d.count);
@@ -488,7 +543,7 @@ export class BarChartLayout {
 
   public get xRange(): [number, number] {
     // return [this._margin.left, this._width - this._margin.right];
-    return [0, this._width - this._margin.right - this._margin.left]; 
+    return [0, this._width - this._margin.right - this._margin.left];
   }
 
   public get yRange(): [number, number] {
@@ -549,7 +604,7 @@ export class BarChartLayout {
       const Layout: BarLayout = {
         ...bin,
         x: this.x(bin.name) as number + dx[groupId][binId],
-        y: this.yRange[1] - dy[groupId][binId] - this.y(bin.count),
+        y: this._direction === 'up' ? (this.yRange[1] - dy[groupId][binId] - this.y(bin.count)) : dy[groupId][binId],
         width: barWidth,
         height: this.y(bin.count),
       } as BarLayout;

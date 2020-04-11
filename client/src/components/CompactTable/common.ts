@@ -39,9 +39,9 @@ export class SubsetCFTable {
         else {
           const filter = filters[i];
           if (filter)
-            column.dataRange = filter.categories?filter.categories:column.categories;
+            column.dataRange = filter.categories?[...filter.categories]:[...column.categories];
           else 
-            column.dataRange = column.categories;
+            column.dataRange = [...column.categories];
           column.newDataRange = column.dataRange;
         }
       })
@@ -209,7 +209,7 @@ export function isArrays<T>(a: T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
 }
 
-export function label2nums(labels: string[], categories?: string[]): [number[], number[]] {
+export function label2nums(labels: string[], categories?: Readonly<string[]>): [number[], number[]] {
   const cat2idx: Map<string, number> = new Map();
   categories?.map((c, i) => cat2idx.set(c, i));
   const nums = labels.map(v => {
