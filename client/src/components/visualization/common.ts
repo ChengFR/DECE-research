@@ -120,7 +120,7 @@ export function getScaleBand(
   data: ArrayLike<string>,
   x0: number,
   x1: number,
-  categories?: string[],
+  categories?: Readonly<string[]>,
   innerPadding: number = 0.25,
   maxStep = 35
 ): d3.ScaleBand<string> {

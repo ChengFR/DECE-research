@@ -152,14 +152,24 @@ def get_cf_subset():
     for filter in raw_filters:
         name = filter["name"]
         if name in features:
+            s = {}
             if disc[name]['type'] == 'numerical':
-                s = {}
                 _min = filter["extent"][0]
                 _max = filter["extent"][1]
                 # if _min > disc[name]["min"]:
                 s['min'] = _min
                 # if _max < disc[name]["max"]:
                 s['max'] = _max
+                setting[name] = s
+            else: 
+                # a tmp implementation
+                cats = []
+                for cat in filter['categories']:
+                    if cat not in disc[name]['category']:
+                        cats.append(int(cat))
+                    else:
+                        cats.append(cat)
+                s['category'] = cats
                 setting[name] = s
     print(setting)
     index_col = 'OriginIndex'

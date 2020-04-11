@@ -12,7 +12,7 @@ import {
   IMargin
 } from "./common";
 import { shallowCompare, WithDefault, number2string } from '../../common/utils';
-import { transMax } from '../../common/math'
+import { transMax, argMin } from '../../common/math'
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 import { defaultCategoricalColor } from './common';
@@ -427,6 +427,7 @@ export class Histogram extends React.PureComponent<
 }
 
 export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "onRectMouseMove" | "onRectMouseLeave"> & {
+  key: string,
   onRectMouseOver?: d3.ValueFn<any, d3.Bin<number, number>[], void>;
   // onRectMouseMove: d3.ValueFn<any, d3.Bin<number, number>[], void>;
   onRectMouseLeave?: d3.ValueFn<any, d3.Bin<number, number>[], void>;
@@ -435,6 +436,10 @@ export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "on
   mode?: "side-by-side" | "stacked",
   rangeSelector?: "bin-wise" | "as-a-whole" | "none",
   direction?: "up" | "down",
+  snapping?: boolean,
+  drawBand?: boolean,
+  bandValueFn?: (x: number) => number,
+  // bandColor?: 
 }
 
 export function drawGroupedHistogram(
@@ -444,7 +449,6 @@ export function drawGroupedHistogram(
   dmcData?: number[] | number[][],
   options?: Partial<IGHistogramOptions>
 ) {
-  console.log("drawing histogram");
   const opts: Partial<IGHistogramOptions> & Pick<IGHistogramOptions, keyof typeof defaultOptions> = { ...defaultOptions, ...options };
   const {
     width,
@@ -460,7 +464,11 @@ export function drawGroupedHistogram(
     selectedRange,
     rangeSelector,
     direction,
-    drawAxis
+    drawAxis,
+    drawBand,
+    bandValueFn,
+    key,
+    snapping
   } = opts;
   const mode = opts.mode ? opts.mode : "side-by-side";
   const nGroups = data.length;
@@ -702,6 +710,10 @@ export function drawGroupedHistogram(
       })
       .on("end", (d, i, n) => {
         let [x, y] = d3.mouse(n[i]);
+        if (snapping) {
+          const dist = layout.ticks.map(d => Math.abs(layout.x(d) - x));
+          x = layout.x(layout.ticks[argMin(dist)]);
+        }
         x = Math.max(xRange[0], Math.min(x, xRange[1]));
         if (handling === 'left')
           _selectedRange = [x, _selectedRange[1]]
@@ -715,6 +727,34 @@ export function drawGroupedHistogram(
 
     selectorSheet.call(selector)
   }
+
+  // if (drawBand && bandValueFn) {
+  //   const svgDefs = getChildOrAppend(_root, 'defs', 'color-defs');
+  //   const colorGradient = getChildOrAppend(svgDefs, 'linearGradient', 'color-gradient')
+  //       .attr('id', `gini-gradient-${key}`)
+  //       // .attr("gradientUnits", "userSpaceOnUse")	
+  //       // .attr("x1", xRange[0]).attr("y1", xRange[0])			
+  //       // .attr("x2", xRange[1]).attr("y2", xRange[1])		;
+
+  //   colorGradient.selectAll("stop")
+  //     .data(layout.ticks)
+  //     .join<SVGStopElement>(enter => {
+  //       return enter.append("stop")
+  //       .attr("class", "color-stops")
+  //     })
+  //     .attr("offset", d => (d - layout.x.domain()[0]) / (layout.x.domain()[1] - layout.x.domain()[0] + 0.000001))
+  //     .attr("stop-color", d => d3.interpolateGreens(1 - bandValueFn(d) * 2))
+
+  //   const bandBase = getChildOrAppend(_root, "g", "color-band-base")
+  //     .attr(
+  //       "transform",
+  //       `translate(${margin.left}, ${yRange[1]})`
+  //     );
+  //   const band = getChildOrAppend(bandBase, "rect", "color-band")
+  //       .attr("x", xRange[0])
+  //       .attr("width", xRange[1] - xRange[0])
+  //       .style("fill", `url(#gini-gradient-${key})`);
+  // }
 
   if (rectStyle) {
     Object.keys(rectStyle).forEach(key => {
@@ -782,8 +822,8 @@ export class HistogramLayout {
   }
 
   private getXScale(xScale?: d3.ScaleLinear<number, number>): d3.ScaleLinear<number, number> {
-    // return xScale ? xScale : getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
-    return getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
+    return xScale ? xScale : getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
+    // return getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
   }
 
   private getYScales(xScale?: d3.ScaleLinear<number, number>, yScale?: d3.ScaleLinear<number, number>):
@@ -842,6 +882,10 @@ export class HistogramLayout {
   public yScale(newy: d3.ScaleLinear<number, number>) {
     this._yScale = newy;
     return this;
+  }
+
+  public get ticks() {
+    return this._ticks;
   }
 
   public get groupedBarWidth() {

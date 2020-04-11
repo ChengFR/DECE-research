@@ -8,8 +8,10 @@ import { IMargin, defaultCategoricalColor } from '../visualization/common';
 import Histogram, { } from '../visualization/histogram';
 import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn, isNumericalCFColumn } from './common';
 import BarChart from '../visualization/barchart';
-import SubsetCFHist, {ISubsetCFHistProps, ISubsetCFHistState} from './SubsetCFHist'
+import SubsetCFHist, { ISubsetCFHistProps, ISubsetCFHistState } from './SubsetCFHist'
 
+
+// deprecated
 export interface ISubsetChartProps {
   width: number;
   height: number;
@@ -26,6 +28,9 @@ export interface ISubsetChartProps {
   displayMode: 'by-class' | 'origin-cf';
   histogramType: 'side-by-side' | 'stacked';
   onSelect?: () => void;
+  k: string;
+  expandable?: boolean;
+  drawLineChart?: boolean;
 }
 
 export interface IGroupChartState {
@@ -49,7 +54,7 @@ export default class SubsetChart extends React.PureComponent<ISubsetChartProps, 
     if (isNumericalCFColumn(column))
       this.state = { selectedRange: column.dataRange };
     else
-      this.state = { selectedCats: column.categories };
+      this.state = { selectedCats: [...column.categories] };
     this.onHoverRange = this.onHoverRange.bind(this);
     this.onSelectRange = this.onSelectRange.bind(this);
   }
@@ -66,138 +71,97 @@ export default class SubsetChart extends React.PureComponent<ISubsetChartProps, 
 
     if (groupArgs) {
       const chartHeight = (height - 24) / 2;
-        if (isNumericalCFColumn(column)) {
-          const rawData = column.series.groupBy(...groupArgs);
-          const cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
+      if (isNumericalCFColumn(column)) {
+        const rawData = column.series.groupBy(...groupArgs);
+        const cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
 
-          const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-          const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.allCF.toArray());
+        const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
+        const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.allCF.toArray());
 
-          const precision = decile2precision(Math.max.apply(null, column.series.toArray()), column.precision)
+        const precision = decile2precision(Math.max.apply(null, column.series.toArray()), column.precision)
 
-          console.log(column.valid?.filter(d => !d));
-          console.log(rawData);
-
-          return displayMode === 'origin-cf' ? <div className={className} style={style}>
-            {/* <Histogram
-              data={rawData}
-              allData={allRawData}
-              dmcData={protoColumn && protoColumn.series.toArray() as number[]}
-              onSelectRange={this.onSelectRange}
-              selectedRange={hoveredBin && hoveredBin as [number, number]}
-              xScale={column.xScale}
-              width={width}
-              height={chartHeight}
-              margin={margin}
-              extent={column.extent}
-              onHoverRange={this.onHoverRange}
-              style={{ "marginTop": 4 }}
-              rangeSelector="as-a-whole"
-              mode={histogramType}
-              drawAxis={true}
-            />
-            {cfData && <Histogram
-              data={cfData}
-              allData={allCFData}
-              dmcData={protoColumn && protoColumn.series.toArray() as number[]}
-              xScale={column.xScale}
-              width={width}
-              height={chartHeight}
-              margin={margin}
-              extent={column.extent}
-              onHoverRange={this.onHoverRange}
-              mode={histogramType}
-              direction='down'
-              color={i => defaultCategoricalColor(i ^ 1)}
-              
-            />
-            } */}
-            <SubsetCFHist 
+        // return displayMode === 'origin-cf' ?
+          return <div className={className} style={style}>
+            <SubsetCFHist
               {...this.props as ISubsetCFHistProps}
             />
-            <div className="info">
-              {hoveredBin
-                ? `${number2string(hoveredBin[0] as number, precision)} - ${number2string(hoveredBin[1] as number, precision)}`
-                : (column.extent && `${number2string(column.extent[0], precision)} - ${number2string(column.extent[1], precision)}`)
-              }
-            </div>
-          </div> :
-            <div className={className} style={style}>
-              <Histogram
-                data={[rawData[0] as number[], cfData ? cfData[0] as number[] : []]}
-                allData={allRawData && allCFData && [allRawData[0] as number[], allCFData[0] as number[]]}
-                dmcData={protoColumn && protoColumn.series.toArray() as number[]}
-                onSelectRange={this.onSelectRange}
-                selectedRange={hoveredBin && hoveredBin as [number, number]}
-                xScale={column.xScale}
-                width={width}
-                height={chartHeight}
-                margin={margin}
-                extent={column.extent}
-                onHoverRange={this.onHoverRange}
-                rangeSelector="as-a-whole"
-                mode={histogramType}
-                style={{ "marginTop": 4 }}
-              />
-              <Histogram
-                data={[cfData ? cfData[1] as number[] : [], rawData[1] as number[]]}
-                allData={allRawData && allCFData && [allCFData[1] as number[], allRawData[1] as number[]]}
-                dmcData={protoColumn && protoColumn.series.toArray() as number[]}
-                onSelectRange={this.onSelectRange}
-                selectedRange={hoveredBin && hoveredBin as [number, number]}
-                xScale={column.xScale}
-                width={width}
-                height={chartHeight}
-                margin={margin}
-                extent={column.extent}
-                onHoverRange={this.onHoverRange}
-                rangeSelector="as-a-whole"
-                mode={histogramType}
-                direction='down'
-                style={{ "marginTop": 4 }}
-              />
-              <div className="info">
-                {hoveredBin
-                  ? `${number2string(hoveredBin[0] as number, precision)} - ${number2string(hoveredBin[1] as number, precision)}`
-                  : (column.extent && `${number2string(column.extent[0], precision)} - ${number2string(column.extent[1], precision)}`)
-                }
-              </div>
-            </div>
-        }
-        else {
-          const rawData = column.series.groupBy(...groupArgs);
-          const cfData = column.cf && (groupArgs ? column.cf.groupBy(...groupArgs) : column.cf.toArray());
+          </div> 
+          // <div className={className} style={style}>
+          //   <Histogram
+          //     data={[rawData[0] as number[], cfData ? cfData[0] as number[] : []]}
+          //     allData={allRawData && allCFData && [allRawData[0] as number[], allCFData[0] as number[]]}
+          //     dmcData={protoColumn && protoColumn.series.toArray() as number[]}
+          //     onSelectRange={this.onSelectRange}
+          //     selectedRange={hoveredBin && hoveredBin as [number, number]}
+          //     xScale={column.xScale}
+          //     width={width}
+          //     height={chartHeight}
+          //     margin={margin}
+          //     extent={column.extent}
+          //     onHoverRange={this.onHoverRange}
+          //     rangeSelector="as-a-whole"
+          //     mode={histogramType}
+          //     style={{ "marginTop": 4 }}
+          //   />
+          //   <Histogram
+          //     data={[cfData ? cfData[1] as number[] : [], rawData[1] as number[]]}
+          //     allData={allRawData && allCFData && [allCFData[1] as number[], allRawData[1] as number[]]}
+          //     dmcData={protoColumn && protoColumn.series.toArray() as number[]}
+          //     onSelectRange={this.onSelectRange}
+          //     selectedRange={hoveredBin && hoveredBin as [number, number]}
+          //     xScale={column.xScale}
+          //     width={width}
+          //     height={chartHeight}
+          //     margin={margin}
+          //     extent={column.extent}
+          //     onHoverRange={this.onHoverRange}
+          //     rangeSelector="as-a-whole"
+          //     mode={histogramType}
+          //     direction='down'
+          //     style={{ "marginTop": 4 }}
+          //   />
+          //   <div className="info">
+          //     {hoveredBin
+          //       ? `${number2string(hoveredBin[0] as number, precision)} - ${number2string(hoveredBin[1] as number, precision)}`
+          //       : (column.extent && `${number2string(column.extent[0], precision)} - ${number2string(column.extent[1], precision)}`)
+          //     }
+          //   </div>
+          // </div>
+      }
+      else {
+        const rawData = column.series.groupBy(...groupArgs);
+        const cfData = column.cf && (groupArgs ? column.cf.groupBy(...groupArgs) : column.cf.toArray());
 
-          const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-          const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(...groupArgs) : column.allCF.toArray());
+        const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
+        const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(...groupArgs) : column.allCF.toArray());
 
 
-          return (displayMode === 'origin-cf')? <div className={className} style={style}>
+        return (displayMode === 'origin-cf') ? <div className={className} style={style}>
+          <BarChart
+            data={rawData}
+            allData={allRawData}
+            xScale={column.xScale}
+            width={width}
+            height={chartHeight}
+            margin={margin}
+            onSelectCategories={column.onFilter}
+            selectedCategories={column.filter}
+            style={{ "marginTop": 4 }}
+          />
+          {cfData &&
             <BarChart
-              data={rawData}
-              allData={allRawData}
+              data={cfData}
+              allData={allCFData}
               xScale={column.xScale}
               width={width}
               height={chartHeight}
               margin={margin}
               onSelectCategories={column.onFilter}
               selectedCategories={column.filter}
-              style={{ "marginTop": 4 }}
+              color={i => defaultCategoricalColor(i ^ 1)}
             />
-            {cfData &&
-              <BarChart
-                data={cfData}
-                allData={allCFData}
-                xScale={column.xScale}
-                width={width}
-                height={chartHeight}
-                margin={margin}
-                onSelectCategories={column.onFilter}
-                selectedCategories={column.filter}
-                color={i => defaultCategoricalColor(i ^ 1)}
-              />
-            }
-          </div> : 
+          }
+        </div> :
           <div className={className} style={style}>
             <BarChart
               data={[rawData[0] as string[], cfData ? cfData[0] as string[] : []]}
@@ -221,7 +185,7 @@ export default class SubsetChart extends React.PureComponent<ISubsetChartProps, 
             />
           )}
         </div>
-        }
+      }
     }
     else return <div />
 

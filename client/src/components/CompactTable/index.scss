@@ -13,20 +13,65 @@
 }
 
 .toolbox {
-  text-align: left;
-  height: 30px;
+    text-align: left;
+    height: 30px;
 }
 
 .compact-table {
-  height: calc(100% - 30px);
+    height: calc(100% - 30px);
 }
 
 .header-chart {
-  .info {
-    line-height: 18px;
-    height: 18px;
-    font-size: 12px;
-    text-align: left;
-    margin-left: 6px;
-  }
+    .info {
+        line-height: 18px;
+        height: 18px;
+        font-size: 12px;
+        text-align: left;
+        margin-left: 6px;
+    }
+}
+
+.subset-chart {
+    .zoom-button {
+        position: absolute;
+        right: 0px;
+        top: 2px;
+    }
+    .line {
+        fill: none;
+        stroke: rgb(194, 40, 40);
+        stroke-width: 2px;
+    }
+    .left-handle-base,
+    .right-handle-base {
+        pointer-events: none;
+    }
+    .handle-line {
+        stroke: #aaa;
+        stroke-width: 2px;
+        pointer-events: none;
+    }
+    .handle-text {
+        font-size: 10px;
+        pointer-events: none;
+    }
+    .handle-icon {
+        fill: #aaa;
+        pointer-events: none;
+    }
+}
+
+.label-chart {
+    rect.false {
+        opacity: 0.7;
+        mask: url(#mask-stripe)
+    }
+    .pos {
+        opacity: 0.7;
+        fill: rgb(78, 121, 167);
+    }
+    .neg {
+        opacity: 0.7;
+        fill: rgb(242, 142, 44);
+    }
 }

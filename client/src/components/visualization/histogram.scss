@@ -30,6 +30,18 @@
             opacity: 0.1;
             pointer-events: none;
         }
+        .stop-left {
+            stop-color: #3f51b5;
+            /* Indigo */
+        }
+        .stop-right {
+            stop-color: #009688;
+            /* Teal */
+        }
+        rect.color-band {
+            height: 5px;
+            // fill: url(#gini-gradient);
+        }
     }
     .info {
         line-height: 18px;
