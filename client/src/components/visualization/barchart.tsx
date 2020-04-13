@@ -36,6 +36,7 @@ export interface IBarChartOptions extends ChartOptions {
   color: (x: number) => string,
   direction: 'up' | 'down',
   renderShades?: boolean,
+  drawAxis?: boolean,
 }
 
 export const defaultOptions: IBarChartOptions = {
@@ -66,7 +67,8 @@ export function drawBarChart(
     color,
     xScale,
     direction,
-    renderShades
+    renderShades,
+    drawAxis
   } = opts;
 
   const margin = getMargin(opts.margin);
@@ -194,6 +196,11 @@ export function drawBarChart(
       "transform",
       `translate(${margin.left + layout.x.paddingOuter()}, ${margin.top})`
     );
+
+  const yreverse = d3.scaleLinear().domain(layout.y.domain()).range([layout.y.range()[1], layout.y.range()[0]])
+    if (drawAxis) {
+      base.call(d3.axisLeft(yreverse).ticks(2));
+    }
 
   const shadeRects = gShades.selectAll("rect.shade")
     .data(layout.x.domain())

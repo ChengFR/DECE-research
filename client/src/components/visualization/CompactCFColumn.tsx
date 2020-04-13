@@ -7,10 +7,14 @@ import { getMargin, ChartOptions, getChildOrAppend, defaultCategoricalColor } fr
 import { shallowCompare } from "../../common/utils";
 import { MarginType, DELAY_PAINT_TIME, isStringArray } from "./common";
 import "./CompactCFColumn.css";
+import { Recoverable } from "repl";
+import { on } from "cluster";
 
 export interface ICompactCFOptions extends ChartOptions {
   pixel: number;
   categoricalColor: (i: number) => string;
+  onHoverRow?: (rowIndex: number | null) => any;
+  onClickRow?: (rowIndex: number) => any;
 }
 
 export const defaultOptions = {
@@ -29,7 +33,7 @@ export function drawCFNumerical(
     Partial<Pick<ICompactCFOptions, keyof typeof defaultOptions>>
 ) {
   const opts = { ...defaultOptions, ...options };
-  const { pixel } = opts;
+  const { pixel, width, onHoverRow, onClickRow } = opts;
 
   const margin = getMargin(opts.margin);
 
@@ -47,6 +51,9 @@ export function drawCFNumerical(
     .join<SVGGElement>(enter => {
       const ret = enter.append("g").attr("class", "cf");
       // base
+      ret.append("rect")
+        .attr("class", "row-base");
+
       ret
         .append("path")
         .attr("class", "base")
@@ -59,6 +66,21 @@ export function drawCFNumerical(
       return ret;
     })
     .attr("transform", (d, i) => `translate(0,${i * pixel})`);
+
+  cf.select("rect.row-base")
+    .attr("width", width - margin.left - margin.right)
+    .attr("height", pixel)
+    // .on("mouseover", (d, i) => {
+    //   console.log(i);
+    //   onHoverRow && onHoverRow(i);
+    // })
+    // .on("mousemove", d => {
+    //   onHoverRow && onHoverRow(null);
+    // })
+    .on("click", (d, i) => {
+        console.log(i);
+        onClickRow && onClickRow(i);
+    })
 
   cf.select("path.base").attr("d", d => `M ${xScale(d)},0 v ${pixel}`);
   cf.select("rect.diff")

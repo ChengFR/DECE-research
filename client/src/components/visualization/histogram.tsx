@@ -48,7 +48,7 @@ export const defaultOptions = {
   drawAxis: false,
 };
 
-function getNBinsRange(width: number, minWidth: number = 7, maxWidth: number = 9): [number, number] {
+export function getNBinsRange(width: number, minWidth: number = 7, maxWidth: number = 9): [number, number] {
   return [Math.ceil(width / maxWidth), Math.floor(width / minWidth)];
 }
 // deprecated
@@ -573,6 +573,11 @@ export function drawGroupedHistogram(
     .attr("height", d => d.height)
     .append("title")
       .text(d => d.length);
+
+  const yreverse = d3.scaleLinear().domain(layout.y.domain()).range([layout.y.range()[1], layout.y.range()[0]])
+  if (drawAxis) {
+    base.call(d3.axisLeft(yreverse).ticks(2));
+  }
 
   // Render the shades for highlighting selected regions
   if (rangeSelector === 'bin-wise') {
