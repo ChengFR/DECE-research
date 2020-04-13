@@ -56,6 +56,7 @@ const collapsedCellMargin = {
 const LoadingIcon = <Icon type="loading" spin />;
 
 const headerChartHeight = 80;
+const subsetChartHeight = 80;
 const headerRowHeights = [30, headerChartHeight];
 
 const headerRowHeight = (params: { index: number }) => {
@@ -159,6 +160,7 @@ export interface ICompactTableState {
   // cfSubsets: CFSubset[];
   // allColumns: SubsetCFTable[][];
   cfSubsets: SubsetTableGroup[];
+  drawYAxis: boolean;
 }
 
 export default class CFTableView extends React.Component<
@@ -168,7 +170,7 @@ export default class CFTableView extends React.Component<
   public static defaultProps = {
     cfHeight: 6,
     rowHeight: 20,
-    pixel: 1
+    pixel: 4
   };
 
   private loadedCFs: (CFResponse | undefined)[] = [];
@@ -193,6 +195,7 @@ export default class CFTableView extends React.Component<
     // this.registerTableRef = this.registerTableRef.bind(this);
     this.loadCF = this.loadCF.bind(this);
     this.onSwitchCF = this.onSwitchCF.bind(this);
+    this.onSwichAxis = this.onSwichAxis.bind(this);
     this.getCFs = this.getCFs.bind(this);
     this.initTable = this.initTable.bind(this);
     this.initTableGroup = this.initTableGroup.bind(this);
@@ -219,6 +222,7 @@ export default class CFTableView extends React.Component<
       hovered: null,
       showCF: false,
       groupByColumn: 1,
+      drawYAxis: false,
       // allColumns: cfSubsets.map(subset => subset.reorderedDataFrame.columns.map((d, i) => 
       //   this.initColumns(subset.reorderedDataFrame, subset.cfFrames[i])))
       // allColumns: cfSubsets.map(
@@ -396,7 +400,7 @@ export default class CFTableView extends React.Component<
           headerRowHeight={headerRowHeight}
           subsetCellRenderer={allColumns.map((d, i) => this.renderSubsetCell.bind(this, i))}
           subsetRowCount={1}
-          subsetRowHeight={headerChartHeight}
+          subsetRowHeight={subsetChartHeight}
           onUpdateSubset={this.updateSubset}
           onCopySubset={this.copySubset}
           onDeleteSubset={this.deleteSubset}
@@ -423,6 +427,9 @@ export default class CFTableView extends React.Component<
           checkedChildren="CF"
           unCheckedChildren="F"
           onChange={this.onSwitchCF}
+        />
+        Axis: <Switch
+          onChange={this.onSwichAxis}
         />
       </div>
     );
@@ -538,10 +545,11 @@ export default class CFTableView extends React.Component<
   onExpandRow(row: number) {
     const { rows, dataFrame } = this.state;
     const newRows = expandRows(rows, row, row + 1, [dataFrame.index[row]]);
+    console.log(row);
     console.debug("Expand row", row, dataFrame.index[row], newRows);
-    this.loadCF(dataFrame.index[row]).then(() =>
-      this.setState({ rows: newRows })
-    );
+    // this.loadCF(dataFrame.index[row]).then(() =>
+    this.setState({ rows: newRows })
+    // );
   }
 
   onCollapseRow(row: number) {
@@ -593,7 +601,7 @@ export default class CFTableView extends React.Component<
         groupByColumn={columns[groupByColumn]}
         width={width}
         height={headerChartHeight}
-        margin={columnMargin}
+        margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
         histogramType="stacked"
         protoColumn={this.basicColumns[columnIndex]}
         onUpdateFilter={(extent?: [number, number], categories?: string[]) => {
@@ -616,16 +624,16 @@ export default class CFTableView extends React.Component<
 
     console.debug("render subset cell");
     if (columnIndex === 1) {
-      return <LabelColumn 
-            className={`subset-chart`}
-            predColumn={columns[1] as CFCategoricalColumn}
-            targetColumn={columns[0] as CFCategoricalColumn}
-            // column={columns[columnIndex]}
-            // protoColumnGroupBy={this.basicColumns[groupByColumn]}
-            width={width}
-            height={headerChartHeight}
-            margin={columnMargin}
-            histogramType='stacked'
+      return <LabelColumn
+        className={`subset-chart`}
+        predColumn={columns[1] as CFCategoricalColumn}
+        targetColumn={columns[0] as CFCategoricalColumn}
+        // column={columns[columnIndex]}
+        // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+        width={width}
+        height={subsetChartHeight}
+        margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
+        histogramType='stacked'
       />
     }
     else {
@@ -638,8 +646,8 @@ export default class CFTableView extends React.Component<
           groupByColumn={columns[groupByColumn]}
           // protoColumnGroupBy={this.basicColumns[groupByColumn]}
           width={width}
-          height={headerChartHeight}
-          margin={columnMargin}
+          height={subsetChartHeight}
+          margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
           k={`subset-${groupIndex}-${columnIndex}`}
           onUpdateFilter={(extent?: [number, number]) => tableGroup.updateFilter(columnIndex, extent)}
           histogramType='stacked'
@@ -647,6 +655,7 @@ export default class CFTableView extends React.Component<
           expandable={true}
           drawLineChart={true}
           drawHandle={true}
+          drawAxis={this.state.drawYAxis}
         />
       }
       else {
@@ -660,11 +669,12 @@ export default class CFTableView extends React.Component<
             onUpdateFilter={(categories?: string[]) => tableGroup.updateFilter(columnIndex, undefined, categories)}
             // protoColumnGroupBy={this.basicColumns[groupByColumn]}
             width={width}
-            height={headerChartHeight}
-            margin={columnMargin}
+            height={subsetChartHeight}
+            margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
             k={`subset-${groupIndex}-${columnIndex}`}
             histogramType='stacked'
             drawHandle={true}
+            drawAxis={this.state.drawYAxis}
           />
         );
       }
@@ -713,7 +723,7 @@ export default class CFTableView extends React.Component<
           }
           width={width}
           height={this.rowHeight({ index: rowIndex })}
-          margin={columnMargin}
+          margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
         // style={{marginTop: 2, position: 'relative'}}
         />
       </div>
@@ -746,6 +756,8 @@ export default class CFTableView extends React.Component<
             width={width}
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
+            // onHoverRow={idx => idx && this.onExpandRow(idx)}
+            // onClickRow={idx => idx && this.onExpandRow(idx)}
           />
         </Spin>
       );
@@ -800,6 +812,11 @@ export default class CFTableView extends React.Component<
   onSwitchCF(showCF: boolean) {
     this.setState({ showCF });
     // this.loaderRef?.resetLoadMoreRowsCache(true);
+    this.tableRef?.recomputeGridSize();
+  }
+
+  onSwichAxis(drawYAxis: boolean) {
+    this.setState({ drawYAxis });
     this.tableRef?.recomputeGridSize();
   }
 

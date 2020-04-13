@@ -85,7 +85,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     }
 
     paint() {
-        const { width, height, margin, histogramType, column, k: key, drawHandle } = this.props;
+        const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis } = this.props;
         const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
         const barChartHeight = (height - rangeNotation - lineChart - marginBottom) / 2;
         const node = this.svgRef.current;
@@ -107,7 +107,8 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                         // onSelectCategories: 
                         xScale: this.getXScale(),
                         renderShades: true,
-                        onSelectCategories: this.onSelectCategories
+                        onSelectCategories: this.onSelectCategories,
+                        drawAxis: drawAxis
                     });
 
             }

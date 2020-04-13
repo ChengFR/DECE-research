@@ -59,6 +59,20 @@
         fill: #aaa;
         pointer-events: none;
     }
+    path.link {
+        // stroke: black;
+        fill: none;
+    }
+    circle.hint-outer {
+        fill: none;
+        stroke: red;
+        opacity: 0.8;
+        stroke-width: 1px;
+    }
+    circle.hint-inner {
+        fill: red;
+        opacity: 0.8;
+    }
 }
 
 .label-chart {
