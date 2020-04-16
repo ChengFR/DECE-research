@@ -124,7 +124,6 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         }
 
         this.sankeyBins = this.getSankeyBins();
-        console.log(column.name, this.sankeyBins);
     }
 
     paint() {

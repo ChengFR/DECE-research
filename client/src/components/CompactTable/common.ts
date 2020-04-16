@@ -119,6 +119,10 @@ export class SubsetTableGroup {
     return this._stashedFilters;
   }
 
+  public get filters () {
+    return this._filters;
+  }
+
   public copy() {
     const columnMat: CFTableColumn[][] = this._tables.map(table => table.copy().columns);
     const filters: Filter[] = this._filters.map(f => ({...f}));

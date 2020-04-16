@@ -9,7 +9,7 @@ import {
   IndexRange,
   InfiniteLoaderChildProps
 } from "react-virtualized";
-import { CFResponse, SubsetCFResponse, Filter } from "api";
+import { CFResponse, SubsetCFResponse, Filter, getSubsetCF } from "api";
 import { Dataset, DataMeta, DataFrame, IColumn, buildCFSeries, CFSubset } from "data";
 import Panel from "components/Panel";
 import Table, { CellProps, columnMargin } from "components/Table";
@@ -204,6 +204,10 @@ export default class CFTableView extends React.Component<
     this.copySubset = this.copySubset.bind(this);
     this.deleteSubset = this.deleteSubset.bind(this);
 
+    this._loadSubsetCache = this._loadSubsetCache.bind(this);
+    this._cacheSubsets = this._cacheSubsets.bind(this);
+    this.getSubsetFromFilters = this.getSubsetFromFilters.bind(this);
+
     const dataFrame = props.dataset.reorderedDataFrame;
     const dataMeta = props.dataset.dataMeta;
     const cfs = this.props.cfs && this.getCFs(this.props.cfs, this.props.dataset.dataMeta, dataFrame);
@@ -234,13 +238,14 @@ export default class CFTableView extends React.Component<
       )
 
     };
-
+    
     // localStorage.setItem("cfSubsets", JSON.stringify(this.state.cfSubsets));
   }
 
-  // componentDidMount(){
-  //   localStorage.setItem("cfSubsets", JSON.stringify(this.state.cfSubsets));
-  // }
+  componentDidMount(){
+    this._loadSubsetCache();
+    
+  }
 
   public initColumn(column: IColumn, cf?: Series, prototypeColumn?: CFTableColumn): CFTableColumn {
     const c: CFTableColumn = prototypeColumn ? createColumn(prototypeColumn) : createColumn(column);
@@ -354,6 +359,7 @@ export default class CFTableView extends React.Component<
       );
       this.setState(newState);
     }
+    this._cacheSubsets();
   }
 
   public render() {
@@ -367,7 +373,6 @@ export default class CFTableView extends React.Component<
     //   Number(Boolean(dataset?.dataMeta.target));
     const columns = _.range(1, this.state.columns.length).map(d => this.state.columns[d]);
     const fixedColumns = 1;
-    console.log(columns);
     console.debug(columns);
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={600}>
@@ -756,8 +761,8 @@ export default class CFTableView extends React.Component<
             width={width}
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
-            // onHoverRow={idx => idx && this.onExpandRow(idx)}
-            // onClickRow={idx => idx && this.onExpandRow(idx)}
+          // onHoverRow={idx => idx && this.onExpandRow(idx)}
+          // onClickRow={idx => idx && this.onExpandRow(idx)}
           />
         </Spin>
       );
@@ -860,15 +865,20 @@ export default class CFTableView extends React.Component<
     const { getSubsetCF, dataset, CFMeta } = this.props;
     const filters = cfSubsets[index].stashedFilters;
     const prevColumns = cfSubsets[index].keyColumns;
-    const cfResponse = await getSubsetCF({ filters });
-    const newSubset = new CFSubset({ dataset, filters, cfData: cfResponse.counterfactuals, cfMeta: CFMeta })
-    console.debug("subset constructed");
-    const subsetColMat = newSubset.reorderedSubsetColMat();
-    const newTable = this.initTableGroup(newSubset.reorderedDataFrame, newSubset.dataMeta, false, newSubset.reorderedSubsetColMat(), newSubset.reorderedFilters(), prevColumns);
-    console.debug("table constructed");
+    const newTable = await this.getSubsetFromFilters(filters, prevColumns);
     cfSubsets.splice(index, 1, newTable);
 
     this.setState({ cfSubsets });
+  }
+
+  public async getSubsetFromFilters(filters: Filter[], prevColumns?: CFTableColumn[]) {
+    const { getSubsetCF, dataset, CFMeta } = this.props;
+    const cfResponse = await getSubsetCF({ filters });
+    const newSubset = new CFSubset({ dataset, filters, cfData: cfResponse.counterfactuals, cfMeta: CFMeta })
+    console.debug("subset constructed");
+    const newTable = this.initTableGroup(newSubset.reorderedDataFrame, newSubset.dataMeta, false, newSubset.reorderedSubsetColMat(), newSubset.reorderedFilters(), prevColumns);
+    console.debug("table constructed");
+    return newTable;
   }
 
   public copySubset(index: number) {
@@ -879,7 +889,28 @@ export default class CFTableView extends React.Component<
   }
 
   public deleteSubset(index: number) {
+    const { cfSubsets } = this.state;
+    cfSubsets.splice(index, 1);
+    this.setState({ cfSubsets });
+  }
 
+  private _cacheSubsets() {
+    const { cfSubsets } = this.state;
+    const filters = cfSubsets.map(subset => subset.filters);
+    localStorage.setItem("cfSubsets", JSON.stringify(filters));
+  }
+
+  async _loadSubsetCache() {
+    const cacheString = localStorage.getItem("cfSubsets");
+    const filterMat: Filter[][] = cacheString ? JSON.parse(cacheString) : [];
+    let cfSubsets: SubsetTableGroup[] = [];
+    for (let filters of filterMat) {
+      const newTable = await this.getSubsetFromFilters(filters);
+      cfSubsets.push(newTable);
+    }
+
+    console.log(cfSubsets);
+    this.setState({ cfSubsets })
   }
 }
 
