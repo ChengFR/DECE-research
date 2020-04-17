@@ -238,10 +238,6 @@ export default class DataFrame implements IDataFrame {
           filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i)!)));
       }
     })
-    console.log(filters, filteredLocs);
-    console.log(this.columns.map(c => {
-      return [c.series.at(106), c.series.at(107)];
-    }))
     return this.filterByLoc(filteredLocs);
   }
 

@@ -24,6 +24,7 @@ export interface SubsetChartProps {
     protoColumn?: CFTableColumn;
     groupByColumn?: Readonly<CFTableColumn>;
     drawAxis?: boolean;
+    selected: boolean;
 }
 
 export interface ISubsetCFHistProps extends SubsetChartProps {
@@ -295,9 +296,9 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     getTicks() {
-        const { protoColumn, column, width } = this.props;
+        const { protoColumn, column, width, histogramType } = this.props;
         const dmcData = protoColumn ? protoColumn.series.toArray() : this.originData;
-        const [min, max] = getNBinsRange(width, 7, 9);
+        const [min, max] = histogramType === 'side-by-side'? getNBinsRange(width, 10, 16): getNBinsRange(width, 7, 9);
         const tickNum = Math.min(max, Math.max(min, d3.thresholdSturges(_.flatten(dmcData))))
         const ticks = this.getXScale().ticks(tickNum);
         return ticks;
@@ -380,19 +381,23 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     drawSankey(root: SVGGElement) {
-        const {width, margin} = this.props;
+        const {width, margin, histogramType} = this.props;
         const {drawSankey} = this.state;
         const _root = d3.select(root);
         const x = this.getXScale();
         const countMax = d3.max(_.flatten(_.flatten(this.sankeyBins)).map(d => d.count));
-        const binWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 1;
+        const groupBinWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 1;
+        
         if (this.sankeyBins && drawSankey) {
+            const binWidth = histogramType === 'side-by-side' ? groupBinWidth / this.sankeyBins.length : groupBinWidth;
+            console.log(binWidth);
+
             _root.selectAll("g.place-holder").remove()
             const linkCatGroup = _root.selectAll("g.link-cat-group")
                 .data(this.sankeyBins)
                 .join(enter => enter.append("g")
                     .attr("class", "link-cat-group"))
-                // .attr("transform", (d, i) => `translate(${i*3}, 0)`)
+                .attr("transform", (d, i) => histogramType === 'side-by-side' ? `translate(${i*binWidth}, 0)`: `translate(0, 0)`)
                 .style("stroke", (d, i) => defaultCategoricalColor(i));
 
             const linkGroup = linkCatGroup.selectAll("g.link-group")
@@ -405,8 +410,8 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                     .attr("class", "link"))
                 // .attr("d", d => `M${(x(d.x00)+x(d.x01))/2},0 L${(x(d.x10)+x(d.x11))/2}, 20`)
                 .attr("d", d => {
-                    const x0 = (x(d.x00)+x(d.x01))/2;
-                    const x1 = (x(d.x10)+x(d.x11))/2;
+                    const x0 = x(d.x00)+binWidth/2;
+                    const x1 = x(d.x10)+binWidth/2;
                     const y0 = 0;
                     const y1 = 20;
                     return `M${x0},0 C${x0},${10} ${x1},${10} ${x1},20`;
@@ -417,7 +422,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 // .style("opacity", d => d.topTotalCounts ? d.count / d.topTotalCounts : 1)
                 // .style("stroke-width", d => countMax ? d.count / countMax * 3 : 1);
                 .style("opacity", d => countMax ? d.count / countMax : 1)
-                .style("stroke-width", d => d.topTotalCounts ? d.count / d.topTotalCounts * 3 : 1)
+                .style("stroke-width", d => d.topTotalCounts ? d.count / d.topTotalCounts * binWidth : 1)
                 // .style("stroke-width", d => 1)
                 .style("fill", "none");
             const base = getChildOrAppend(_root, "rect", "link-base")
@@ -449,18 +454,15 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     public render() {
-        const { column, className, style, width, height, margin, onSelect, expandable } = this.props;
-        const { selectedRange: hoveredBin } = this.state;
-
-        const precision = decile2precision(Math.max.apply(null, column.series.toArray()), column.precision)
+        const { column, className, style, width, height, margin, onSelect, expandable, selected } = this.props;
 
         return <div className={className} style={{ width, ...style }}>
-            <div className={(className || "") + " histogram"} style={style}>
+            <div className={(className || "") + " histogram" + (selected?" selected-column":"")} style={style}>
                 <svg style={{ height: height, width: width }} ref={this.svgRef}>
                 </svg>
             </div>
-            {/* {expandable &&
-                <Icon type="zoom-in" className='zoom-button' onClick={onSelect} />} */}
+            {expandable &&
+                <Icon type="zoom-in" className='zoom-button' onClick={onSelect} />}
         </div>
 
     }

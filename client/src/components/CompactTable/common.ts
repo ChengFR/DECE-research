@@ -24,23 +24,23 @@ export class SubsetCFTable {
     this._keyFeatureIndex = keyFeatureIndex;
     this._dataMeta = dataMeta;
     // this._filters = filters;
-    if (filters){
+    if (filters) {
       assert(columns.length === filters.length);
       _.range(columns.length).forEach((d, i) => {
         const column = this._columns[i]
         if (isNumericalCFColumn(column)) {
           const filter = filters[i];
           if (filter)
-            column.dataRange = filter.extent?filter.extent:column.extent;
-          else 
+            column.dataRange = filter.extent ? filter.extent : column.extent;
+          else
             column.dataRange = column.extent;
           column.newDataRange = column.dataRange;
         }
         else {
           const filter = filters[i];
           if (filter)
-            column.dataRange = filter.categories?[...filter.categories]:[...column.categories];
-          else 
+            column.dataRange = filter.categories ? [...filter.categories] : [...column.categories];
+          else
             column.dataRange = [...column.categories];
           column.newDataRange = column.dataRange;
         }
@@ -51,7 +51,7 @@ export class SubsetCFTable {
   private _validData() {
     const predCol = this._columns.find(col => this._dataMeta.prediction && col.name === this._dataMeta.prediction.name);
     if (predCol === undefined) throw Error("No prediction column");
-    const validMask: boolean[] = _.range(predCol.series.length).map((d, i) => predCol.cf ? predCol.series.at(i) !== predCol.cf.at(i): false);
+    const validMask: boolean[] = _.range(predCol.series.length).map((d, i) => predCol.cf ? predCol.series.at(i) !== predCol.cf.at(i) : false);
   }
 
   public get columns() {
@@ -67,7 +67,7 @@ export class SubsetCFTable {
   }
 
   public copy() {
-    const columns: CFTableColumn[] = this._columns.map(col => ({...col}));
+    const columns: CFTableColumn[] = this._columns.map(col => ({ ...col }));
     return new SubsetCFTable(columns, this._keyFeatureIndex, this._dataMeta);
   }
 }
@@ -87,7 +87,7 @@ export class SubsetTableGroup {
         const disc = dataMeta.getColumnDisc(columnMat[0][i].name);
         if (disc)
           return disc
-        else 
+        else
           throw Error(`cannot find discription of: ${columnMat[0][i].name}`)
       }
     })
@@ -96,7 +96,7 @@ export class SubsetTableGroup {
     this._tables = columnMat.map((cols, i) => {
       return new SubsetCFTable(cols, i, dataMeta, this._filters)
     })
-    this._dataMeta=dataMeta;
+    this._dataMeta = dataMeta;
   }
 
   public get tables() {
@@ -115,17 +115,17 @@ export class SubsetTableGroup {
     // console.debug(idx, extent, categories);
   }
 
-  public get stashedFilters () {
+  public get stashedFilters() {
     return this._stashedFilters;
   }
 
-  public get filters () {
+  public get filters() {
     return this._filters;
   }
 
   public copy() {
     const columnMat: CFTableColumn[][] = this._tables.map(table => table.copy().columns);
-    const filters: Filter[] = this._filters.map(f => ({...f}));
+    const filters: Filter[] = this._filters.map(f => ({ ...f }));
     return new SubsetTableGroup(columnMat, this._dataMeta, filters, this._deletable);
   }
 }
@@ -170,9 +170,10 @@ export function filterByColumnStates(
       `The ${c}th column "${column.name}" does not match the ${c}th column "${dfColumn.name}" in the dataFrame!`
     );
     console.log()
-    if (!isColumnNumerical(dfColumn)) {
-      assert(!isNumericalVColumn(column), "column type mismatch");
-      const { filter, cfFilter, allCF, prevSeries } = column;
+
+    if (!isNumericalCFColumn(column)) {
+      assert(!isColumnNumerical(dfColumn), "column type mismatch");
+      const { filter, cfFilter, allCF, cf, prevSeries, series } = column;
       if (filter) {
         const at = dfColumn.series.at;
         const kept = new Set(filter as string[]);
@@ -184,9 +185,10 @@ export function filterByColumnStates(
         const kept = new Set(cfFilter as string[]);
         filteredLocs = filteredLocs.filter(i => allCF.at(i) !== undefined && kept.has(allCF.at(i)! as string));
       }
+
     } else {
-      assert(isNumericalVColumn(column), "column type mismatch");
-      const { filter, cfFilter, allCF, prevSeries } = column;
+      assert(isNumericalCFColumn(column), "column type mismatch");
+      const { filter, cfFilter, allCF, cf, prevSeries, series } = column;
       if (filter) {
         const at = dfColumn.series.at;
         filteredLocs = filteredLocs.filter(
@@ -204,9 +206,38 @@ export function filterByColumnStates(
         );
       }
     }
+    columns.forEach((column, c) => {
+
+      if (!isNumericalCFColumn(column)) {
+        const { filter, cfFilter, allCF, cf, prevSeries, series } = column;
+        const prevArray = prevSeries ? prevSeries.toArray() : series.toArray();
+        const prevCfArray = allCF?.toArray() || cf?.toArray();
+        const newArray = prevArray.filter((d, i) => filteredLocs.includes(i));
+        column.series = new Series(newArray.length, i => newArray[i]);
+        if (prevCfArray) {
+          const newCfArray = prevCfArray.filter((d, i) => filteredLocs.includes(i));
+          column.cf = new Series(prevCfArray.length, i => newCfArray[i])
+        }
+      }
+      else {
+        const { filter, cfFilter, allCF, cf, prevSeries, series } = column;
+        const prevArray = prevSeries ? prevSeries.toArray() : series.toArray();
+        const prevCfArray = allCF?.toArray() || cf?.toArray();
+        const newArray = prevArray.filter((d, i) => filteredLocs.includes(i));
+        column.series = new Series(newArray.length, i => newArray[i]);
+        if (prevCfArray) {
+          const newCfArray = prevCfArray.filter((d, i) => filteredLocs.includes(i));
+          column.cf = new Series(prevCfArray.length, i => newCfArray[i])
+        }
+      }
+    })
+
+    // const prevSeries = (column.series.toArray()).filter((d, i) => filteredLocs.includes(i))
   });
 
-  return dataFrame.filterByLoc(filteredLocs);
+
+  // return dataFrame.filterByLoc(filteredLocs);
+  return DataFrame.fromColumns(columns);
 }
 
 export function isArrays<T>(a: T[] | T[][]): a is T[][] {

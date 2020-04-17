@@ -42,9 +42,9 @@ export type TableColumn = CategoricalColumn | NumericalColumn;
 
 export const columnMargin = {
   left: 8,
-  right: 8,
-  top: 1,
-  bottom: 1,
+  right: 30,
+  top: 0,
+  bottom: 0,
 };
 
 export function isNumericalVColumn(

@@ -817,10 +817,10 @@ export class HistogramLayout {
     this._margin = getMargin(margin);
     this._direction = direction?direction:'up';
     this._innerPadding = innerPadding ? innerPadding : 1;
-    this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 1);
+    this._groupInnerPadding = groupInnerPadding ? groupInnerPadding : (this._data.length === 1 ? 0 : 0);
 
     this._xScale = this.getXScale(xScale);
-    const [min, max] = getNBinsRange(width, 7, 9);
+    const [min, max] = mode === 'side-by-side'? getNBinsRange(width, 10, 16): getNBinsRange(width, 7, 9);
     const tickNum = Math.min(max, Math.max(min, d3.thresholdSturges(_.flatten(this._dmcData))))
     this._ticks = ticks ? ticks : this.x.ticks(tickNum);
     this._yScale = this.getYScales(yScale);

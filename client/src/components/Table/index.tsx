@@ -153,7 +153,7 @@ export default class Table extends React.PureComponent<
 
     const subsetHeight = typeof subsetRowHeight === "number" ? subsetRowHeight : sum(
       _.range(subsetRowCount).map(r => subsetRowHeight({ index: r }))
-    );
+    ) * subsetCellRenderer.length;
 
     return (
       <div
@@ -202,7 +202,7 @@ export default class Table extends React.PureComponent<
                 rowCount={rowCount}
                 columns={columns}
                 rowHeight={rowHeight}
-                height={height - headerHeight * subsetCellRenderer.length -headerHeight}
+                height={height - subsetHeight - headerHeight}
                 width={width}
                 cellRenderer={this.cellRenderer}
                 fixedColumns={fixedColumns}
