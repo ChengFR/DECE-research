@@ -73,6 +73,10 @@
         fill: red;
         opacity: 0.8;
     }
+    div.selected-column {
+        border-color: red;
+        border-style: solid;
+    }
 }
 
 .label-chart {

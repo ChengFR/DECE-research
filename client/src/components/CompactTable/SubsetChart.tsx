@@ -31,6 +31,7 @@ export interface ISubsetChartProps {
   k: string;
   expandable?: boolean;
   drawLineChart?: boolean;
+  selected: boolean;
 }
 
 export interface IGroupChartState {
