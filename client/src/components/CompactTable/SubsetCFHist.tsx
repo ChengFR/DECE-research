@@ -11,6 +11,7 @@ import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, 
 import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { randomLogNormal, line } from 'd3';
+import { threadId } from 'worker_threads';
 
 export interface SubsetChartProps {
     width: number;
@@ -32,6 +33,7 @@ export interface ISubsetCFHistProps extends SubsetChartProps {
     protoColumn?: CFNumericalColumn;
 
     onUpdateFilter?: (extent?: [number, number], categories?: string[]) => void;
+    onUpdateCFFilter?: (extent?: [number, number]) => void;
     histogramType: 'side-by-side' | 'stacked';
     onSelect?: () => void;
     expandable: boolean;
@@ -42,6 +44,7 @@ export interface ISubsetCFHistProps extends SubsetChartProps {
 
 export interface ISubsetCFHistState {
     selectedRange?: [number, number];
+    selectedCFRange?: [number, number];
     drawSankey: boolean;
 }
 
@@ -81,6 +84,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
         this.onHoverRange = this.onHoverRange.bind(this);
         this.onSelectRange = this.onSelectRange.bind(this);
+        this.onSelectCFRange = this.onSelectCFRange.bind(this);
         this.paint = this.paint.bind(this);
         this.drawLineChart = this.drawLineChart.bind(this);
         this.drawHandle = this.drawHandle.bind(this);
@@ -97,6 +101,10 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     componentDidUpdate(prevProps: ISubsetCFHistProps) {
         this.updateParams(this.props);
 
+        // if (this.props.column !== prevProps.column) {
+        //     this.setState({selectedRange: undefined, selectedCFRange: undefined});
+        // }
+
         this.shouldPaint = true;
         const delayedPaint = () => {
             if (this.shouldPaint) this.paint();
@@ -112,7 +120,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         // const protoGroupArgs = protoColumnGroupBy && protoColumn && getAllRowLabels(protoColumnGroupBy);
 
         const validFilter = column.valid && ((idx: number) => column.valid![idx]);
-
+        // console.log(column.valid);
         if (groupArgs) {
             this.originData = column.series.groupBy(groupArgs[0], groupArgs[1], validFilter);
             this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
@@ -123,22 +131,26 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             this.originData = column.series.toArray();
             this.cfData = column.cf && column.cf.toArray();
         }
+        if (!this.dataEmpty())
+            this.sankeyBins = this.getSankeyBins();
+    }
 
-        this.sankeyBins = this.getSankeyBins();
+    dataEmpty() {
+        return _.flatten(this.originData).length === 0;
     }
 
     paint() {
         const { width, height, margin, histogramType, column, k: key, drawLineChart, drawHandle, drawAxis } = this.props;
         const { drawSankey } = this.state
         const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
-        const histHeight = (height - rangeNotation - lineChart - marginBottom - (drawSankey?20:3)) / 2;
+        const histHeight = (height - rangeNotation - lineChart - marginBottom - (drawSankey ? 20 : 3)) / 2;
         const node = this.svgRef.current;
         if (node) {
             const root = d3.select(node);
             const originHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "origin-hist-base")
                 .attr("transform", `translate(0, ${rangeNotation})`);;
             const originHistNode = originHistBase.node();
-            if (originHistNode && this.originData) {
+            if (originHistNode && this.originData && !this.dataEmpty()) {
                 drawGroupedHistogram(originHistNode,
                     this.originData,
                     undefined,
@@ -162,21 +174,21 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
             }
             else {
-                throw Error("data empty");
+                
             }
             if (drawHandle)
                 this.drawHandle(node);
-                
+
             const sankeyBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-sankey-base")
                 .attr("transform", `translate(${margin.left}, ${histHeight + rangeNotation + margin.top})`);
             const sankeyNode = sankeyBase.node();
-            if (sankeyNode)
+            if (sankeyNode && !this.dataEmpty())
                 this.drawSankey(sankeyNode);
 
             const cfHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-hist-base")
-                .attr("transform", `translate(0, ${histHeight + rangeNotation + (drawSankey?20:3)})`);
+                .attr("transform", `translate(0, ${histHeight + rangeNotation + (drawSankey ? 20 : 3)})`);
             const cfHistNode = cfHistBase.node();
-            if (cfHistNode && this.cfData)
+            if (cfHistNode && this.cfData && !this.dataEmpty())
                 drawGroupedHistogram(cfHistNode,
                     this.cfData,
                     undefined,
@@ -189,14 +201,19 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         direction: 'down',
                         color: i => defaultCategoricalColor(i ^ 1),
                         key: `${column.name}-cf`,
-                        xScale: this.getXScale()
+                        xScale: this.getXScale(),
+                        snapping: true,
+                        onSelectRange: this.onSelectCFRange,
+                        rangeSelector: this.props.onUpdateCFFilter ? "as-a-whole" : undefined,
+                        selectedRange: this.state.selectedCFRange,
                     });
-
-            const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
-                .attr("transform", `translate(${margin.left}, ${histHeight * 2 + rangeNotation + (drawSankey?20:3)})`);
-            const lineChartNode = lineChartBase.node()
-            if (drawLineChart && lineChartNode) {
-                this.drawLineChart(lineChartNode);
+            if (!this.dataEmpty()) {
+                const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+                    .attr("transform", `translate(${margin.left}, ${histHeight * 2 + rangeNotation + (drawSankey ? 20 : 3)})`);
+                const lineChartNode = lineChartBase.node()
+                if (drawLineChart && lineChartNode) {
+                    this.drawLineChart(lineChartNode);
+                }
             }
             // const hint = getChildOrAppend(root, "g", "hint")
             //     .attr("transform", `translate(${width - 5}, ${margin.top + 5})`);
@@ -204,7 +221,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             //     .attr("r", 5)
             // const c = getChildOrAppend(hint, "circle", "hint-inner")
             //     .attr("r", );
-                
+
 
         }
 
@@ -298,7 +315,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     getTicks() {
         const { protoColumn, column, width, histogramType } = this.props;
         const dmcData = protoColumn ? protoColumn.series.toArray() : this.originData;
-        const [min, max] = histogramType === 'side-by-side'? getNBinsRange(width, 10, 16): getNBinsRange(width, 7, 9);
+        const [min, max] = histogramType === 'side-by-side' ? getNBinsRange(width, 10, 16) : getNBinsRange(width, 7, 9);
         const tickNum = Math.min(max, Math.max(min, d3.thresholdSturges(_.flatten(dmcData))))
         const ticks = this.getXScale().ticks(tickNum);
         return ticks;
@@ -381,13 +398,13 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     drawSankey(root: SVGGElement) {
-        const {width, margin, histogramType} = this.props;
-        const {drawSankey} = this.state;
+        const { width, margin, histogramType } = this.props;
+        const { drawSankey } = this.state;
         const _root = d3.select(root);
         const x = this.getXScale();
         const countMax = d3.max(_.flatten(_.flatten(this.sankeyBins)).map(d => d.count));
         const groupBinWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 1;
-        
+
         if (this.sankeyBins && drawSankey) {
             const binWidth = histogramType === 'side-by-side' ? groupBinWidth / this.sankeyBins.length : groupBinWidth;
             console.log(binWidth);
@@ -397,7 +414,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 .data(this.sankeyBins)
                 .join(enter => enter.append("g")
                     .attr("class", "link-cat-group"))
-                .attr("transform", (d, i) => histogramType === 'side-by-side' ? `translate(${i*binWidth}, 0)`: `translate(0, 0)`)
+                .attr("transform", (d, i) => histogramType === 'side-by-side' ? `translate(${i * binWidth}, 0)` : `translate(0, 0)`)
                 .style("stroke", (d, i) => defaultCategoricalColor(i));
 
             const linkGroup = linkCatGroup.selectAll("g.link-group")
@@ -410,8 +427,8 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                     .attr("class", "link"))
                 // .attr("d", d => `M${(x(d.x00)+x(d.x01))/2},0 L${(x(d.x10)+x(d.x11))/2}, 20`)
                 .attr("d", d => {
-                    const x0 = x(d.x00)+binWidth/2;
-                    const x1 = x(d.x10)+binWidth/2;
+                    const x0 = x(d.x00) + binWidth / 2;
+                    const x1 = x(d.x10) + binWidth / 2;
                     const y0 = 0;
                     const y1 = 20;
                     return `M${x0},0 C${x0},${10} ${x1},${10} ${x1},20`;
@@ -442,23 +459,23 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 .on("mouseover", (d, i, g) => {
                     const me = d3.select(g[i]);
                     me.style("fill", "black")
-                    .style("opacity", 0.1);
+                        .style("opacity", 0.1);
                 })
                 .on("mousemove", (d, i, g) => {
                     const me = d3.select(g[i]);
                     me.style("fill", "black")
-                    .style("opacity", 0);
+                        .style("opacity", 0);
                 });
         }
-        
+
     }
 
     public render() {
         const { column, className, style, width, height, margin, onSelect, expandable, selected } = this.props;
 
         return <div className={className} style={{ width, ...style }}>
-            <div className={(className || "") + " histogram" + (selected?" selected-column":"")} style={style}>
-                <svg style={{ height: height, width: width }} ref={this.svgRef}>
+            <div className={(className || "") + " histogram" + (selected ? " selected-column" : "")} style={style}>
+                <svg style={{ height: height - 5, width: width }} ref={this.svgRef}>
                 </svg>
             </div>
             {expandable &&
@@ -467,9 +484,9 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
     }
 
-    onSwitchLink(){
-        const {drawSankey} = this.state;
-        this.setState({drawSankey: !drawSankey});
+    onSwitchLink() {
+        const { drawSankey } = this.state;
+        this.setState({ drawSankey: !drawSankey });
     }
 
     _groupByArgs(): undefined | [number[], number[]] {
@@ -483,11 +500,19 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     };
 
     onSelectRange(hoveredBin?: [number, number]) {
-        const { onUpdateFilter, onSelect } = this.props;
+        const { onUpdateFilter } = this.props;
         const bin = this._checkBins(hoveredBin);
         onUpdateFilter && onUpdateFilter(bin);
         // onSelect && onSelect();
         this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+    };
+
+    onSelectCFRange(hoveredBin?: [number, number]) {
+        const { onUpdateCFFilter } = this.props;
+        const bin = this._checkBins(hoveredBin);
+        onUpdateCFFilter && onUpdateCFFilter(bin);
+        // onSelect && onSelect();
+        this.setState({ selectedCFRange: bin && [bin[0], bin[1]] });
     };
 
     private _checkPrecision(num: number): number {
@@ -556,10 +581,10 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         if (x[0] > column.extent[0]) {
             x.splice(0, 0, column.extent[0]);
         }
-        if (x[1] < column.extent[1]){
+        if (x[1] < column.extent[1]) {
             x.push(column.extent[1]);
         }
-        const bins = _.range(x.length-1);
+        const bins = _.range(x.length - 1);
     }
 
 }

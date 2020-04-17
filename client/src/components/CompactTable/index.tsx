@@ -624,6 +624,10 @@ export default class CFTableView extends React.Component<
             // extent && column.onFilter(extent)
             column.onFilter && column.onFilter(extent);
           }}
+          onUpdateCFFilter={(extent?: [number, number]) => {
+            // extent && column.onFilter(extent)
+            column.onFilterCF && column.onFilterCF(extent);
+          }}
           histogramType='side-by-side'
           k={`subset-${columnIndex}`}
           expandable={false}

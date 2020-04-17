@@ -230,7 +230,6 @@ class CFEnginePytorch:
                 else:
                     self.cf_range[col]['category'] = info['category']
 
-        print(self.cf_range)
         self.normed_min = self.dataset.preprocess([info['min'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
                                                    for col, info in self.cf_range.items()], mode='x')
         for col, info in self.desc.items():
@@ -248,7 +247,6 @@ class CFEnginePytorch:
                         self.normed_max['{}_{}'.format(col, cat)] = 1
                     else:
                         self.normed_max['{}_{}'.format(col, cat)] = 0
-        print(self.normed_max)
         self.normed_max = torch.from_numpy(self.normed_max.values).float()
 
     def init_cfs(self, data, mask):
@@ -465,8 +463,8 @@ class CFEnginePytorch:
             if invalid_cfs[i]:
                 salient_feature_name = feature_names[salient_attr[i]]
                 if salient_feature_name in self.desc.keys() and self.desc[salient_feature_name]['type'] == 'numerical':
-                    max_value = self.desc[salient_feature_name]['max']
-                    min_value = self.desc[salient_feature_name]['min']
+                    max_value = self.cf_range[salient_feature_name]['max']
+                    min_value = self.cf_range[salient_feature_name]['min']
                     precision = self.desc[salient_feature_name]['decile']
                     scale = max_value - min_value
                     sign = grad_sign[i, salient_attr[i]]

@@ -32,6 +32,7 @@ export class CFSubset extends Dataset {
     private _dataset: Readonly<Dataset>;
     private _cfFrames: DataFrame[];
     private _filters: (Filter|undefined)[];
+    private _cfMeta: DataMeta;
     constructor(props: CFSubsetProps) {
       super(props.dataset.dataFrame.filterBy(props.filters), props.dataset.dataMeta);
         const { dataset, filters, cfData, cfMeta } = props;
@@ -43,6 +44,7 @@ export class CFSubset extends Dataset {
           return filter?filter:undefined
         });
         this._dataset = dataset;
+        this._cfMeta = cfMeta;
     }
 
     // public get dataFrame() {
@@ -62,7 +64,7 @@ export class CFSubset extends Dataset {
     }
 
     public getCFPrediction(index: number) {
-      return this.dataMeta.prediction && this._cfFrames[index].columns[this.dataMeta.prediction.index-1];
+      return this.dataMeta.prediction && this._cfFrames[index].columns[this.dataMeta.prediction.index];
     }
   
     public getCFFeatures(index: number) {
@@ -72,7 +74,7 @@ export class CFSubset extends Dataset {
     public reorderedSubsetColumns(index: number):(IColumn|undefined)[] | undefined {
       const order = this.order;
       const columnName = order[index];
-      const columnIndex = this.dataMeta.getFeatureDisc(columnName)?.index;
+      const columnIndex = this._cfMeta.getColumnDisc(columnName)?.index;
       if (columnIndex !== undefined && this.cfFrames[columnIndex]) {
         const df: DataFrame = this.cfFrames[columnIndex];
         const columns: (IColumn|undefined)[] = order.map(name => df.getColumnByName(name));
@@ -97,7 +99,7 @@ export class CFSubset extends Dataset {
 
 export function buildCFDataFrame(cfs: CounterFactual[], dataMeta: Readonly<DataMeta>): DataFrame {
 // a tmp implementation
-  const columns = dataMeta.features;
+  const columns = [...dataMeta.features];
   if (dataMeta.prediction) {
     columns.push(dataMeta.prediction);
   }
