@@ -144,7 +144,6 @@ def get_cf_subset():
     request_params = request.get_json()
     # print(request_params)
     raw_filters = request_params["filters"]
-    cols = current_app.dataset.get_columns(preprocess=False) + ['Score']
     features = current_app.dataset.get_feature_names(preprocess=False)
     data_meta = current_app.dir_manager.get_dataset_meta()
     disc = current_app.dataset.get_description()
@@ -173,6 +172,9 @@ def get_cf_subset():
                 setting[name] = s
     print(setting)
     index_col = 'OriginIndex'
+    data_meta = current_app.dir_manager.get_dataset_meta()
+    target_name = data_meta['target_name']
+    cols = current_app.dataset.get_feature_names(preprocess=False) + ['{}_pred'.format(target_name)]
     subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=512)
     subset_cf_data = [subset_cf.get_cf()[cols].values.tolist() for _, subset_cf in subset_cf_dict.items()]
     subset_cf_index = [subset_cf.get_cf()[index_col].values.tolist() for _, subset_cf in subset_cf_dict.items()][0]
