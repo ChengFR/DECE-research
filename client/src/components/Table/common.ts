@@ -42,7 +42,7 @@ export type TableColumn = CategoricalColumn | NumericalColumn;
 
 export const columnMargin = {
   left: 8,
-  right: 30,
+  right: 8,
   top: 0,
   bottom: 0,
 };

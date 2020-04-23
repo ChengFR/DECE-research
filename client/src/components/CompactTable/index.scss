@@ -29,6 +29,9 @@
         text-align: left;
         margin-left: 6px;
     }
+    div.header-chart {
+        margin-top: 5px;
+    }
 }
 
 .subset-chart {
@@ -77,6 +80,60 @@
         border-color: red;
         border-style: solid;
     }
+    .histogram {
+        svg {
+            margin-bottom: 0;
+            cursor: crosshair;
+            vertical-align: top;
+            rect {
+                /* fill: rgb(109, 160, 202); */
+                opacity: 0.7;
+            }
+            .base rect {
+                /* fill: rgb(109, 160, 202); */
+                fill: #aaa;
+                opacity: 0.5;
+            }
+            rect.shade {
+                fill: #aaa;
+                opacity: 0;
+                &:hover {
+                    opacity: 0.4;
+                }
+            }
+            rect.shade.show {
+                opacity: 0.4;
+            }
+            rect.selector-sheet {
+                // fill: black;
+                opacity: 0;
+            }
+            rect.selector {
+                fill: black;
+                opacity: 0.2;
+                pointer-events: none;
+            }
+            .stop-left {
+                stop-color: #3f51b5;
+                /* Indigo */
+            }
+            .stop-right {
+                stop-color: #009688;
+                /* Teal */
+            }
+            rect.color-band {
+                height: 5px;
+                // fill: url(#gini-gradient);
+            }
+        }
+        .info {
+            line-height: 18px;
+            height: 18px;
+            font-size: 12px;
+            text-align: left;
+            margin-left: 6px;
+        }
+    }
 }
 
 .label-chart {
@@ -92,4 +149,16 @@
         opacity: 0.7;
         fill: rgb(242, 142, 44);
     }
+    rect.base-bar {
+        fill-opacity: 0;
+    }
+    rect.base-bar:not(.selected) {
+        // stroke: #aaa;
+        stroke-width: 0;
+    }
+    rect.selected {
+        stroke-width: 2px;
+        // stroke: rgb(180, 91, 2);
+    }
+    text.bar-text {}
 }

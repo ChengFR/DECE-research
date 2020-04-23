@@ -23,7 +23,9 @@ export interface ILabelColumnProps {
     style?: React.CSSProperties;
     className?: string;
     histogramType: 'side-by-side' | 'stacked';
-    color?: (n: number) => string
+    color?: (n: number) => string;
+    focusedCategory?: number;
+    onFocusCategory?: (cat?: number) => void;
 }
 
 export interface ILabelColumnState {
@@ -87,12 +89,12 @@ export default class LabelColumn extends React.PureComponent<ILabelColumnProps, 
     }
 
     paintBarChart(root: SVGGElement) {
-        const { height, margin, width, predColumn, targetColumn } = this.props;
+        const { height, margin, width, predColumn, targetColumn, focusedCategory, onFocusCategory } = this.props;
         const { marginBottom, marginTop } = LabelColumn.layout;
         const color = this.props.color ? this.props.color : defaultCategoricalColor;
-        const _height = height - marginBottom - marginTop
+        const _height = height - marginBottom - marginTop - 3;
         const _root = d3.select(root);
-        const data: [string, string][][] = predColumn.categories.map(predCat => {
+        const catMat: [string, string][][] = predColumn.categories.map(predCat => {
             const bin: [string, string][] = [];
             bin.push([predCat, predCat]);
             targetColumn.categories.forEach(targetCat => {
@@ -106,7 +108,7 @@ export default class LabelColumn extends React.PureComponent<ILabelColumnProps, 
         const yMax = d3.max(predColumn.categories.map(predCat => d3.sum(targetColumn.categories.map(targetCat => this.countNum(predCat, targetCat)))));
         const y = d3.scaleLinear().domain([0, yMax!]).range([0, _height]);
         const barBases = _root.selectAll("g.bar-base")
-            .data(data)
+            .data(catMat)
             .join(enter => enter.append("g")
                 .attr("class", "bar-base")
             )
@@ -117,6 +119,7 @@ export default class LabelColumn extends React.PureComponent<ILabelColumnProps, 
             else return y(this.countNum(predCat, predCat));
             // return y(d3.sum(_.range(idx).map(i => this.countNum(predCat, targetColumn.categories[i])))) 
         };
+
         const bars = barBases.selectAll("rect.bar")
             .data(d => d)
             .join(enter => enter.append("rect")
@@ -127,16 +130,35 @@ export default class LabelColumn extends React.PureComponent<ILabelColumnProps, 
             .attr("height", (d, i) => y(this.countNum(...d)))
             .attr("width", x.bandwidth() - 1)
             .classed("false", d => d[0] !== d[1])
-            .classed("pos", d => d[0] === predColumn.categories[0])
-            .classed("neg", d => d[0] === predColumn.categories[1]);
+            .style("fill", d => color(predColumn.categories.indexOf(d[0])))
+            
+            // .classed("pos", d => d[0] === predColumn.categories[0])
+            // .classed("neg", d => d[0] === predColumn.categories[1]);
 
         _root.selectAll("text.bar-text")
-            .data(data)
+            .data(catMat)
             .join(enter => enter.append("text")
                 .attr("class", "bar-text"))
-            .attr("transform", d => `translate(${margin.left + x(d[0][0])!}, 0)`)
+            .attr("transform", d => `translate(${margin.left + x(d[0][0])!}, -3)`)
             .text(d => d3.sum(d.map(pairs => this.countNum(...pairs))))
-                // .style("fill", (d, i) => color(i));
+        // .style("fill", (d, i) => color(i));
+
+        barBases.selectAll("rect.base-bar")
+            .data(d => [d])
+            .join(enter => enter.append("rect")
+                .attr("class", "base-bar")
+            )
+            .attr("height", d => y(d3.sum(d.map(_d => this.countNum(..._d))))+3)
+            .attr("y", d => _height - y(d3.sum(d.map(_d => this.countNum(..._d)))) - 3)
+            .attr("width", x.bandwidth() - 1)
+            .on("click", d => {
+                const index = predColumn.categories.indexOf(d[0][0]);
+                onFocusCategory && (index !== focusedCategory ? onFocusCategory(index) : onFocusCategory());
+            })
+            .classed("selected", d => predColumn.categories.indexOf(d[0][0]) === focusedCategory)
+            .style("stroke", d => d[0][0] === predColumn.categories[0] ? "rgb(1, 38, 77)":"rgb(180, 91, 2)")
+            // .style("stoke-width", d => (predColumn.categories.indexOf(d[0][0]) === focusedCategory) ? 3: 0)
+            ;
 
 
     }
