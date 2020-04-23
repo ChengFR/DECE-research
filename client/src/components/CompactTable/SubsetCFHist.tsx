@@ -5,13 +5,13 @@ import memoizeOne from "memoize-one";
 
 
 import { shallowCompare, number2string, decile2precision, assert } from '../../common/utils';
-import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom } from '../visualization/common';
+import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight } from '../visualization/common';
 import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
 import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn, isNumericalCFColumn, isArrays } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
-import { randomLogNormal, line } from 'd3';
-import { threadId } from 'worker_threads';
+import { drawLink } from '../visualization/link'
+import { runInThisContext } from 'vm';
 
 export interface SubsetChartProps {
     width: number;
@@ -24,8 +24,11 @@ export interface SubsetChartProps {
     column: CFTableColumn;
     protoColumn?: CFTableColumn;
     groupByColumn?: Readonly<CFTableColumn>;
+    focusedCategory?: number;
     drawAxis?: boolean;
     selected: boolean;
+    layout?: 'header' | 'subset';
+    color?: (x: number) => string;
 }
 
 export interface ISubsetCFHistProps extends SubsetChartProps {
@@ -46,6 +49,7 @@ export interface ISubsetCFHistState {
     selectedRange?: [number, number];
     selectedCFRange?: [number, number];
     drawSankey: boolean;
+    drawTooltip: boolean;
 }
 
 export interface SankeyBins {
@@ -65,21 +69,28 @@ export interface SankeyBins {
 
 export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps, ISubsetCFHistState> {
 
-    private originData?: number[] | number[][];
-    private cfData?: number[] | number[][];
+    private originData?: number[][];
+    private cfData?: number[][];
+    private allOriginData?: number[][];
+    private allCfData?: number[][];
     private sankeyBins?: SankeyBins[][][];
     private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
     private shouldPaint: boolean;
-    static layout = {
+    static subsetLayout = {
         rangeNotation: 20,
         lineChart: 10,
+        marginBottom: 10,
+    }
+    static headerLayout = {
+        // rangeNotation: 20,
+        axisBottom: 15,
         marginBottom: 10,
     }
 
     constructor(props: ISubsetCFHistProps) {
         super(props);
         const { column } = this.props;
-        this.state = { selectedRange: column.dataRange, drawSankey: false };
+        this.state = { selectedRange: column.dataRange, drawSankey: false, drawTooltip: false };
         this.updateParams(props);
 
         this.onHoverRange = this.onHoverRange.bind(this);
@@ -91,10 +102,14 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         this.getGini = this.getGini.bind(this);
         this.getSankeyBins = this.getSankeyBins.bind(this);
         this.onSwitchLink = this.onSwitchLink.bind(this);
+        this.onHover = this.onHover.bind(this);
+        this.onMouseLeave = this.onMouseLeave.bind(this);
+
         this.shouldPaint = false;
     }
 
     componentDidMount() {
+        this.updateParams(this.props);
         this.paint();
     }
 
@@ -113,106 +128,132 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     protected updateParams(props: ISubsetCFHistProps) {
-        const { column, protoColumn, groupByColumn } = this.props;
+        const { column, protoColumn, groupByColumn, layout, focusedCategory } = this.props;
+
 
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        // const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
-        // const protoGroupArgs = protoColumnGroupBy && protoColumn && getAllRowLabels(protoColumnGroupBy);
 
-        const validFilter = column.valid && ((idx: number) => column.valid![idx]);
-        // console.log(column.valid);
-        if (groupArgs) {
-            this.originData = column.series.groupBy(groupArgs[0], groupArgs[1], validFilter);
-            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
-            // const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-            // const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.allCF.toArray());
-        }
-        else {
-            this.originData = column.series.toArray();
-            this.cfData = column.cf && column.cf.toArray();
-        }
+        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+        this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
+        this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
+
         if (!this.dataEmpty())
             this.sankeyBins = this.getSankeyBins();
+        if (layout && layout === 'header') {
+            const allValidFilter = column.valid && ((idx: number) => column.valid![idx]);
+            const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
+            this.allOriginData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.prevSeries.toArray()]);
+            this.allCfData = column.allCF && (allGroupArgs ? column.allCF.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.allCF.toArray()]);
+        }
+        else {
+            this.allOriginData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
+            this.allCfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
+        }
+
+        if (focusedCategory !== undefined) {
+            const index = focusedCategory;
+            if (index !== undefined) {
+                this.originData = this.originData && [this.originData[index]];
+                this.cfData = this.cfData && [this.cfData[index]];
+                this.allOriginData = this.allOriginData && [this.allOriginData[index]];
+                this.allCfData = this.allCfData && [this.allCfData[index]];
+            }
+            else {
+                throw Error(`focusing category invalid: ${focusedCategory}, which should be in ${groupByColumn?.categories}`)
+            }
+        }
     }
 
     dataEmpty() {
-        return _.flatten(this.originData).length === 0;
+        return this.allOriginData && _.flatten(this.allOriginData).length === 0;
     }
 
     paint() {
-        const { width, height, margin, histogramType, column, k: key, drawLineChart, drawHandle, drawAxis } = this.props;
+        const { width, height, margin, histogramType, column, k: key, drawLineChart, drawHandle, drawAxis, layout } = this.props;
         const { drawSankey } = this.state
-        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
-        const histHeight = (height - rangeNotation - lineChart - marginBottom - (drawSankey ? 20 : 3)) / 2;
+        // const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const node = this.svgRef.current;
+        const color = this.props.color || defaultCategoricalColor;
         if (node) {
             const root = d3.select(node);
             const originHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "origin-hist-base")
-                .attr("transform", `translate(0, ${rangeNotation})`);;
+                .attr("transform", `translate(0, ${this.originHistY})`);;
             const originHistNode = originHistBase.node();
             if (originHistNode && this.originData && !this.dataEmpty()) {
                 drawGroupedHistogram(originHistNode,
                     this.originData,
+                    this.allOriginData,
+                    // this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     undefined,
-                    this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     {
                         width,
                         margin,
-                        height: histHeight,
+                        height: this.histHeight,
                         mode: histogramType,
                         onHoverRange: this.onHoverRange,
                         onSelectRange: this.onSelectRange,
-                        rangeSelector: "as-a-whole",
+                        rangeSelector: layout === 'header'? 'bin-wise': "as-a-whole",
                         selectedRange: this.state.selectedRange,
                         drawBand: true,
                         bandValueFn: this.getGini,
                         key: `${key}-${column.name}-origin`,
                         xScale: this.getXScale(),
+                        ticks: this.getTicks(),
                         snapping: true,
-                        drawAxis: drawAxis
+                        drawAxis: drawAxis,
+                        twisty: layout === 'header' ? 0 : this.getTwisty(),
+                        color: color
                     });
 
-            }
-            else {
-                
             }
             if (drawHandle)
                 this.drawHandle(node);
 
             const sankeyBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-sankey-base")
-                .attr("transform", `translate(${margin.left}, ${histHeight + rangeNotation + margin.top})`);
+                .attr("transform", `translate(${margin.left}, ${this.histHeight + this.originHistY})`);
             const sankeyNode = sankeyBase.node();
             if (sankeyNode && !this.dataEmpty())
                 this.drawSankey(sankeyNode);
 
             const cfHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-hist-base")
-                .attr("transform", `translate(0, ${histHeight + rangeNotation + (drawSankey ? 20 : 3)})`);
+                .attr("transform", `translate(0, ${this.histHeight + this.originHistY + (drawSankey ? 20 : 3)})`);
             const cfHistNode = cfHistBase.node();
             if (cfHistNode && this.cfData && !this.dataEmpty())
                 drawGroupedHistogram(cfHistNode,
                     this.cfData,
+                    this.allCfData,
+                    // this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     undefined,
-                    this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     {
                         width,
                         margin,
-                        height: histHeight,
+                        height: this.histHeight,
                         mode: histogramType,
                         direction: 'down',
-                        color: i => defaultCategoricalColor(i ^ 1),
+                        color: i => color(i ^ 1),
                         key: `${column.name}-cf`,
                         xScale: this.getXScale(),
+                        ticks: this.getTicks(),
                         snapping: true,
                         onSelectRange: this.onSelectCFRange,
-                        rangeSelector: this.props.onUpdateCFFilter ? "as-a-whole" : undefined,
+                        rangeSelector: this.props.onUpdateCFFilter ? "bin-wise" : undefined,
                         selectedRange: this.state.selectedCFRange,
                     });
+
             if (!this.dataEmpty()) {
-                const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
-                    .attr("transform", `translate(${margin.left}, ${histHeight * 2 + rangeNotation + (drawSankey ? 20 : 3)})`);
-                const lineChartNode = lineChartBase.node()
-                if (drawLineChart && lineChartNode) {
-                    this.drawLineChart(lineChartNode);
+                if (layout === 'header') {
+                    const axisBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+                        .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
+                    const bottomAxis = d3.axisBottom(this.getXScale()).ticks(this.getTicks().length / 2);
+                    axisBase.call(bottomAxis);
+                }
+                else {
+                    const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+                        .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
+                    const lineChartNode = lineChartBase.node()
+                    if (drawLineChart && lineChartNode) {
+                        this.drawLineChart(lineChartNode);
+                    }
                 }
             }
             // const hint = getChildOrAppend(root, "g", "hint")
@@ -265,7 +306,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     drawHandle(root: SVGSVGElement) {
         const { margin, height } = this.props;
         const { selectedRange } = this.state;
-        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
+        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const _root = d3.select(root);
         const x = this.getXScale();
         if (selectedRange) {
@@ -312,17 +353,74 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             .range([0, width - margin.left - margin.right]);
     }
 
+    getYScale() {
+        const { margin } = this.props
+        const ticks = this.getTicks();
+        const x = this.getXScale();
+        const histHeight = this.histHeight;
+        const histogram = d3
+            .histogram()
+            .domain(x.domain() as [number, number])
+            .thresholds(ticks);
+        const bins = this.allOriginData ? this.allOriginData.map(d => histogram(d)) : this.originData?.map(d => histogram(d));
+        if (bins) {
+            const ymax = d3.max(_.flatten(bins).map(d => d.length));
+            if (ymax)
+                return d3.scaleLinear()
+                    .domain([0, ymax])
+                    .range([0, histHeight - margin.top - margin.bottom]);
+        }
+    }
+
+    get histHeight() {
+        const { height, layout } = this.props;
+        const { drawSankey } = this.state;
+        if (layout === 'header') {
+            const { axisBottom, marginBottom } = SubsetCFHist.headerLayout;
+            return (height - axisBottom - marginBottom - (drawSankey ? 20 : 3)) / 2;
+        }
+        else {
+            const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout
+            return (height - rangeNotation - lineChart - marginBottom - (drawSankey ? 20 : 3)) / 2;
+        }
+    }
+
+    get originHistY() {
+        const { rangeNotation } = SubsetCFHist.subsetLayout;
+        const { layout } = this.props;
+        if (layout === 'header') {
+            return 0
+        }
+        else {
+            return rangeNotation;
+        }
+    }
+
     getTicks() {
         const { protoColumn, column, width, histogramType } = this.props;
         const dmcData = protoColumn ? protoColumn.series.toArray() : this.originData;
-        const [min, max] = histogramType === 'side-by-side' ? getNBinsRange(width, 10, 16) : getNBinsRange(width, 7, 9);
+        const [min, max] = (histogramType === 'side-by-side' && this.originData!.length > 1) ? getNBinsRange(width, 10, 16) : getNBinsRange(width, 7, 9);
         const tickNum = Math.min(max, Math.max(min, d3.thresholdSturges(_.flatten(dmcData))))
         const ticks = this.getXScale().ticks(tickNum);
         return ticks;
     }
 
+    getTwisty() {
+        const range = this.state.selectedRange;
+        if (this.originData && this.cfData && range) {
+            const posNum = this.originData[0] ? this.originData[0].length : 0 + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const negNum = this.originData[1] ? this.originData[1].length : 0 + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const totalCount = posNum + negNum;
+            return 1 - (posNum / totalCount) ** 2 - (negNum / totalCount) ** 2;
+        }
+        else {
+            console.debug(this.originData, this.cfData, range);
+            return 0;
+        }
+    }
+
     getSankeyBins() {
-        const { column, groupByColumn } = this.props;
+        const { column, groupByColumn, focusedCategory } = this.props;
         const x = this.getXScale();
         const ticks = this.getTicks();
         const histogram = d3
@@ -332,7 +430,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
         const originData = column.series.toArray();
         const cfData = column.cf?.toArray();
-        const validArray: boolean[] = column.valid ? column.valid : _.range(originData.length).map(() => true);
+        const validArray: boolean[] = column.selectedValid ? column.selectedValid : _.range(originData.length).map(() => true);
         const labelArray: any[] | undefined = groupByColumn?.series.toArray();
         if (cfData) {
 
@@ -389,7 +487,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                     })
 
                 }))
-                return bins;
+                return focusedCategory !== undefined ? [bins[focusedCategory]] : bins;
             }
             return undefined
 
@@ -398,90 +496,44 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     drawSankey(root: SVGGElement) {
-        const { width, margin, histogramType } = this.props;
+        const { width, margin, histogramType, focusedCategory } = this.props;
         const { drawSankey } = this.state;
-        const _root = d3.select(root);
-        const x = this.getXScale();
-        const countMax = d3.max(_.flatten(_.flatten(this.sankeyBins)).map(d => d.count));
-        const groupBinWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 1;
-
-        if (this.sankeyBins && drawSankey) {
-            const binWidth = histogramType === 'side-by-side' ? groupBinWidth / this.sankeyBins.length : groupBinWidth;
-            console.log(binWidth);
-
-            _root.selectAll("g.place-holder").remove()
-            const linkCatGroup = _root.selectAll("g.link-cat-group")
-                .data(this.sankeyBins)
-                .join(enter => enter.append("g")
-                    .attr("class", "link-cat-group"))
-                .attr("transform", (d, i) => histogramType === 'side-by-side' ? `translate(${i * binWidth}, 0)` : `translate(0, 0)`)
-                .style("stroke", (d, i) => defaultCategoricalColor(i));
-
-            const linkGroup = linkCatGroup.selectAll("g.link-group")
-                .data(d => d)
-                .join(enter => enter.append("g")
-                    .attr("class", "link-group"));
-            linkGroup.selectAll("path.link")
-                .data(d => d)
-                .join(enter => enter.append("path")
-                    .attr("class", "link"))
-                // .attr("d", d => `M${(x(d.x00)+x(d.x01))/2},0 L${(x(d.x10)+x(d.x11))/2}, 20`)
-                .attr("d", d => {
-                    const x0 = x(d.x00) + binWidth / 2;
-                    const x1 = x(d.x10) + binWidth / 2;
-                    const y0 = 0;
-                    const y1 = 20;
-                    return `M${x0},0 C${x0},${10} ${x1},${10} ${x1},20`;
-                })
-                // .attr("d", d => `M${x(d.x00)},0 L${x(d.x10)}, 20`)
-                // .style("display", d => d.count > 0 && (d.x00 !== d.x10 || d.x01 !== d.x11)?"block": "none")
-                .style("display", d => d.count > 0 ? "block" : "none")
-                // .style("opacity", d => d.topTotalCounts ? d.count / d.topTotalCounts : 1)
-                // .style("stroke-width", d => countMax ? d.count / countMax * 3 : 1);
-                .style("opacity", d => countMax ? d.count / countMax : 1)
-                .style("stroke-width", d => d.topTotalCounts ? d.count / d.topTotalCounts * binWidth : 1)
-                // .style("stroke-width", d => 1)
-                .style("fill", "none");
-            const base = getChildOrAppend(_root, "rect", "link-base")
-                .attr("width", (width - margin.left - margin.right))
-                .attr("height", 20)
-                .style("opacity", 0)
-                .on("click", this.onSwitchLink);
-        }
-        else {
-            _root.selectAll("g.link-cat-group").remove();
-            const placeHolder = getChildOrAppend(_root, "g", "place-holder")
-            getChildOrAppend(placeHolder, "rect", "place-holder")
-                .attr("width", (width - margin.left - margin.right))
-                .attr("height", 3)
-                .style("opacity", 0)
-                .on("click", this.onSwitchLink)
-                .on("mouseover", (d, i, g) => {
-                    const me = d3.select(g[i]);
-                    me.style("fill", "black")
-                        .style("opacity", 0.1);
-                })
-                .on("mousemove", (d, i, g) => {
-                    const me = d3.select(g[i]);
-                    me.style("fill", "black")
-                        .style("opacity", 0);
-                });
-        }
-
+        if (this.sankeyBins)
+            drawLink(root, this.sankeyBins, {
+                height: 20,
+                width: width,
+                margin: margin,
+                histogramType: focusedCategory === undefined? histogramType:'stacked',
+                collapsed: !drawSankey,
+                xScale: this.getXScale(),
+                ticks: this.getTicks(),
+                onSwitch: this.onSwitchLink,
+                color: this.props.color,
+            })
     }
 
     public render() {
         const { column, className, style, width, height, margin, onSelect, expandable, selected } = this.props;
+        const { drawTooltip } = this.state;
 
-        return <div className={className} style={{ width, ...style }}>
+        return <div className={className} style={{ width, ...style }} onMouseOver={this.onHover} onMouseLeave={this.onMouseLeave}>
             <div className={(className || "") + " histogram" + (selected ? " selected-column" : "")} style={style}>
                 <svg style={{ height: height - 5, width: width }} ref={this.svgRef}>
                 </svg>
             </div>
-            {expandable &&
+            {drawTooltip &&
                 <Icon type="zoom-in" className='zoom-button' onClick={onSelect} />}
         </div>
 
+    }
+
+    onHover() {
+        if (this.props.expandable)
+            this.setState({ drawTooltip: true })
+    }
+
+    onMouseLeave() {
+        this.setState({ drawTooltip: false })
     }
 
     onSwitchLink() {
@@ -536,7 +588,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         const data = column.series.toArray();
         const cf = column.cf?.toArray();
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        const validFilter = column.valid && ((idx: number) => column.valid![idx]);
+        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
         // const geqValidFilter = validFilter && ((idx: number) => idx >= x && validFilter(idx));
         // const lessValidFilter = validFilter && ((idx: number) => idx < x && validFilter(idx));
@@ -576,7 +628,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         const data = column.series.toArray();
         const cf = column.cf?.toArray();
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        const validFilter = column.valid && ((idx: number) => column.valid![idx]);
+        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
         if (x[0] > column.extent[0]) {
             x.splice(0, 0, column.extent[0]);

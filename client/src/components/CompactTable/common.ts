@@ -78,6 +78,7 @@ export class SubsetTableGroup {
   private _deletable: boolean;
   private _filters: Filter[];
   private _stashedFilters: Filter[];
+  private _focusedClass?: number;
 
   constructor(columnMat: CFTableColumn[][], dataMeta: DataMeta, filters: (Filter | undefined)[], deleteable: boolean) {
     // this._filters = filters.map((d, i) => d?d: {...dataMeta.getColumnDisc(columnMat[0][i].name) as FeatureDisc});
@@ -123,6 +124,15 @@ export class SubsetTableGroup {
     return this._filters;
   }
 
+  public _focuseOn(newClass?: number) {
+    this._focusedClass = newClass;
+  }
+  
+  public get focusedClass() {
+    return this._focusedClass;
+  }
+
+
   public copy() {
     const columnMat: CFTableColumn[][] = this._tables.map(table => table.copy().columns);
     const filters: Filter[] = this._filters.map(f => ({ ...f }));
@@ -138,6 +148,7 @@ export interface CFCategoricalColumn extends CategoricalColumn {
   dataRange?: string[];
   newDataRange?: string[];
   valid?: boolean[];
+  selectedValid?: boolean[];
 }
 
 export interface CFNumericalColumn extends NumericalColumn {
@@ -148,6 +159,7 @@ export interface CFNumericalColumn extends NumericalColumn {
   dataRange?: [number, number];
   newDataRange?: [number, number];
   valid?: boolean[];
+  selectedValid?: boolean[];
 }
 
 export type CFTableColumn = CFCategoricalColumn | CFNumericalColumn;
@@ -230,6 +242,7 @@ export function filterByColumnStates(
           column.cf = new Series(prevCfArray.length, i => newCfArray[i])
         }
       }
+      column.selectedValid = column.valid?.filter((d, i) => filteredLocs.includes(i));
     })
 
     // const prevSeries = (column.series.toArray()).filter((d, i) => filteredLocs.includes(i))

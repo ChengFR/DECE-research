@@ -35,16 +35,16 @@ def create_app(config=None):
     
 
     # load model -- a tmp implemenation
-    if app.config['MODEL'] == 'MLP':
-        app.model = PytorchModelManager(app.dataset)
-        app.dir_manager = app.model.get_dir_manager()
-        try:
-            app.model.load_model()
-        except FileNotFoundError:
-            app.model.train()
-            app.model.save_model()
-    else:
-        raise NotImplementedError
+    # if app.config['MODEL'] == 'MLP':
+    app.model = PytorchModelManager(app.dataset, model_name=app.config['MODEL'])
+    app.dir_manager = app.model.get_dir_manager()
+    try:
+        app.model.load_model()
+    except FileNotFoundError:
+        app.model.train()
+        app.model.save_model()
+    # else:
+    #     raise NotImplementedError
     app.model.save_prediction()
 
     # init engine

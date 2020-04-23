@@ -46,6 +46,7 @@ import { group } from "d3";
 import SubsetCFHist from "./SubsetCFHist";
 import SubsetCFBar from "./SubsetCFBar";
 import LabelColumn from "./LabelColumn";
+import { defaultCategoricalColor } from "components/visualization/common";
 
 const collapsedCellMargin = {
   ...columnMargin,
@@ -163,6 +164,7 @@ export interface ICompactTableState {
   drawYAxis: boolean;
   groupIndex?: number;
   columnIndex?: number;
+  focusedClass?: number;
 }
 
 export default class CFTableView extends React.Component<
@@ -201,6 +203,8 @@ export default class CFTableView extends React.Component<
     this.getCFs = this.getCFs.bind(this);
     this.initTable = this.initTable.bind(this);
     this.initTableGroup = this.initTableGroup.bind(this);
+    this.onSubsetFocusOnClass = this.onSubsetFocusOnClass.bind(this);
+    this.onFocusOnClass = this.onFocusOnClass.bind(this);
 
     this.updateSubset = this.updateSubset.bind(this);
     this.copySubset = this.copySubset.bind(this);
@@ -241,7 +245,13 @@ export default class CFTableView extends React.Component<
   public initColumn(column: IColumn, cf?: Series, prototypeColumn?: CFTableColumn): CFTableColumn {
     const c: CFTableColumn = prototypeColumn ? createColumn(prototypeColumn) : createColumn(column);
     c.series = column.series;
-    c.prevSeries = c.series;
+    if (isNumericalVColumn(c)) {
+      const array = [...c.series.toArray()];
+      c.prevSeries = new Series(array.length, i => array[i])
+    }else {
+      const array = [...c.series.toArray()];
+      c.prevSeries = new Series(array.length, i => array[i])
+    }
     if (cf) assert(column.series.length === cf.length, `instance number does not match cf number: ${column.series.length}-${cf.length}`);
     c.onSort = (order: "ascend" | "descend") => this.onSort(c.name, order);
     c.onChangeColumnWidth = (width: number) =>
@@ -250,11 +260,13 @@ export default class CFTableView extends React.Component<
     if (cf) {
       if (isNumericalVColumn(c)) {
         c.cf = cf as Series<number> | undefined;
-        c.allCF = cf as Series<number> | undefined;
+        const array = [...cf.toArray()] as number[];
+        c.allCF = new Series(array.length, i => array[i]);
       }
       else {
         c.cf = cf as Series<string> | undefined;
-        c.allCF = cf as Series<string> | undefined;
+        const array = [...cf.toArray()] as string[];
+        c.allCF = new Series(array.length, i => array[i]);
       }
       c.onFilterCF = (filter?: string[]|[number, number]) => this.onChangeCFFilter(c.name, filter);
     }
@@ -277,6 +289,7 @@ export default class CFTableView extends React.Component<
     if (predCol === undefined) throw Error("No prediction column");
     const validMask: boolean[] = _.range(predCol.series.length).map((d, i) => predCol.cf ? predCol.series.at(i) !== predCol.cf.at(i) : false);
     columns.forEach(d => d.valid = validMask);
+    columns.forEach(d => d.selectedValid = validMask);
 
     return new SubsetCFTable(columns, index, dataMeta, filters ? filters : []);
   }
@@ -296,6 +309,7 @@ export default class CFTableView extends React.Component<
         if (predCol === undefined) throw Error("No prediction column");
         const validMask: boolean[] = _.range(predCol.series.length).map((d, i) => predCol.cf ? predCol.series.at(i) !== predCol.cf.at(i) : false);
         columns.forEach(d => d.valid = validMask);
+        columns.forEach(d => d.selectedValid = validMask);
         return columns;
       }
     )
@@ -478,9 +492,9 @@ export default class CFTableView extends React.Component<
     const newState = this.changeDataFrame(newDataFrame);
     // console.debug("onChangeFilter", filters, newState);
     if (newState) {
-      newState.columns.forEach(
-        (c, i) => (c.prevSeries = baseDataFrame.columns[i].series)
-      );
+      // newState.columns.forEach(
+      //   (c, i) => (c.prevSeries = baseDataFrame.columns[i].series)
+      // );
       const newIndex = newState.dataFrame.index;
       const newRows = filterRows(rows, newIndex);
       this.setState({
@@ -564,7 +578,7 @@ export default class CFTableView extends React.Component<
   onSelectColumn(groupIndex: number, columnIndex: number) {
     const { cfSubsets } = this.state;
     const table = cfSubsets[groupIndex].tables[columnIndex];
-    const columns = table.columns;
+    const columns = table.columns.map(d => ({...d}));
     const dataFrame = DataFrame.fromColumns(columns);
     this.setState({ columns, dataFrame, prevDataFrame: undefined, groupIndex, columnIndex });
   }
@@ -587,31 +601,29 @@ export default class CFTableView extends React.Component<
   _chartCellRenderer(cellProps: CellProps) {
     // const { columnIndex } = cellProps;
     const columnIndex = cellProps.columnIndex + 1;
-    const { columns, groupByColumn } = this.state;
+    const { columns, groupByColumn, focusedClass } = this.state;
     const column = columns[columnIndex];
     const { width } = column;
     console.debug("render chart cell");
     if (columnIndex === 1) { 
-      return <HeaderChart
-      className="header-chart"
-      column={column}
-      groupByColumn={columns[groupByColumn]}
-      width={width}
-      height={headerChartHeight}
-      margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
-      histogramType="side-by-side"
-      protoColumn={this.basicColumns[columnIndex]}
-      onUpdateFilter={(extent?: [number, number], categories?: string[]) => {
-        // extent && column.onFilter(extent)
-        if (isNumericalCFColumn(column)) column.onFilter && column.onFilter(extent);
-        if (!isNumericalCFColumn(column)) column.onFilter && column.onFilter(categories);
-      }}
-    />
+      return <LabelColumn
+        className={`subset-chart`}
+        predColumn={columns[1] as CFCategoricalColumn}
+        targetColumn={columns[0] as CFCategoricalColumn}
+        // column={columns[columnIndex]}
+        // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+        width={width}
+        height={subsetChartHeight}
+        margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
+        histogramType='stacked'
+        focusedCategory={focusedClass}
+        onFocusCategory={this.onFocusOnClass}
+      />
     }
     else {
       if (isNumericalCFColumn(column)) {
         return <SubsetCFHist
-          className={`subset-chart`}
+          className={`header-chart`}
           column={column}
           protoColumn={this.basicColumns[columnIndex] as CFNumericalColumn}
           // column={columns[columnIndex]}
@@ -629,12 +641,15 @@ export default class CFTableView extends React.Component<
             column.onFilterCF && column.onFilterCF(extent);
           }}
           histogramType='side-by-side'
-          k={`subset-${columnIndex}`}
+          k={`header-${columnIndex}`}
           expandable={false}
           drawLineChart={true}
           drawHandle={false}
           drawAxis={this.state.drawYAxis}
           selected={false}
+          layout={'header'}
+          focusedCategory={focusedClass}
+          color={focusedClass === 1? i => defaultCategoricalColor(i^1): defaultCategoricalColor}
         />
       }
       else {
@@ -681,6 +696,8 @@ export default class CFTableView extends React.Component<
         height={subsetChartHeight}
         margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
         histogramType='stacked'
+        focusedCategory={tableGroup.focusedClass}
+        onFocusCategory={this.onSubsetFocusOnClass.bind(this, groupIndex)}
       />
     }
     else {
@@ -704,6 +721,8 @@ export default class CFTableView extends React.Component<
           drawHandle={true}
           drawAxis={this.state.drawYAxis}
           selected={groupIndex === this.state.groupIndex && columnIndex === this.state.columnIndex}
+          focusedCategory={tableGroup.focusedClass}
+          color={tableGroup.focusedClass === 1? i => defaultCategoricalColor(i^1): defaultCategoricalColor}
         />
       }
       else {
@@ -784,6 +803,7 @@ export default class CFTableView extends React.Component<
     const columnIndex = props.columnIndex + 1;
     const { pixel } = this.props;
     const { columns, showCF } = this.state;
+    const column = columns[columnIndex];
     if (columnIndex === 1) {
       // index column
       return <div className="cell-content"></div>;
@@ -792,11 +812,24 @@ export default class CFTableView extends React.Component<
       // if (showCF) {
       // const cfs = this.cfs;
       // const cf = cfs && notEmpty(cfs[columnIndex]) ? cfs[columnIndex] : undefined;
-      const cfData = columns[columnIndex].cf?.toArray() as (number|undefined)[] | (string|undefined)[] | undefined;
+      let data: number[] | string[] = [];
+      let cfData: (number|undefined)[] | (string|undefined)[] | undefined = undefined;
+      if (isNumericalCFColumn(column)){
+        cfData = column.cf?.toArray();
+        cfData = cfData && cfData.filter((d, i) => column.valid?column.valid[i]:false); 
+        data = column.series.toArray();
+        data = data.filter((d, i) => column.valid?column.valid[i]:false); 
+      }
+      else {
+        cfData = column.cf?.toArray();
+        cfData = cfData && cfData.filter((d, i) => column.valid?column.valid[i]:false); 
+        data = column.series.toArray();
+        data = data.filter((d, i) => column.valid?column.valid[i]:false); 
+      }
       return (
         <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
           <CompactCFColumn
-            data={columns[columnIndex].series.toArray()}
+            data={data}
             cfData={showCF ? cfData : undefined}
             startIndex={rowState.startIndex}
             endIndex={rowState.endIndex}
@@ -867,6 +900,16 @@ export default class CFTableView extends React.Component<
   onSwichAxis(drawYAxis: boolean) {
     this.setState({ drawYAxis });
     this.tableRef?.recomputeGridSize();
+  }
+
+  onSubsetFocusOnClass(groupId: number, newClass?: number) {
+    const {cfSubsets} = this.state;
+    cfSubsets[groupId]._focuseOn(newClass);
+    this.setState({cfSubsets: [...cfSubsets]});
+  }
+
+  onFocusOnClass(newClass?: number) {
+    this.setState({focusedClass: newClass});
   }
 
   // async loadMoreRows(params: IndexRange) {

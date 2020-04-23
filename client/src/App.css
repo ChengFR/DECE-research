@@ -54,7 +54,7 @@
     position: relative;
     width: 75vw;
     height: 90vh;
-    overflow: scroll;
+    overflow: hidden;
 }
 
 .ant-card-head-title-text {

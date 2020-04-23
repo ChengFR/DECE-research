@@ -110,18 +110,6 @@ export function drawBarChart(
   let _selectedCategories: string[] | undefined = selectedCategories;
 
   let _hoveredCategory: string | undefined = undefined;
-  // if (selectedCategories) {
-  //   const startIndex = bins[0].findIndex(
-  //     ({ name }) => name !== undefined && selectedCategories.includes(name)
-  //   );
-  //   const endIndex = _.findLastIndex(
-  //     bins[0],
-  //     ({ x0 }) => x0 !== undefined && x0 < selectedRange[1]
-  //   );
-  //   rangeBrushing = [startIndex, endIndex];
-  // }
-  // console.debug("brushed Range", rangeBrushing);
-  let brushing: boolean = false;
 
   // Render the base histogram (with all data)
   const base = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "base")
@@ -252,118 +240,6 @@ export function drawBarChart(
     })
 
   }
-
-  // const merged2 = gShades
-  //   .selectAll("rect.shade")
-  //   .data(bins[0])
-  //   .join<SVGRectElement>(enter => {
-  //     return enter
-  //       .append("rect")
-  //       .attr("class", "shade")
-  //       .attr("y", yRange[0]);
-  //   })
-  //   .attr("x", (d, i) => d.x)
-  //   .attr("width", layout.groupedBarWidth)
-  //   .attr("height", yRange[0])
-  //   .classed("show", (d, idx) =>
-  //     rangeBrushing
-  //       ? Math.min(...rangeBrushing) <= idx &&
-  //       idx <= Math.max(...rangeBrushing)
-  //       : false
-  //   );
-
-  // merged2
-  //   .on("mouseover", function (data, idx, groups) {
-  //     console.log(bins, idx);
-  //     onRectMouseOver && onRectMouseOver(bins[0].map(bs => bs[idx]), idx, groups);
-  //     if (brushing && rangeBrushing) {
-  //       rangeBrushing[1] = idx;
-  //       renderShades();
-  //     }
-  //   })
-  //   // .on("mousemove", (onRectMouseMove || null) as null)
-  //   .on("mouseleave", (onRectMouseLeave || null) as null);
-
-  // merged2
-  //   .on("mousedown", function (data, idx) {
-  //     brushing = true;
-  //     if (rangeBrushing === null) rangeBrushing = [idx, idx];
-  //     else rangeBrushing = null;
-  //   })
-  //   .on("mouseup", function (data, idx) {
-  //     if (rangeBrushing) {
-  //       rangeBrushing[1] = idx;
-  //       console.debug("select range:", rangeBrushing);
-  //       const x0 = bins[0][Math.min(...rangeBrushing)].x0,
-  //         x1 = bins[0][Math.max(...rangeBrushing)].x1;
-  //       onSelectRange && onSelectRange([x0 as number, x1 as number]);
-  //     } else {
-  //       onSelectRange && onSelectRange();
-  //     }
-  //     renderShades();
-  //     brushing = false;
-  //   });
-
-  // gBase.selectAll("rect.bar")
-  //   .data(allBins || [])
-  //   .join<SVGRectElement>(enter => {
-  //     return enter.append("rect").attr("class", "bar");
-  //   })
-  //   .attr("x", d => xScale(d.name) || 0)
-  //   .attr("width", xScale.bandwidth())
-  //   .attr("y", d => y(d.count))
-  //   .attr("height", d => yRange[0] - y(d.count))
-  //   .attr("fill", (d, i) => color(i));
-
-  // // append the bar rectangles to the svg element
-  // const g = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "bars").attr(
-  //   "transform",
-  //   `translate(${margin.left + xScale.paddingOuter()}, ${margin.top})`
-  // );
-  // const merged = g
-  //   .selectAll("rect.bar")
-  //   .data(data)
-  //   .join<SVGRectElement>(enter => {
-  //     return enter.append("rect").attr("class", "bar");
-  //   })
-  //   .attr("x", d => xScale(d.name) || 0)
-  //   .attr("width", xScale.bandwidth())
-  //   .attr("y", d => y(d.count))
-  //   .attr("height", d => yRange[0] - y(d.count))
-  //   .attr("fill", (d, i) => color(i));
-
-  // const selectedSet = new Set(selectedCategories);
-
-  // const renderShades = () => {
-  //   return g.selectAll("rect.shade")
-  //     .data(data)
-  //     .join<SVGRectElement>(enter => {
-  //       return enter.append("rect").attr("class", "shade");
-  //     })
-  //     .attr("x", d => xScale(d.name) || 0)
-  //     .attr("width", xScale.bandwidth())
-  //     .attr("y", yRange[1])
-  //     .attr("height", yRange[0])
-  //     .classed("show", (d) => selectedSet.has(d.name));
-  // };
-
-  // const shades = renderShades();
-  // shades
-  //   .on("mouseover", (onRectMouseOver || null) as null)
-  //   .on("mousemove", (onRectMouseMove || null) as null)
-  //   .on("mouseleave", (onRectMouseLeave || null) as null)
-  //   .on("click", function (data, idx) {
-  //     if (onSelectCategories) {
-  //       const selected = selectedCategories?.slice() || [];
-  //       const idx = selected.findIndex(v => v === data.name);
-  //       if (idx !== -1) {
-  //         selected.splice(idx, 1);
-  //       } else {
-  //         selected.push(data.name)
-  //       }
-  //       onSelectCategories(selected.length > 0 ? selected : undefined);
-  //     }
-  //   });
 
   if (rectStyle) {
     Object.keys(rectStyle).forEach(key => {

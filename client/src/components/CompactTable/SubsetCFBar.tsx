@@ -86,7 +86,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
 
     paint() {
         const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis } = this.props;
-        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
+        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const barChartHeight = (height - rangeNotation - lineChart - marginBottom) / 2;
         const node = this.svgRef.current;
         if (node) {
@@ -150,7 +150,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     drawHandle(root: SVGSVGElement) {
         const { margin, height } = this.props;
         const { selectedCategories } = this.state;
-        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.layout;
+        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const _root = d3.select(root);
         const x = this.getXScale();
         if (selectedCategories !== undefined) {

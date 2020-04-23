@@ -440,6 +440,7 @@ export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "on
   drawBand?: boolean,
   bandValueFn?: (x: number) => number,
   // bandColor?: 
+  twisty?: number,
 }
 
 export function drawGroupedHistogram(
@@ -461,6 +462,8 @@ export function drawGroupedHistogram(
     onSelectRange,
     onHoverRange,
     xScale,
+    yScale,
+    ticks,
     selectedRange,
     rangeSelector,
     direction,
@@ -468,7 +471,8 @@ export function drawGroupedHistogram(
     drawBand,
     bandValueFn,
     key,
-    snapping
+    snapping,
+    twisty
   } = opts;
   const mode = opts.mode ? opts.mode : "side-by-side";
   const nGroups = data.length;
@@ -486,6 +490,8 @@ export function drawGroupedHistogram(
     margin: margin,
     dmcData: dmcData || allData || data,
     xScale: xScale,
+    yScale: yScale,
+    ticks: ticks,
     innerPadding: innerPadding,
     direction:direction
   });
@@ -500,6 +506,8 @@ export function drawGroupedHistogram(
     margin: margin,
     dmcData: dmcData || allData,
     xScale: xScale,
+    yScale: yScale,
+    ticks: ticks,
     innerPadding: innerPadding,
     direction:direction
   }) : undefined;
@@ -683,6 +691,7 @@ export function drawGroupedHistogram(
       .attr("y", yRange[0])
       .attr("width", Math.abs(range[1] - range[0]))
       .attr("height", yRange[1] - yRange[0])
+      .style("fill", d3.interpolateReds(twisty?twisty:0))
       // .on("click", () => updateSelectorBox([0, 0])); 
     }
 
@@ -838,8 +847,8 @@ export class HistogramLayout {
       .domain(this.x.domain() as [number, number])
       .thresholds(this._ticks);
 
-    // const dmcBins = this._dmcData.map(d => histogram(d));
-    const dmcBins = this.gBins;
+    const dmcBins = this._dmcData.map(d => histogram(d));
+    // const dmcBins = this.gBins;
     const yMax = this._mode === 'side-by-side' ? d3.max(dmcBins, function (bs) {
       return d3.max(bs, d => d.length);
     }) : d3.max(transMax(dmcBins), function (bs) {
