@@ -6,25 +6,25 @@ import memoizeOne from "memoize-one";
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight, ChartOptions } from '../visualization/common';
 import { SankeyBins } from 'components/CompactTable/SubsetCFHist';
 
-export interface LinkOptions extends ChartOptions{
+export interface LinkOptions<T> extends ChartOptions{
     histogramType: 'side-by-side'|'stacked';
     collapsed: boolean;
-    xScale: d3.ScaleLinear<number, number>;
-    ticks: number[];
+    xScale: (x: T) => number;
+    binWidth: number,
     margin: IMargin;
     onSwitch: () => void;
     color?: (x: number) => string;
 }
 
-export function drawLink(root: SVGGElement, data: SankeyBins[][][], options: LinkOptions) {
-    const { width, margin, histogramType, collapsed, xScale:x, ticks, onSwitch } = options;
+export function drawLink<T>(root: SVGGElement, data: SankeyBins<T>[][][], options: LinkOptions<T>) {
+    const { width, margin, histogramType, collapsed, xScale:x, binWidth, onSwitch } = options;
     const _root = d3.select(root);
     const countMax = d3.max(_.flatten(_.flatten(data)).map(d => d.count));
-    const groupBinWidth = (width - margin.left - margin.right) / (ticks.length - 1) - 2;
+    // const groupBinWidth = (width - margin.left - margin.right) / (ticks.length - 1) - 2;
     const color = options.color || defaultCategoricalColor;
 
     if (data && !collapsed) {
-        const binWidth = histogramType === 'side-by-side' ? groupBinWidth / data.length : groupBinWidth;
+        // const binWidth = histogramType === 'side-by-side' ? groupBinWidth / data.length : groupBinWidth;
         console.log(binWidth);
 
         _root.selectAll("g.place-holder").remove()

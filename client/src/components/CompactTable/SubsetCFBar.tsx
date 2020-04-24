@@ -9,7 +9,9 @@ import { drawBarChart } from '../visualization/barchart'
 import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn, isNumericalCFColumn } from './common';
 import { Icon } from 'antd';
 
-import SubsetCFHist, { SubsetChartProps } from './SubsetCFHist'
+import SubsetCFHist, { SubsetChartProps, SankeyBins } from './SubsetCFHist'
+import { columnMargin } from 'components/Table';
+import { drawLink } from 'components/visualization/link';
 
 export interface ISubsetCFBarProps extends SubsetChartProps {
 
@@ -22,29 +24,34 @@ export interface ISubsetCFBarProps extends SubsetChartProps {
 
 export interface ISubsetCFBarState {
     selectedCategories?: string[],
+    drawSankey: boolean,
+    drawTooltip: boolean,
 }
 
 export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, ISubsetCFBarState> {
 
-    private originData?: string[] | string[][];
-    private cfData?: string[] | string[][];
+    private originData?: string[][];
+    private cfData?: string[][];
+    private allOriginData?: string[][];
+    private allCfData?: string[][];
+    private sankeyBins?: SankeyBins<string>[][][];
     private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
     private shouldPaint: boolean;
-    static layout = {
-        rangeNotation: 20,
-        lineChart: 10,
-        marginBottom: 10,
-    }
 
     constructor(props: ISubsetCFBarProps) {
         super(props);
         const { column } = this.props;
-        this.state = { selectedCategories: column.dataRange };
+        this.state = { selectedCategories: column.dataRange, drawSankey: false, drawTooltip: false };
         this.updateParams(props);
 
         this.paint = this.paint.bind(this);
         this.onSelectCategories = this.onSelectCategories.bind(this);
         this.drawHandle = this.drawHandle.bind(this);
+
+        this.onHover = this.onHover.bind(this);
+        this.onMouseLeave = this.onMouseLeave.bind(this);
+        this.onSelectCategories = this.onSelectCategories.bind(this);
+        this.onSwitchLink = this.onSwitchLink.bind(this);
 
         this.shouldPaint = false;
     }
@@ -64,35 +71,73 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     }
 
     protected updateParams(props: ISubsetCFBarProps) {
-        const { column, protoColumn, groupByColumn } = this.props;
+        // const { column, protoColumn, groupByColumn } = this.props;
+
+        // const groupArgs = groupByColumn && getRowLabels(groupByColumn);
+        // // const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
+        // // const protoGroupArgs = protoColumnGroupBy && protoColumn && getAllRowLabels(protoColumnGroupBy);
+
+        // const validFilter = column.valid && ((idx: number) => column.valid![idx]);
+
+        // if (groupArgs) {
+        //     this.originData = column.series.groupBy(groupArgs[0], groupArgs[1], validFilter);
+        //     this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
+        //     // const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
+        //     // const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.allCF.toArray());
+        // }
+        // else {
+        //     this.originData = column.series.toArray();
+        //     this.cfData = column.cf && column.cf.toArray();
+        // }
+        const { column, protoColumn, groupByColumn, layout, focusedCategory } = this.props;
+
 
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        // const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
-        // const protoGroupArgs = protoColumnGroupBy && protoColumn && getAllRowLabels(protoColumnGroupBy);
 
-        const validFilter = column.valid && ((idx: number) => column.valid![idx]);
+        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+        this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
+        this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
 
-        if (groupArgs) {
-            this.originData = column.series.groupBy(groupArgs[0], groupArgs[1], validFilter);
-            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.cf.toArray());
-            // const allRawData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-            // const allCFData = column.allCF && (groupArgs ? column.allCF.groupBy(groupArgs[0], groupArgs[1], validFilter) : column.allCF.toArray());
+        if (!this.dataEmpty())
+            this.sankeyBins = this.getSankeyBins();
+        if (layout && layout === 'header') {
+            const allValidFilter = column.valid && ((idx: number) => column.valid![idx]);
+            const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
+            this.allOriginData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.prevSeries.toArray()]);
+            this.allCfData = column.allCF && (allGroupArgs ? column.allCF.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.allCF.toArray()]);
         }
         else {
-            this.originData = column.series.toArray();
-            this.cfData = column.cf && column.cf.toArray();
+            this.allOriginData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
+            this.allCfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
+        }
+
+        if (focusedCategory !== undefined) {
+            const index = focusedCategory;
+            if (index !== undefined) {
+                this.originData = this.originData && [this.originData[index]];
+                this.cfData = this.cfData && [this.cfData[index]];
+                this.allOriginData = this.allOriginData && [this.allOriginData[index]];
+                this.allCfData = this.allCfData && [this.allCfData[index]];
+            }
+            else {
+                throw Error(`focusing category invalid: ${focusedCategory}, which should be in ${groupByColumn?.categories}`)
+            }
         }
     }
 
+    dataEmpty() {
+        return this.allOriginData && _.flatten(this.allOriginData).length === 0;
+    }
+
     paint() {
-        const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis } = this.props;
-        const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
-        const barChartHeight = (height - rangeNotation - lineChart - marginBottom) / 2;
+        const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis, layout } = this.props;
+        const { drawSankey} = this.state;
         const node = this.svgRef.current;
+        const color = this.props.color || defaultCategoricalColor;
         if (node) {
             const root = d3.select(node);
             const originHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "origin-hist-base")
-                .attr("transform", `translate(0, ${rangeNotation})`);;
+                .attr("transform", `translate(0, ${this.originHistY})`);;
             const originHistNode = originHistBase.node();
             if (originHistNode && this.originData) {
                 drawBarChart(originHistNode,
@@ -102,13 +147,14 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                     {
                         width,
                         margin,
-                        height: barChartHeight,
+                        height: this.histHeight,
                         selectedCategories: this.state.selectedCategories,
                         // onSelectCategories: 
                         xScale: this.getXScale(),
                         renderShades: true,
                         onSelectCategories: this.onSelectCategories,
-                        drawAxis: drawAxis
+                        drawAxis: drawAxis,
+                        color: color
                     });
 
             }
@@ -119,10 +165,16 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
             if (drawHandle)
                 this.drawHandle(node);
 
+                const sankeyBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-sankey-base")
+                .attr("transform", `translate(${margin.left}, ${this.histHeight + this.originHistY})`);
+            const sankeyNode = sankeyBase.node();
+            if (sankeyNode && !this.dataEmpty())
+                this.drawSankey(sankeyNode);
+
             const cfHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-hist-base")
-                .attr("transform", `translate(0, ${barChartHeight + rangeNotation})`);
+                .attr("transform", `translate(0, ${this.originHistY + this.histHeight + (drawSankey?20:3)})`);
             const cfHistNode = cfHistBase.node();
-            if (cfHistNode && this.cfData)
+            if (cfHistNode && this.cfData){
                 drawBarChart(cfHistNode,
                     this.cfData,
                     undefined,
@@ -130,15 +182,85 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                     {
                         width,
                         margin,
-                        height: barChartHeight,
+                        height: this.histHeight,
                         direction: 'down',
-                        color: i => defaultCategoricalColor(i ^ 1),
+                        color: i => color(i ^ 1),
                         xScale: this.getXScale(),
                     });
+                }
+            // if (!this.dataEmpty()) {
+                if (layout === 'header') {
+                    const axisBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+                        .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
+                    const bottomAxis = d3.axisBottom(this.getXScale());
+                    axisBase.call(bottomAxis);
+                }
+            //     else {
+            //         const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+            //             .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
+            //         const lineChartNode = lineChartBase.node()
+            //         if (drawLineChart && lineChartNode) {
+            //             this.drawLineChart(lineChartNode);
+            //         }
+            //     }
+            // }
 
         }
 
         this.shouldPaint = false;
+    }
+
+    get histHeight() {
+        const { height, layout } = this.props;
+        const { drawSankey } = this.state;
+        if (layout === 'header') {
+            const { axisBottom, marginBottom } = SubsetCFHist.headerLayout;
+            return (height - axisBottom - marginBottom - (drawSankey ? 20 : 3)) / 2;
+        }
+        else {
+            const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout
+            return (height - rangeNotation - lineChart - marginBottom - (drawSankey ? 20 : 3)) / 2;
+        }
+    }
+
+    drawSankey(root: SVGGElement) {
+        const { width, margin, histogramType, focusedCategory } = this.props;
+        const { drawSankey } = this.state;
+        if (this.sankeyBins)
+            drawLink(root, this.sankeyBins, {
+                height: 20,
+                width: width,
+                margin: margin,
+                histogramType: focusedCategory === undefined? histogramType:'stacked',
+                collapsed: !drawSankey,
+                xScale: x => this.getXScale()(x)!,
+                binWidth: this.binWidth,
+                onSwitch: this.onSwitchLink,
+                color: this.props.color,
+            })
+    }
+
+    get binWidth(){
+        const {histogramType} = this.props;
+        const groupWidth = this.getXScale().bandwidth();
+        return histogramType === 'side-by-side' ? (groupWidth / this.originData!.length - 1) : groupWidth;
+    }
+
+    onSwitchLink() {
+        const { drawSankey } = this.state;
+        this.setState({ drawSankey: !drawSankey });
+    }
+
+
+    get originHistY() {
+        const { rangeNotation } = SubsetCFHist.subsetLayout;
+        const { layout } = this.props;
+        if (layout === 'header') {
+            return 0
+        }
+        else {
+            return rangeNotation;
+        }
     }
 
     onSelectCategories(categories?: string[]) {
@@ -174,14 +296,105 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
         return column.xScale || getScaleBand(column.series.toArray(), 0, width - margin.left - margin.right, column.categories);
     }
 
-    public render() {
-        const { column, className, style, width, height, margin } = this.props;
+    getTicks() {
+        const {column} = this.props;
+        return column.categories;
+    }
 
-        return <div className={className} style={{ width, ...style }}>
+    getSankeyBins() {
+        const { column, groupByColumn, focusedCategory } = this.props;
+        const x = this.getXScale();
+        const ticks = this.getTicks();
+
+        const originData = column.series.toArray();
+        const cfData = column.cf?.toArray();
+        const validArray: boolean[] = column.selectedValid ? column.selectedValid : _.range(originData.length).map(() => true);
+        const labelArray: any[] | undefined = groupByColumn?.series.toArray();
+        if (cfData) {
+
+            if (groupByColumn && labelArray) {
+                const bins: SankeyBins<string>[][][] = groupByColumn.categories!.map((d, i) =>
+                    _.range(ticks.length).map((d, topIndex) =>
+                        _.range(ticks.length).map((d, bottomIndex) => ({
+                            x00: ticks[topIndex],
+                            x01: ticks[topIndex + 1],
+                            x10: ticks[bottomIndex],
+                            x11: ticks[bottomIndex + 1],
+                            count: 0,
+                            values: []
+                        }))));
+                _.range(originData.length).forEach((d, i) => {
+                    if (!validArray[i]) return;
+                    const catIndex = groupByColumn.categories!.indexOf(labelArray[i]);
+                    const topBinIndex = ticks.indexOf( originData[i]);
+                    const bottomBinIndex = ticks.indexOf(cfData[i]);
+                    bins[catIndex][Math.max(topBinIndex, 0)][Math.max(bottomBinIndex, 0)].count += 1;
+                });
+                bins.forEach((binMat, i) => {
+                    _.range(ticks.length).forEach(topIndex => {
+                        let topBinCount = 0;
+                        _.range(ticks.length).forEach(bottomIndex => {
+                            binMat[topIndex][bottomIndex].topPrevCounts = topBinCount;
+                            topBinCount += binMat[topIndex][bottomIndex].count;
+                        })
+                        _.range(ticks.length).forEach(bottomIndex => {
+                            binMat[topIndex][bottomIndex].topTotalCounts = topBinCount;
+                        })
+                    });
+                    _.range(ticks.length).forEach(bottomIndex => {
+                        let bottomBinCount = 0;
+                        _.range(ticks.length).forEach(topIndex => {
+                            binMat[topIndex][bottomIndex].topPrevCounts = bottomBinCount;
+                            bottomBinCount += binMat[topIndex][bottomIndex].count;
+                        })
+                        _.range(ticks.length).forEach(topIndex => {
+                            binMat[topIndex][bottomIndex].topTotalCounts = bottomBinCount;
+                        })
+                    });
+                })
+
+                _.range(ticks.length).forEach(topIndex => _.range(ticks.length).forEach(bottomIndex => {
+                    let catTopTotalCount = 0;
+                    let catBottomTotalCount = 0;
+                    _.range(groupByColumn.categories!.length).forEach((catIndex) => {
+                        bins[catIndex][topIndex][bottomIndex].catTopTotalCount = catTopTotalCount;
+                        catTopTotalCount += bins[catIndex][topIndex][bottomIndex].topTotalCounts!;
+
+                        bins[catIndex][topIndex][bottomIndex].catBottomTotalCount = catBottomTotalCount;
+                        catBottomTotalCount += bins[catIndex][topIndex][bottomIndex].catBottomTotalCount!;
+                    })
+
+                }))
+                return focusedCategory !== undefined ? [bins[focusedCategory]] : bins;
+            }
+            return undefined
+
+        }
+        return undefined
+    }
+
+
+
+    onHover() {
+        if (this.props.expandable)
+            this.setState({ drawTooltip: true })
+    }
+
+    onMouseLeave() {
+        this.setState({ drawTooltip: false })
+    }
+
+    public render() {
+        const { column, className, style, width, height, margin, onSelect } = this.props;
+        const {drawTooltip} = this.state;
+
+        return <div className={className} style={{ width, ...style }} onMouseOver={this.onHover} onMouseLeave={this.onMouseLeave}>
             <div className={(className || "") + " bar-chart"} style={style}>
                 <svg style={{ height: height, width: width }} ref={this.svgRef}>
                 </svg>
             </div>
+            {drawTooltip &&
+                <Icon type="zoom-in" className='zoom-button' onClick={onSelect} />}
         </div>
 
     }
