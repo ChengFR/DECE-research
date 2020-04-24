@@ -12,6 +12,7 @@ import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { drawLink } from '../visualization/link'
 import { runInThisContext } from 'vm';
+import { columnMargin } from 'components/Table';
 
 export interface SubsetChartProps {
     width: number;
@@ -29,6 +30,8 @@ export interface SubsetChartProps {
     selected: boolean;
     layout?: 'header' | 'subset';
     color?: (x: number) => string;
+    onSelect?: () => void;
+    expandable: boolean;
 }
 
 export interface ISubsetCFHistProps extends SubsetChartProps {
@@ -38,11 +41,8 @@ export interface ISubsetCFHistProps extends SubsetChartProps {
     onUpdateFilter?: (extent?: [number, number], categories?: string[]) => void;
     onUpdateCFFilter?: (extent?: [number, number]) => void;
     histogramType: 'side-by-side' | 'stacked';
-    onSelect?: () => void;
-    expandable: boolean;
     drawLineChart?: boolean;
     drawHandle?: boolean;
-
 }
 
 export interface ISubsetCFHistState {
@@ -52,11 +52,11 @@ export interface ISubsetCFHistState {
     drawTooltip: boolean;
 }
 
-export interface SankeyBins {
-    x00: number,
-    x01: number,
-    x10: number,
-    x11: number,
+export interface SankeyBins<T> {
+    x00: T,
+    x01: T,
+    x10: T,
+    x11: T,
     count: number,
     topTotalCounts?: number,
     bottomTotalCounts?: number,
@@ -64,7 +64,7 @@ export interface SankeyBins {
     bottomPrevCounts?: number,
     catTopTotalCount?: number,
     catBottomTotalCount?: number,
-    value?: number[]
+    value?: T[]
 }
 
 export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps, ISubsetCFHistState> {
@@ -73,7 +73,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     private cfData?: number[][];
     private allOriginData?: number[][];
     private allCfData?: number[][];
-    private sankeyBins?: SankeyBins[][][];
+    private sankeyBins?: SankeyBins<number>[][][];
     private svgRef: React.RefObject<SVGSVGElement> = React.createRef();
     private shouldPaint: boolean;
     static subsetLayout = {
@@ -435,7 +435,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         if (cfData) {
 
             if (groupByColumn && labelArray) {
-                const bins: SankeyBins[][][] = groupByColumn.categories!.map((d, i) =>
+                const bins: SankeyBins<number>[][][] = groupByColumn.categories!.map((d, i) =>
                     _.range(ticks.length - 1).map((d, topIndex) =>
                         _.range(ticks.length - 1).map((d, bottomIndex) => ({
                             x00: ticks[topIndex],
@@ -506,10 +506,16 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 histogramType: focusedCategory === undefined? histogramType:'stacked',
                 collapsed: !drawSankey,
                 xScale: this.getXScale(),
-                ticks: this.getTicks(),
+                binWidth: this.binWidth,
                 onSwitch: this.onSwitchLink,
                 color: this.props.color,
             })
+    }
+
+    get binWidth(){
+        const {width, margin, histogramType} = this.props;
+        const groupWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 2;
+        return histogramType === 'side-by-side' ? (groupWidth / this.originData!.length - 1) : groupWidth;
     }
 
     public render() {
