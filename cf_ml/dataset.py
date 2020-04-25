@@ -97,7 +97,7 @@ class Dataset:
         for col in self.origin_columns:
             if self.description[col]['type'] == 'categorical':
                 for cat in self.description[col]['category']:
-                    data_df.loc[:, '{}_{}'.format(col, cat)] = (data_df.loc[:, col] == cat).astype(int)
+                    data_df.loc[:, '{}_{}'.format(col, cat)] = ((data_df.loc[:, col] == str(cat)) | (data_df.loc[:, col] == cat)).astype(int)
         return data_df.loc[:, self.dummy_columns]
 
     def _from_dummy(self, data_df):
@@ -134,7 +134,6 @@ class Dataset:
             else:
                 data_df.loc[:, target_col] = self.description[target_col]['min']
             processed_df = self._normalize(self._to_dummy(data_df))[self.get_feature_names(preprocess=True)]
-
         return processed_df
         
     def depreprocess(self, data, mode='all'):
@@ -249,3 +248,20 @@ class Dataset:
 
     def get_description(self):
         return self.description
+
+    def idx2name(self, idx):
+        return self.dummy_columns[idx]
+
+    def dummy2origin(self, dummy):
+        for name, info in self.description.items():
+            if info['type'] == 'categorical':
+                dummy_list = ['{}_{}'.format(name, cat) for cat in info['category']]
+                if dummy in dummy_list:
+                    return name
+
+    def dummy2idx(self, dummy):
+        return self.get_feature_names().index(dummy)
+    
+    def dummy2idxes(self, dummy):
+        origin = self.dummy2origin(dummy)
+        return [self.dummy2idx('{}_{}'.format(origin, cat)) for cat in self.description[origin]['category']]
