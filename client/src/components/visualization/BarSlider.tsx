@@ -81,7 +81,7 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         const barChartNode = this.barRef.current;
         const onValueChange = this.onValueChange;
         if (barChartNode) {
-            drawSimpleBarchart(barChartNode, {width, height, margin, xScale}, column.series.toArray())
+            drawSimpleBarchart(barChartNode, {width, height, margin, xScale, selected: barActivation}, column.series.toArray())
         }
         if (sliderNode){
             drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue, onValueChange}, column.series.toArray());

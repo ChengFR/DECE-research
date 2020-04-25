@@ -1,5 +1,5 @@
 .form-item-font {
-    font: 14px sans-serif;
+    font: 10px sans-serif;
     font-weight: bold;
 }
 
@@ -16,13 +16,28 @@ div.instance-body-container {
 }
 
 div.instance-vis-container {
-    position: relative;
+    position: absolute;
     height: 80%;
     overflow: scroll;
 }
 
+div.feature-title {
+    height: 30px;
+    width: 100%;
+    align-content: left;
+    align-items: left;
+    text-align: left;
+    font-size: 12px;
+    font-weight: bold;
+    position: absolute;
+}
+
+div.feature-container {
+    height: 100px;
+}
+
 span.target-title {
-    font-size: 14px;
+    font-size: 10px;
     font: bold;
     line-height: 30px;
     margin-right: 10px;

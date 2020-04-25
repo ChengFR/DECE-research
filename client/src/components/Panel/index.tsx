@@ -84,7 +84,7 @@ export default class Panel extends React.Component<IPanelProps, IPanelState> {
         }}
         size={{ width, height }}
         position={{ x, y }}
-        minWidth={500}
+        minWidth={100}
         minHeight={190}
         bounds="window"
         disableDragging={false}
