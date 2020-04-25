@@ -1,6 +1,6 @@
 import * as d3 from "d3";
 import * as _ from "lodash";
-import {d3CheckBox} from "./checkBox"
+import { d3CheckBox } from "./checkBox"
 import {
     getMargin,
     CSSPropertiesFn,
@@ -53,10 +53,9 @@ export function drawLinearSlider(
         .attr("x1", -2)
         .attr("x2", _width + 2);
 
+    const xticks = x.ticks(ticks);
     if (drawTick) {
-        const xticks = x.ticks(ticks);
         const tickBase = getChildOrAppend(base, "g", "tick-base");
-
         const tick = tickBase.selectAll("g.tick")
             .data(xticks)
             .join(
@@ -90,12 +89,15 @@ export function drawLinearSlider(
                 const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
                 const xValue = x.invert(xPos);
                 onRangeOneSideChange && onRangeOneSideChange(i, xValue);
-
             })
             .on("end", (d, i, n) => {
                 const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
                 const xValue = x.invert(xPos);
-                onRangeOneSideChange && onRangeOneSideChange(i, xValue);
+                const leftTick = xticks.find(d => d <= xValue) || xticks[0];
+                const rightTick = xticks.find(d => d > xValue) || xticks[xticks.length - 1];
+                const newxPos = x(((xValue - leftTick) < (rightTick - xValue)) ? leftTick : rightTick);
+                // d3.select(n[i]).attr("transform", `translate(${newxPos}, ${0})`);
+                onRangeOneSideChange && onRangeOneSideChange(i, x.invert(newxPos));
             });
 
         const rangeHandleBase = base.selectAll<SVGGElement, any>("g.range-handle-base")
@@ -117,12 +119,18 @@ export function drawLinearSlider(
             d3.select(n[i]).attr("transform", `translate(${Math.min(xRange[1], Math.max(d3.event.x, xRange[0]))}, ${0})`)
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             const xValue = x.invert(xPos);
-            onValueChange && onValueChange(xValue);
+            if ((xticks[1] - xticks[0]) >= 5)
+                onValueChange && onValueChange(Math.round(xValue))
+            else if ((xticks[1] - xticks[0]) >= 0.5)
+                onValueChange && onValueChange(Math.round(xValue*10)/10);
         })
         .on("end", (d, i, n) => {
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             const xValue = x.invert(xPos);
-            onValueChange && onValueChange(xValue);
+            if ((xticks[1] - xticks[0]) >= 5)
+                onValueChange && onValueChange(Math.round(xValue))
+            else if ((xticks[1] - xticks[0]) >= 0.5)
+                onValueChange && onValueChange(Math.round(xValue*10)/10);
         });
 
     const handleBase = getChildOrAppend<SVGGElement, SVGGElement>(base, "g", "handle-base")
@@ -130,6 +138,14 @@ export function drawLinearSlider(
         .call(dragHandle);
 
     const handle = getChildOrAppend<SVGCircleElement, SVGGElement>(handleBase, "circle", "handle");
+    getChildOrAppend<SVGCircleElement, SVGGElement>(handleBase, "rect", "handle-back")
+        .attr("transform", "translate(-5, 12)")
+        .attr("width", 10)
+        .attr("height", 10)
+        .attr("fill", "white")
+    getChildOrAppend<SVGCircleElement, SVGGElement>(handleBase, "text", "handle-text")
+        .attr("dy", 20)
+        .text(defaultValue ? defaultValue : 0);
 
 
     // const trackOverlay = getChildOrAppend(base, "line", "track-inside")
@@ -185,7 +201,7 @@ export function drawBandSlider(
     // getChildOrAppend(tick, "line", "tick-line")
     //     .attr("y2", 6)
     //     .attr("class", "tick-line");
-    const checkboxes = x.domain().map(d => d3CheckBox({x: -7, onClick: onSelectBand?.bind(null, d)}));
+    const checkboxes = x.domain().map(d => d3CheckBox({ x: -7, onClick: onSelectBand && (() => onSelectBand(d)) }));
     tick.each((d, i, n) => checkboxes[i](n[i] as SVGGElement))
     getChildOrAppend(tick, "text", "tick-text")
         .text(d => d)
@@ -196,17 +212,17 @@ export function drawBandSlider(
         .on("drag", (d, i, n) => {
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
             d3.select(n[i]).attr("transform", `translate(${xPos}, ${0})`)
-            
+
             // const xIndex = Math.round((xPos-xRange[0]) / x.bandwidth());
             // const xValue = x.domain()[xIndex];
             // onValueChange && onValueChange(xValue);
         })
         .on("end", (d, i, n) => {
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
-            const xIndex = Math.max(Math.round((xPos-x.range()[0]-x.step()/2) / x.step()) - 1, 0);
+            const xIndex = Math.max(Math.round((xPos - x.range()[0] - x.step() / 2) / x.step()) - 1, 0);
             const xValue = x.domain()[xIndex];
 
-            d3.select(n[i]).attr("transform", `translate(${x(xValue)!+x.bandwidth()/2}, ${0})`)
+            // d3.select(n[i]).attr("transform", `translate(${x(xValue)! + x.bandwidth() / 2}, ${0})`)
             onValueChange && onValueChange(xValue);
         });
 

@@ -3,3 +3,9 @@ path.polyline {
     stroke-width: 2px;
     fill: none;
 }
+
+path.origin-polyline {
+    stroke: rgb(41, 179, 36);
+    stroke-width: 2px;
+    fill: none;
+}

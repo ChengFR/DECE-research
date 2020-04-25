@@ -29,7 +29,7 @@ export interface StyleProps {
 
 const defaultStypeProps: StyleProps = {
     histogramWidth: 250,
-    histogramHeight: 100,
+    histogramHeight: 90,
 }
 
 interface InstanceViewState extends QueryParams {
@@ -76,7 +76,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             return createColumn(rawColumn);
         })
 
-        const margin = { bottom: 40, top: 5, left: 10, right: 10 }
+        const margin = { bottom: 30, top: 20, left: 10, right: 10 }
 
         this.xScales = columns.map(d => d.xScale);
         this.yScale = d3.scaleLinear<number, number>()
@@ -288,7 +288,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
 
     public _drawPcp() {
         const { style } = this.props;
-        const {queryResults} = this.state;
+        const {queryResults, queryInstance} = this.state;
         const { histogramHeight, histogramWidth } = this.styleProps;
         const node = this.svgRef.current;
         const margin = { bottom: 20, top: 5, left: 10, right: 10 }
@@ -299,7 +299,9 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                 margin: margin,
                 x: this.xScales,
                 y: this.yScale,
-            })
+            },
+            queryInstance
+            )
         }
     }
 

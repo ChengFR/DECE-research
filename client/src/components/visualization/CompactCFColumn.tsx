@@ -70,13 +70,13 @@ export function drawCFNumerical(
   cf.select("rect.row-base")
     .attr("width", width - margin.left - margin.right)
     .attr("height", pixel)
-    // .on("mouseover", (d, i) => {
-    //   console.log(i);
-    //   onHoverRow && onHoverRow(i);
-    // })
-    // .on("mousemove", d => {
-    //   onHoverRow && onHoverRow(null);
-    // })
+    .on("mouseover", (d, i) => {
+      console.log(i);
+      onHoverRow && onHoverRow(i);
+    })
+    .on("mousemove", d => {
+      onHoverRow && onHoverRow(null);
+    })
     .on("click", (d, i) => {
         console.log(i);
         onClickRow && onClickRow(i);
@@ -142,12 +142,12 @@ export function drawCFCategorical(
   cf.select("rect.base")
     .attr("x", d => xScale(d) || 0)
     .attr("width", bandwidth)
-    .style("fill", d => color(cat2idx[d]));
+    // .style("fill", d => color(cat2idx[d]));
     
   cf.select("rect.diff")
     .attr("x", (d, i) => cfData[i] ? (xScale(cfData[i]!) || 0) : 0)
     .attr("width", (_, i) => cfData[i] ? bandwidth : 0)
-    .style("fill", (d, i) => cfData[i] ? color(cat2idx[cfData[i]!]) : '#ccc');
+    // .style("fill", (d, i) => cfData[i] ? color(cat2idx[cfData[i]!]) : '#ccc');
 
 }
 

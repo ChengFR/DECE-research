@@ -21,6 +21,7 @@ export interface PcpOptions extends ChartOptions {
 export function drawPcp(node: SVGGElement | SVGGElement,
     data: CounterFactual[],
     options: PcpOptions,
+    originInstance?: CounterFactual,
 ) {
     const margin = getMargin(options.margin);
     const { x, y } = options;
@@ -37,6 +38,13 @@ export function drawPcp(node: SVGGElement | SVGGElement,
     polylines.attr("d", cf => lineGenerator(cf.map((d, i) =>
         [typeof d === 'string' ? (x[i] as d3.ScaleBand<string>)(d)!
             : (x[i] as d3.ScaleLinear<number, number>)(d), y(i)])))
+    if (originInstance) {
+        getChildOrAppend(base, "path", "origin-polyline")
+            .datum(originInstance)
+            .attr("d", cf => lineGenerator(cf.map((d, i) =>
+                [typeof d === 'string' ? (x[i] as d3.ScaleBand<string>)(d)!
+                    : (x[i] as d3.ScaleLinear<number, number>)(d), y(i)])))
+    }
 }
 
 // export default class PCP extends React.Component<PcpOptions, {}>{

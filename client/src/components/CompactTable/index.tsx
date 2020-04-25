@@ -672,7 +672,7 @@ export default class CFTableView extends React.Component<
             height={subsetChartHeight}
             margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
             k={`header-${columnIndex}`}
-            histogramType='stacked'
+            histogramType='side-by-side'
             drawHandle={false}
             drawAxis={this.state.drawYAxis}
             selected={false}
@@ -855,7 +855,7 @@ export default class CFTableView extends React.Component<
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
           // onHoverRow={idx => idx && this.onExpandRow(idx)}
-          // onClickRow={idx => idx && this.onExpandRow(idx)}
+            onClickRow={idx => idx && this.onExpandRow(idx)}
           />
         </Spin>
       );

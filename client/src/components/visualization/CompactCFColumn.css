@@ -19,3 +19,11 @@
 rect.row-base {
     opacity: 0;
 }
+
+rect.base {
+    fill: #999
+}
+
+rect.diff {
+    fill: #bbb
+}

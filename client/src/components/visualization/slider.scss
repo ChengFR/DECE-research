@@ -22,6 +22,12 @@
         text-anchor: middle;
         font-size: 6px;
     }
+    text.handle-text {
+        fill: #333;
+        text-anchor: middle;
+        font-size: 8px;
+        font-weight: bold;
+    }
     circle.handle {
         r: 5;
         fill: white;
