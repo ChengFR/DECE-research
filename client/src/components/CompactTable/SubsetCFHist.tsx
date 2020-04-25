@@ -470,7 +470,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                             bottomBinCount += binMat[topIndex][bottomIndex].count;
                         })
                         _.range(ticks.length - 1).forEach(topIndex => {
-                            binMat[topIndex][bottomIndex].topTotalCounts = bottomBinCount;
+                            binMat[topIndex][bottomIndex].bottomTotalCounts = bottomBinCount;
                         })
                     });
                 })

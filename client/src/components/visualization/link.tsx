@@ -52,8 +52,8 @@ export function drawLink<T>(root: SVGGElement, data: SankeyBins<T>[][][], option
                 return `M${x0},0 C${x0},${10} ${x1},${10} ${x1},20`;
             })
             .style("display", d => d.count > 0 ? "block" : "none")
-            .style("opacity", d => countMax ? d.count / countMax : 1)
-            .style("stroke-width", d => d.topTotalCounts ? d.count / d.topTotalCounts * binWidth : 1)
+            .style("opacity", d => countMax !== undefined ? d.count / countMax : 1)
+            .style("stroke-width", d => d.topTotalCounts !== undefined ? d.count / d.topTotalCounts * binWidth : 1)
             // .style("stroke-width", d => 1)
             .style("fill", "none");
         const base = getChildOrAppend(_root, "rect", "link-base")
