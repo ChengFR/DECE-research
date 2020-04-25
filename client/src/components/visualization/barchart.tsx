@@ -221,10 +221,8 @@ export function drawBarChart(
     })
     .on("click",function (data, idx) {
       const selectedCat = layout.x.domain()[idx];
-      
       if (_selectedCategories) {
         const indexOfCat = _selectedCategories.indexOf(selectedCat);
-        console.log(indexOfCat);
         if (indexOfCat > -1) {
           _selectedCategories.splice(indexOfCat, 1);
           _hoveredCategory = undefined;

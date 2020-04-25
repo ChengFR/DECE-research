@@ -14,7 +14,8 @@ import './_barchart.scss'
 export interface BarOption extends ChartOptions {
     selectedBars?: string[];
     xScale?: d3.ScaleBand<string>;
-    innerPadding?: number
+    innerPadding?: number;
+    selected?: boolean[]
 }
 
 export function drawSimpleBarchart(
@@ -22,7 +23,7 @@ export function drawSimpleBarchart(
     sliderOption: BarOption,
     data: ArrayLike<string>) {
     const options = { ...sliderOption };
-    const { width, height, xScale, innerPadding } = options;
+    const { width, height, xScale, innerPadding, selected } = options;
     const margin = getMargin(options.margin);
 
     const xRange = [0, width - margin.right - margin.left] as [number, number];
@@ -50,6 +51,7 @@ export function drawSimpleBarchart(
         .attr("width", d => {
             return x.bandwidth();
         })
+        .classed("selected", (d, i) => selected?selected[i]:true)
         .attr("height", d => {
             return y(d.count) - yRange[0] + 0.01;
         });

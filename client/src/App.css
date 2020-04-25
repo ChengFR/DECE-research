@@ -85,3 +85,7 @@
     height: 100%;
     overflow: scroll;
 }
+
+.panel-wrapper {
+    min-width: 100px;
+}

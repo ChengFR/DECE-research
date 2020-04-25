@@ -381,7 +381,7 @@ export default class CFTableView extends React.Component<
     const fixedColumns = 1;
     console.debug(columns);
     return (
-      <Panel title="Table View" initialWidth={960} initialHeight={600}>
+      <Panel title="Table View" initialWidth={960} initialHeight={700} x={300}>
         {this.renderToolBox()}
         {/* <LoadableTable
           isRowLoaded={this.isRowLoaded}
@@ -662,12 +662,18 @@ export default class CFTableView extends React.Component<
             groupByColumn={columns[groupByColumn]}
             // onUpdateFilter={(categories?: string[]) => tableGroup.updateFilter(columnIndex, undefined, categories)}
             // protoColumnGroupBy={this.basicColumns[groupByColumn]}
+            onUpdateFilter={(categories?: string[]) => {
+              column.onFilter && column.onFilter(categories)
+            }}
+            onUpdateCFFilter={(categories?: string[]) => {
+              column.onFilterCF && column.onFilterCF(categories)
+            }}
             width={width}
             height={subsetChartHeight}
             margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
             k={`header-${columnIndex}`}
             histogramType='stacked'
-            drawHandle={true}
+            drawHandle={false}
             drawAxis={this.state.drawYAxis}
             selected={false}
             layout={"header"}

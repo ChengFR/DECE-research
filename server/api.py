@@ -192,18 +192,44 @@ def get_cf_instance():
     k = request_params.get('k', -1)
     cf_num = request_params.get('cfNum', 1)
     attr_flex = request_params.get('attrFlex', None)
+    disc = current_app.dataset.get_description()
     if attr_flex:
         changeable_attr = [features[i] for i in range(len(attr_flex)) if attr_flex[i]]
     else:
         changeable_attr = 'all'
+    print(request_params)
     attr_range = {}
-    for attr in request_params['attrRange']:
-        attr_range[features[attr['id']]] = attr
+    for filter in request_params['attrRange']:
+        name = filter["name"]
+        if name in features:
+            s = {}
+            if disc[name]['type'] == 'numerical':
+                _min = filter["extent"][0]
+                _max = filter["extent"][1]
+                # if _min > disc[name]["min"]:
+                s['min'] = _min
+                # if _max < disc[name]["max"]:
+                s['max'] = _max
+                attr_range[name] = s
+            else: 
+                # a tmp implementation
+                cats = []
+                for cat in filter['categories']:
+                    if cat not in disc[name]['category']:
+                        cats.append(int(cat))
+                    else:
+                        cats.append(cat)
+                s['category'] = cats
+                attr_range[name] = s
 
-    setting = {'changeable_attribute': changeable_attr, 'attr_range': attr_range, 
+    setting = {'changeable_attribute': changeable_attr, 'cf_range': attr_range, 
         'data_range': {}, 'cf_num': cf_num, 'desired_class': 'opposite', 'k': k}
+    print(query_instance_inlist, setting)
+    query_instance_inlist = [float(k) for k in query_instance_inlist]
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
-        diversity_weight=0)
+        diversity_weight=0.01)
     cf_df = subset_cf.get_cf()
+    # origin_df = subset_cf.get_instance()
     cols = current_app.dataset.get_feature_names(preprocess=False)
+    print(cf_df['{}_pred'.format(current_app.dataset.get_target_names(False))])
     return jsonify(cf_df[cols].values.tolist())

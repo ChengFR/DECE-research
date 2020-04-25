@@ -18,12 +18,14 @@ export interface ISubsetCFBarProps extends SubsetChartProps {
     column: CFCategoricalColumn;
     protoColumn?: CFCategoricalColumn;
     onUpdateFilter?: (categories?: string[]) => void;
+    onUpdateCFFilter?: (categories?: string[]) => void;
     histogramType: 'side-by-side' | 'stacked';
     drawHandle?: boolean;
 }
 
 export interface ISubsetCFBarState {
     selectedCategories?: string[],
+    selectedCFCategories?: string[],
     drawSankey: boolean,
     drawTooltip: boolean,
 }
@@ -40,8 +42,12 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
 
     constructor(props: ISubsetCFBarProps) {
         super(props);
-        const { column } = this.props;
-        this.state = { selectedCategories: column.dataRange, drawSankey: false, drawTooltip: false };
+        const { column, layout } = this.props;
+        this.state = {
+            selectedCategories: layout === 'header' ? [] : column.dataRange,
+            selectedCFCategories: layout === 'header' ? [] : undefined,
+            drawSankey: false, drawTooltip: false
+        };
         this.updateParams(props);
 
         this.paint = this.paint.bind(this);
@@ -51,6 +57,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
         this.onHover = this.onHover.bind(this);
         this.onMouseLeave = this.onMouseLeave.bind(this);
         this.onSelectCategories = this.onSelectCategories.bind(this);
+        this.onSelectCFCategories = this.onSelectCFCategories.bind(this);
         this.onSwitchLink = this.onSwitchLink.bind(this);
 
         this.shouldPaint = false;
@@ -131,7 +138,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
 
     paint() {
         const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis, layout } = this.props;
-        const { drawSankey} = this.state;
+        const { drawSankey, selectedCategories, selectedCFCategories } = this.state;
         const node = this.svgRef.current;
         const color = this.props.color || defaultCategoricalColor;
         if (node) {
@@ -142,13 +149,13 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
             if (originHistNode && this.originData) {
                 drawBarChart(originHistNode,
                     this.originData,
-                    undefined,
+                    this.allOriginData,
                     this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     {
                         width,
                         margin,
                         height: this.histHeight,
-                        selectedCategories: this.state.selectedCategories,
+                        selectedCategories: selectedCategories,
                         // onSelectCategories: 
                         xScale: this.getXScale(),
                         renderShades: true,
@@ -161,23 +168,23 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
             else {
                 throw Error("data empty");
             }
-            
+
             if (drawHandle)
                 this.drawHandle(node);
 
-                const sankeyBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-sankey-base")
+            const sankeyBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-sankey-base")
                 .attr("transform", `translate(${margin.left}, ${this.histHeight + this.originHistY})`);
             const sankeyNode = sankeyBase.node();
             if (sankeyNode && !this.dataEmpty())
                 this.drawSankey(sankeyNode);
 
             const cfHistBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "cf-hist-base")
-                .attr("transform", `translate(0, ${this.originHistY + this.histHeight + (drawSankey?20:3)})`);
+                .attr("transform", `translate(0, ${this.originHistY + this.histHeight + (drawSankey ? 20 : 3)})`);
             const cfHistNode = cfHistBase.node();
-            if (cfHistNode && this.cfData){
+            if (cfHistNode && this.cfData) {
                 drawBarChart(cfHistNode,
                     this.cfData,
-                    undefined,
+                    this.allCfData,
                     this.props.protoColumn && this.props.protoColumn.series.toArray(),
                     {
                         width,
@@ -186,15 +193,18 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                         direction: 'down',
                         color: i => color(i ^ 1),
                         xScale: this.getXScale(),
+                        renderShades: layout === 'header',
+                        onSelectCategories: this.onSelectCFCategories,
+                        selectedCategories: selectedCFCategories
                     });
-                }
+            }
             // if (!this.dataEmpty()) {
-                if (layout === 'header') {
-                    const axisBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
-                        .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
-                    const bottomAxis = d3.axisBottom(this.getXScale());
-                    axisBase.call(bottomAxis);
-                }
+            if (layout === 'header') {
+                const axisBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
+                    .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
+                const bottomAxis = d3.axisBottom(this.getXScale());
+                axisBase.call(bottomAxis);
+            }
             //     else {
             //         const lineChartBase = getChildOrAppend<SVGGElement, SVGSVGElement>(root, "g", "line-chart-base")
             //             .attr("transform", `translate(${margin.left}, ${this.histHeight * 2 + this.originHistY + (drawSankey ? 20 : 3)})`);
@@ -231,7 +241,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                 height: 20,
                 width: width,
                 margin: margin,
-                histogramType: focusedCategory === undefined? histogramType:'stacked',
+                histogramType: focusedCategory === undefined ? histogramType : 'stacked',
                 collapsed: !drawSankey,
                 xScale: x => this.getXScale()(x)!,
                 binWidth: this.binWidth,
@@ -240,8 +250,8 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
             })
     }
 
-    get binWidth(){
-        const {histogramType} = this.props;
+    get binWidth() {
+        const { histogramType } = this.props;
         const groupWidth = this.getXScale().bandwidth();
         return histogramType === 'side-by-side' ? (groupWidth / this.originData!.length - 1) : groupWidth;
     }
@@ -264,9 +274,16 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     }
 
     onSelectCategories(categories?: string[]) {
-        const { onUpdateFilter } = this.props;
+        const { onUpdateFilter, layout } = this.props;
+        if (layout === 'header') console.log(categories);
         onUpdateFilter && onUpdateFilter(categories);
         this.setState({ selectedCategories: categories && [...categories] });
+    }
+
+    onSelectCFCategories(categories?: string[]) {
+        const { onUpdateCFFilter } = this.props;
+        onUpdateCFFilter && onUpdateCFFilter(categories);
+        this.setState({ selectedCFCategories: categories && [...categories] });
     }
 
     drawHandle(root: SVGSVGElement) {
@@ -281,7 +298,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                 .join(enter => enter.append("g")
                     .attr("class", "handle-base"),
                     update => update,
-                    exit => {exit.remove()}
+                    exit => { exit.remove() }
                 )
                 .attr("transform", d => `translate(${margin.left + x(d)!}, ${margin.top})`);
 
@@ -297,7 +314,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     }
 
     getTicks() {
-        const {column} = this.props;
+        const { column } = this.props;
         return column.categories;
     }
 
@@ -326,7 +343,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                 _.range(originData.length).forEach((d, i) => {
                     if (!validArray[i]) return;
                     const catIndex = groupByColumn.categories!.indexOf(labelArray[i]);
-                    const topBinIndex = ticks.indexOf( originData[i]);
+                    const topBinIndex = ticks.indexOf(originData[i]);
                     const bottomBinIndex = ticks.indexOf(cfData[i]);
                     bins[catIndex][Math.max(topBinIndex, 0)][Math.max(bottomBinIndex, 0)].count += 1;
                 });
@@ -386,7 +403,7 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
 
     public render() {
         const { column, className, style, width, height, margin, onSelect } = this.props;
-        const {drawTooltip} = this.state;
+        const { drawTooltip } = this.state;
 
         return <div className={className} style={{ width, ...style }} onMouseOver={this.onHover} onMouseLeave={this.onMouseLeave}>
             <div className={(className || "") + " bar-chart"} style={style}>

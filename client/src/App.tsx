@@ -81,7 +81,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         {dataset &&
           (modelId && CFMeta && defaultSetsubCF? (
             <div className="main-container">
-              {/* <div className="instance-view-container">
+              {/* <div className="instance-view-container"> */}
                 <InstanceView
                   CFMeta={CFMeta}
                   dataset={dataset}
@@ -89,7 +89,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                   queryFunction={this.instanceQuery}
                   queryResults={queryResults}
                 />
-              </div> */}
+              {/* </div> */}
               {/* <div className="table-view-container"> */}
                 <CompactTable
                   dataset={dataset}
