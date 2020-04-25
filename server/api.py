@@ -175,7 +175,7 @@ def get_cf_subset():
     data_meta = current_app.dir_manager.get_dataset_meta()
     target_name = data_meta['target_name']
     cols = current_app.dataset.get_feature_names(preprocess=False) + ['{}_pred'.format(target_name)]
-    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=512)
+    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=1024)
     subset_cf_data = [subset_cf.get_cf()[cols].values.tolist() for _, subset_cf in subset_cf_dict.items()]
     subset_cf_index = [subset_cf.get_cf()[index_col].values.tolist() for _, subset_cf in subset_cf_dict.items()][0]
     return jsonify({'index': subset_cf_index, 'counterfactuals': subset_cf_data})
@@ -197,7 +197,6 @@ def get_cf_instance():
         changeable_attr = [features[i] for i in range(len(attr_flex)) if attr_flex[i]]
     else:
         changeable_attr = 'all'
-    print(request_params)
     attr_range = {}
     for filter in request_params['attrRange']:
         name = filter["name"]
@@ -221,11 +220,16 @@ def get_cf_instance():
                         cats.append(cat)
                 s['category'] = cats
                 attr_range[name] = s
+    
+    for i, name in enumerate(current_app.dataset.get_feature_names(preprocess=False)):
+        if disc[name]['type'] == 'categorical':
+            if query_instance_inlist[i] not in disc[name]['category']:
+                query_instance_inlist[i] = int(query_instance_inlist[i])
 
     setting = {'changeable_attribute': changeable_attr, 'cf_range': attr_range, 
         'data_range': {}, 'cf_num': cf_num, 'desired_class': 'opposite', 'k': k}
     print(query_instance_inlist, setting)
-    query_instance_inlist = [float(k) for k in query_instance_inlist]
+    
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
         diversity_weight=0.01)
     cf_df = subset_cf.get_cf()

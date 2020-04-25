@@ -34,7 +34,7 @@ class CFEnginePytorch:
         return results
 
     def generate_cfs_from_setting(self, setting, data=None, weight='mads', proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
-                                  loss_diff=5e-6, post_step=5, batch_size=1, evaluate=1, verbose=True, use_cache=True, cache=True):
+                                  loss_diff=5e-6, post_step=5, batch_size=1, evaluate=1, verbose=1, use_cache=True, cache=True):
         """
         :param setting: {'index': list of int or str, optional
                         'changeable_attribute': str or list of str, 
@@ -175,7 +175,7 @@ class CFEnginePytorch:
         self.category_weight = 0.01
         self.clip_frequency = clip_frequency
         self.init_cat = init_cat
-        self.reload_frequency = 100
+        self.reload_frequency = 500
         if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
             self.changeable_attribute = self.features
         else:
@@ -197,6 +197,16 @@ class CFEnginePytorch:
         self.mask_cat = \
             np.array(
                     [False if attr in self.desc else True for attr in self.features]).astype(int)
+
+        self.mask_cat_num = []
+        for feature in self.dataset.get_feature_names(False):
+            if self.desc[feature]['type'] == 'numerical':
+                self.mask_cat_num.append(1)
+            else:
+                for i in range(len(self.desc[feature]['category'])):
+                    self.mask_cat_num.append(1 / len(self.desc[feature]['category']))
+        self.mask_cat_num = np.array(self.mask_cat_num)
+
         # list of the indexes of dummy attributes
         self.categorical_attr_list = []
         for attr, info in self.desc.items():
@@ -236,7 +246,6 @@ class CFEnginePytorch:
             if col != target and info['type'] == 'categorical':
                 for cat in info['category']:
                     self.normed_min['{}_{}'.format(col, cat)] = 0
-        self.normed_min = torch.from_numpy(self.normed_min.values).float()
 
         self.normed_max = self.dataset.preprocess([info['max'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
                                                    for col, info in self.cf_range.items()], mode='x')
@@ -246,16 +255,24 @@ class CFEnginePytorch:
                     if cat in self.cf_range[col]['category']:
                         self.normed_max['{}_{}'.format(col, cat)] = 1
                     else:
-                        self.normed_max['{}_{}'.format(col, cat)] = 0
+                        self.normed_max['{}_{}'.format(col, cat)] = -0.001
+                        self.normed_min['{}_{}'.format(col, cat)] = -0.001
+
+        self.normed_min = torch.from_numpy(self.normed_min.values).float()
         self.normed_max = torch.from_numpy(self.normed_max.values).float()
+
+        # print(self.cf_range)
+        # print(self.normed_min)
+        print(self.mask_change)
 
     def init_cfs(self, data, mask):
         cfs = np.repeat(data, self.cf_num, axis=0)
         cfs += mask * self.mask_num * np.random.rand(cfs.shape[0], cfs.shape[1])*0.1
-        if self.init_cat == 'rand':
-            cfs[:, mask * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
-        elif self.init_cat == 'avg':
-            cfs[:, mask * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
+        # if self.init_cat == 'rand':
+        #     cfs[:, mask[0] * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
+        # elif self.init_cat == 'avg':
+        #     cfs[:, mask[0] * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
+        print(data, cfs[0])
         return cfs
 
     def init_targets(self, target):
@@ -332,7 +349,6 @@ class CFEnginePytorch:
 
             if iter % self.reload_frequency == 0:
                 cfs.data = self.reload(cfs.data)
-
         cfs.data = self.clip(cfs.data)
         return cfs, pred, loss.detach().numpy(), iter
 
@@ -374,7 +390,7 @@ class CFEnginePytorch:
     def get_category_loss(self, cfs):
         category_loss = torch.tensor(0).float()
         for cat_index in self.categorical_attr_list:
-            category_loss += (cfs[:, cat_index].sum(axis=1) - torch.ones([1, len(cfs)])).abs().mean()
+            category_loss += (cfs[:, cat_index].sum(axis=1) - torch.ones([1, len(cfs)])).abs().sum()
         return category_loss
     
     def get_distance(self, cf, origin, metric='L1'):
@@ -414,6 +430,8 @@ class CFEnginePytorch:
     def checkstopable(self, iter, pred, target, loss, loss_diff):
         if iter < self.min_iter:
             return False
+        elif iter < self.clip_frequency + 1 or iter < self.reload_frequency + 1:
+            return False
         elif iter >= self.max_iter:
             return True
         elif self.checkvalid(pred, target) and loss_diff > 0 and loss_diff <= self.loss_diff:
@@ -433,7 +451,12 @@ class CFEnginePytorch:
         gradient = cfs.grad
         return gradient*mask, pred
 
-    def post_step(self, projected_cfs, data_instances, target, mask, verbose=False):
+    def post_step_by_instance(self, projected_cf, data_instance, target, mask, verbose):
+        feature_names = self.features
+        target_name = self.dataset.get_target_names(preprocess=False)
+        raise NotImplementedError
+
+    def post_step(self, projected_cfs, data_instances, target, mask, verbose=True):
         feature_names = self.features
         target_name = self.dataset.get_target_names(preprocess=False)
 
@@ -446,6 +469,10 @@ class CFEnginePytorch:
         cfs.requires_grad = True
         grad, pred = self.get_gradient(cfs, data_instances, target, mask)
         grad = -grad.detach().numpy()
+
+        # numerical_grad = grad * (self.mask_cat_num > 0.9)
+        categorical_grad = grad * (self.mask_cat_num < 0.9)
+        grad = grad * (self.normed_max > 0).numpy()
 
         pos_grad = grad.copy()
         pos_grad[pos_grad < 0] = 0
@@ -480,13 +507,29 @@ class CFEnginePytorch:
                             i, pred[i, 0], target[i, 0], salient_feature_name, projected_cfs.loc[i, salient_feature_name], update))
                     projected_cfs.loc[i, salient_feature_name] += update
                 else:
-                    update = 1.1 * grad_sign[i, salient_attr[i]]
-                    cfs[i][salient_attr[i]] += update
+                    sign = grad_sign[i, salient_attr[i]]
+                    # dummy_name = self.dataset.idx2name(salient_attr[i])
+                    
+                    relative_idxes = self.dataset.dummy2idxes(salient_feature_name)
+                    # print(relative_idxes, salient_feature_name)
+                    # print(self.normed_max.shape)
+                    # relative_idxes = [self.normed_max[0, idx] >=0 for idx in relative_idxes]
+                    relative_idxes = [x for x in filter(lambda idx: self.normed_max[0, idx] >=0, relative_idxes)]
+                    if sign > 0:
+                        cfs[i][salient_attr[i]] = 1
+                        cfs[i][relative_idxes] = 0
+                        new_cat_name = feature_names[salient_attr[i]]
+                    else:
+                        cfs[i][salient_attr[i]] = 0
+                        new_cat_index = relative_idxes[valid_grad[i][relative_idxes].argmax()]
+
+                        new_cat_name = feature_names[new_cat_index]
+                        cfs[i][new_cat_index] = 1
                     projected_cfs.loc[i, :] = self.project(
                         cfs[i].detach().numpy()).loc[0, :]
                     if verbose:
-                        print("{}: {:.3f}->{}: {} set {}".format(i,
-                                                                 pred[i, 0], target[i, 0], salient_feature_name, update > 0))
+                        print("{}: {:.3f}->{}: {} set to {}".format(i,
+                                                                 pred[i, 0], target[i, 0], salient_feature_name, new_cat_name))
         return projected_cfs
 
     def evaluate_cfs(self, cf_df, instance_df, metrics=['valid_rate', 'avg_distance']):
