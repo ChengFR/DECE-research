@@ -177,18 +177,15 @@ class CFEnginePytorch:
         self.init_cat = init_cat
         self.reload_frequency = 500
         if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
-            self.changeable_attribute = self.features
-        else:
-            self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
+            changeable_attribute = self.dataset.get_feature_names(False)
+        self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
         self.max_iter = max_iter
         self.min_iter = min_iter
         self.loss_diff = loss_diff
         self.lr = lr
         self.k = k
         # set mask of changeable attributes; numerical attributes; categorical attributes
-        self.mask_change = \
-            np.array(
-                [feature in self.changeable_attribute for feature in self.features]).astype(int)
+        
 
         self.mask_num = \
             np.array(
@@ -240,6 +237,26 @@ class CFEnginePytorch:
                 else:
                     self.cf_range[col]['category'] = info['category']
 
+        self.mask_change = []
+        for feature in self.dataset.get_feature_names(False):
+            if feature in changeable_attribute:
+                if self.desc[feature]['type'] == 'numerical':
+                    self.mask_change.append(1)
+                else:
+                    for cat in self.desc[feature]['category']:
+                        if cat in self.cf_range[feature]['category']:
+                            self.mask_change.append(1)
+                        else:
+                            self.mask_change.append(0)
+            else:
+                if self.desc[feature]['type'] == 'numerical':
+                    self.mask_change.append(0)
+                else:
+                    for cat in self.desc[feature]['category']:
+                        self.mask_change.append(0)
+
+        self.mask_change = np.array(self.mask_change).astype(int)
+
         self.normed_min = self.dataset.preprocess([info['min'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
                                                    for col, info in self.cf_range.items()], mode='x')
         for col, info in self.desc.items():
@@ -263,16 +280,15 @@ class CFEnginePytorch:
 
         # print(self.cf_range)
         # print(self.normed_min)
-        print(self.mask_change)
+        # print(self.mask_change)
 
     def init_cfs(self, data, mask):
         cfs = np.repeat(data, self.cf_num, axis=0)
         cfs += mask * self.mask_num * np.random.rand(cfs.shape[0], cfs.shape[1])*0.1
-        # if self.init_cat == 'rand':
-        #     cfs[:, mask[0] * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
-        # elif self.init_cat == 'avg':
-        #     cfs[:, mask[0] * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
-        print(data, cfs[0])
+        if self.init_cat == 'rand':
+            cfs[:, mask[0] * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
+        elif self.init_cat == 'avg':
+            cfs[:, mask[0] * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
         return cfs
 
     def init_targets(self, target):

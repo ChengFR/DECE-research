@@ -170,7 +170,7 @@ def get_cf_subset():
                         cats.append(cat)
                 s['category'] = cats
                 setting[name] = s
-    print(setting)
+    # print(setting)
     index_col = 'OriginIndex'
     data_meta = current_app.dir_manager.get_dataset_meta()
     target_name = data_meta['target_name']
@@ -233,7 +233,10 @@ def get_cf_instance():
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
         diversity_weight=0.01)
     cf_df = subset_cf.get_cf()
-    # origin_df = subset_cf.get_instance()
+    origin_df = subset_cf.get_instance()
     cols = current_app.dataset.get_feature_names(preprocess=False)
-    print(cf_df['{}_pred'.format(current_app.dataset.get_target_names(False))])
+    pred_name = '{}_pred'.format(current_app.dataset.get_target_names(False))
+    pred_label = origin_df.loc[0, pred_name]
+    print(pred_label)
+    cf_df = cf_df[cf_df[pred_name] != pred_label]
     return jsonify(cf_df[cols].values.tolist())
