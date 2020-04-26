@@ -29,21 +29,22 @@ export interface StyleProps {
 
 const defaultStypeProps: StyleProps = {
     histogramWidth: 250,
-    histogramHeight: 90,
+    histogramHeight: 100,
 }
 
 interface InstanceViewState extends QueryParams {
     editable: boolean;
     hovered: boolean[];
-    queryResults?: CounterFactual[],
 }
 
 export default class InstanceView extends React.Component<InstanceViewProps, InstanceViewState>{
     private styleProps: StyleProps;
     private svgRef: React.RefObject<SVGSVGElement>;
     private xScales: (d3.ScaleBand<string> | d3.ScaleLinear<number, number>)[];
-    private yScale?: d3.ScaleLinear<number, number>
+    private yScale?: d3.ScaleLinear<number, number>;
 
+    // private queryInstance?: CounterFactual;
+    // private queryResults?: CounterFactual[];
 
     constructor(props: InstanceViewProps) {
         super(props);
@@ -244,13 +245,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         </div>
     }
 
-    cacheQueryResults(){
-        const {CFMeta} = this.props;
-        const {queryResults} = this.state;
-        const index = CFMeta.features[0].name;
-        if (queryResults)
-            localStorage.setItem(`${index}-queryResults`, JSON.stringify(queryResults));
-    }
     loadQueryCache(){
         const {CFMeta} = this.props;
         const index = CFMeta.features[0].name;
@@ -271,11 +265,14 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     }
 
     public componentDidUpdate(oldProps: InstanceViewProps, oldState: InstanceViewState) {
-        const { queryResults } = this.props;
-        if (queryResults !== oldProps.queryResults) {
-            this.setState({queryResults});
-            this.cacheQueryResults();
-        }
+        const { queryResults, queryInstance } = this.props;
+        // if (queryResults !== this.queryResults) {
+        //     // this.setState({queryResults});
+        //     // this.queryResults = queryResults;
+        //     // this.cacheQueryResults();
+        // }
+
+        // // if (this.queryInstance)
 
         const { editable } = this.state;
         if (!editable) {
@@ -283,12 +280,13 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         }
     }
     public init() {
-        this.setState({queryResults: this.loadQueryCache()});
+        // this.setState({queryResults: this.loadQueryCache()});
+        // this.queryResults = this.loadQueryCache();
     }
 
     public _drawPcp() {
-        const { style } = this.props;
-        const {queryResults, queryInstance} = this.state;
+        const { style, queryResults } = this.props;
+        const {queryInstance} = this.state;
         const { histogramHeight, histogramWidth } = this.styleProps;
         const node = this.svgRef.current;
         const margin = { bottom: 20, top: 5, left: 10, right: 10 }

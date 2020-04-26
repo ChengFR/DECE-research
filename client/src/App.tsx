@@ -43,6 +43,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     };
     this.updateData = this.updateData.bind(this);
     this.instanceQuery = this.instanceQuery.bind(this);
+    this.updateQueryInstance = this.updateQueryInstance.bind(this);
   }
 
   public componentDidMount() {
@@ -57,20 +58,74 @@ export class App extends React.Component<IAppProps, IAppState> {
       const params = { dataId, modelId };
       newState.CFMeta = await getCFMeta(params);
       // console.log(newState.CFMeta);
-      const cfs = await getCFs({...params, index: newState.dataset.dataFrame.index});
+      const cfs = await getCFs({ ...params, index: newState.dataset.dataFrame.index });
       newState.cfs = [];
       cfs.forEach(cf => newState.cfs![cf.index] = cf);
-      newState.defaultSetsubCF = await getSubsetCF({filters: []});
+      newState.defaultSetsubCF = await getSubsetCF({ filters: [] });
     }
+
+    
     // console.log(dataset);
     this.setState({ ...this.state, ...newState });
+    this.loadQueryInstance();
+    this.loadQueryResults();
   }
 
   public async instanceQuery(params: QueryParams) {
     this.setState({ queryInstance: params.queryInstance })
+    this.cacheQueryInstance();
     const cfs = await GetInstanceCF(params);
     console.log(`Query Results: ${cfs}`);
     this.setState({ queryResults: cfs });
+    this.cacheQueryResults();
+  }
+
+  updateQueryInstance(queryInstance: CounterFactual){
+    this.setState({queryInstance});
+  }
+
+  cacheQueryInstance() {
+    const { CFMeta, queryInstance } = this.state;
+    if (CFMeta && queryInstance) {
+      const index = CFMeta.features[0].name;
+      localStorage.setItem(`${index}-queryInstance`, JSON.stringify(queryInstance));
+      console.log("queryInstance cached");
+    }
+  }
+
+  loadQueryInstance() {
+    const { CFMeta } = this.state;
+    if (CFMeta) {
+      const index = CFMeta.features[0].name;
+      const resultString = localStorage.getItem(`${index}-queryInstance`);
+      if (resultString) {
+        const queryInstance: CounterFactual = JSON.parse(resultString);
+        this.setState({ queryInstance });
+        console.log("queryInstance loaded");
+      }
+    }
+  }
+
+  cacheQueryResults() {
+    const { CFMeta, queryResults } = this.state;
+    if (CFMeta && queryResults) {
+      const index = CFMeta.features[0].name;
+      localStorage.setItem(`${index}-queryResults`, JSON.stringify(queryResults));
+      console.log("queryResults cached");
+    }
+  }
+
+  loadQueryResults() {
+    const { CFMeta } = this.state;
+    if (CFMeta) {
+      const index = CFMeta.features[0].name;
+      const resultString = localStorage.getItem(`${index}-queryResults`);
+      if (resultString) {
+        const queryResults: CounterFactual[] = JSON.parse(resultString);
+        this.setState({ queryResults });
+        console.log("queryResults loaded");
+      }
+    }
   }
 
   public render() {
@@ -79,30 +134,31 @@ export class App extends React.Component<IAppProps, IAppState> {
     return (
       <div className="App">
         {dataset &&
-          (modelId && CFMeta && defaultSetsubCF? (
+          (modelId && CFMeta && defaultSetsubCF ? (
             <div className="main-container">
               {/* <div className="instance-view-container"> */}
-                <InstanceView
-                  CFMeta={CFMeta}
-                  dataset={dataset}
-                  queryInstance={queryInstance}
-                  queryFunction={this.instanceQuery}
-                  queryResults={queryResults}
-                />
+              <InstanceView
+                CFMeta={CFMeta}
+                dataset={dataset}
+                queryInstance={queryInstance}
+                queryFunction={this.instanceQuery}
+                queryResults={queryResults}
+              />
               {/* </div> */}
               {/* <div className="table-view-container"> */}
-                <CompactTable
-                  dataset={dataset}
-                  CFMeta={CFMeta}
-                  cfs={cfs}
-                  getCFs={(params) =>
-                    getCFs({ dataId, modelId, ...params })
-                  }
-                  getCF={(index) => getCF({ dataId, modelId, index })}
-                  getSubsetCF={getSubsetCF}
-                  defaultSetsubCF={defaultSetsubCF}
-                />
-                {/* </div> */}
+              <CompactTable
+                dataset={dataset}
+                CFMeta={CFMeta}
+                cfs={cfs}
+                getCFs={(params) =>
+                  getCFs({ dataId, modelId, ...params })
+                }
+                getCF={(index) => getCF({ dataId, modelId, index })}
+                getSubsetCF={getSubsetCF}
+                defaultSetsubCF={defaultSetsubCF}
+                updateQueryInstance={this.updateQueryInstance}
+              />
+              {/* </div> */}
             </div>
           ) : (
               // <TableView dataset={dataset} />

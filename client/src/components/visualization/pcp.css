@@ -2,10 +2,12 @@ path.polyline {
     stroke: #aaa;
     stroke-width: 2px;
     fill: none;
+    opacity: 0.5;
 }
 
 path.origin-polyline {
     stroke: rgb(41, 179, 36);
+    opacity: 0.5;
     stroke-width: 2px;
     fill: none;
 }
