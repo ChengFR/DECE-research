@@ -9,7 +9,7 @@ import {
   IndexRange,
   InfiniteLoaderChildProps
 } from "react-virtualized";
-import { CFResponse, SubsetCFResponse, Filter, getSubsetCF } from "api";
+import { CFResponse, SubsetCFResponse, Filter, getSubsetCF, CounterFactual } from "api";
 import { Dataset, DataMeta, DataFrame, IColumn, buildCFSeries, CFSubset } from "data";
 import Panel from "components/Panel";
 import Table, { CellProps, columnMargin } from "components/Table";
@@ -147,6 +147,7 @@ export interface ICompactTableProps {
 
   getSubsetCF: (param: { filters: Filter[] }) => Promise<SubsetCFResponse>;
   defaultSetsubCF: SubsetCFResponse;
+  updateQueryInstance?: (queryInstance: CounterFactual) => void;
 }
 
 export interface ICompactTableState {
@@ -194,6 +195,7 @@ export default class CFTableView extends React.Component<
     this.onClearFilter = this.onClearFilter.bind(this);
     this.onHover = this.onHover.bind(this);
     this.onExpandRow = this.onExpandRow.bind(this);
+    this.onClickRow = this.onClickRow.bind(this);
     this.onCollapseRow = this.onCollapseRow.bind(this);
     this.onSelectColumn = this.onSelectColumn.bind(this);
     // this.registerTableRef = this.registerTableRef.bind(this);
@@ -227,7 +229,7 @@ export default class CFTableView extends React.Component<
       dataFrame,
       columns: this.basicColumns,
       hovered: null,
-      showCF: false,
+      showCF: true,
       groupByColumn: 1,
       drawYAxis: false,
 
@@ -855,7 +857,7 @@ export default class CFTableView extends React.Component<
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
           // onHoverRow={idx => idx && this.onExpandRow(idx)}
-            onClickRow={idx => idx && this.onExpandRow(idx)}
+            onClickRow={idx => idx && this.onClickRow(idx)}
           />
         </Spin>
       );
@@ -876,6 +878,11 @@ export default class CFTableView extends React.Component<
         />
       );
     }
+  }
+
+  onClickRow(idx: number){
+    const {updateQueryInstance} = this.props;
+    this.onExpandRow(idx);
   }
 
   _getRowLabels = memoizeOne((labelColumn: CategoricalColumn): [number[], number[]] => {
