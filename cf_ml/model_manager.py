@@ -1,7 +1,7 @@
 import os
 from abc import ABC, abstractmethod
 import numpy as np
-import pandas as pd 
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -12,6 +12,7 @@ import torch.optim as optim
 from utils.dir_manager import DirectoryManager
 
 OUTPUT_ROOT = os.path.join(os.path.dirname(__file__), 'output')
+
 
 class ModelManager(ABC):
 
@@ -35,6 +36,7 @@ class ModelManager(ABC):
     def save_model(self):
         return
 
+
 class PytorchModel(nn.Module):
 
     def __init__(self, feature_num, class_num, dropout=0.5):
@@ -54,6 +56,7 @@ class PytorchModel(nn.Module):
         x = F.sigmoid(self.fc3(x))
         return x
 
+
 class PytorchLinearModel(nn.Module):
 
     def __init__(self, feature_num, class_num):
@@ -67,6 +70,7 @@ class PytorchLinearModel(nn.Module):
 
 class PytorchModelManager(ModelManager):
     """Model manager of a pytorch model"""
+
     def __init__(self, dataset, model_name='MLP', root_dir=OUTPUT_ROOT, model_type="3fc", model=None):
         ModelManager.__init__(self)
         self.dataset = dataset
@@ -78,22 +82,30 @@ class PytorchModelManager(ModelManager):
 
         if model is None:
             if model_type == "3fc":
-                self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
+                self.model = PytorchModel(feature_num=len(
+                    self.feature_names), class_num=len(self.target_names))
             elif model_type == "3fc_dropout0":
-                self.model = PytorchModel(feature_num=len(self.feature_names), class_num=len(self.target_names), dropout=0)
-            elif  model_type == "linear":
-                self.model = PytorchLinearModel(feature_num=len(self.feature_names), class_num=len(self.target_names))
+                self.model = PytorchModel(feature_num=len(
+                    self.feature_names), class_num=len(self.target_names), dropout=0)
+            elif model_type == "linear":
+                self.model = PytorchLinearModel(feature_num=len(
+                    self.feature_names), class_num=len(self.target_names))
             else:
-                raise ValueError("Model type should be in [\"3fc\", \"3fc_dropout0\", \"linear\"]")
+                raise ValueError(
+                    "Model type should be in [\"3fc\", \"3fc_dropout0\", \"linear\"]")
         else:
             self.model = model
 
         train_dataset = self.dataset.get_train_dataset()
         test_dataset = self.dataset.get_test_dataset()
-        train_x = torch.from_numpy(train_dataset[self.feature_names].values).float()
-        train_y = torch.from_numpy(train_dataset[self.target_names].values).float()
-        test_x = torch.from_numpy(test_dataset[self.feature_names].values).float()
-        test_y = torch.from_numpy(test_dataset[self.target_names].values).float()
+        train_x = torch.from_numpy(
+            train_dataset[self.feature_names].values).float()
+        train_y = torch.from_numpy(
+            train_dataset[self.target_names].values).float()
+        test_x = torch.from_numpy(
+            test_dataset[self.feature_names].values).float()
+        test_y = torch.from_numpy(
+            test_dataset[self.target_names].values).float()
         self.train_dataset = TensorDataset(train_x, train_y)
         self.test_dataset = TensorDataset(test_x, test_y)
 
@@ -121,12 +133,13 @@ class PytorchModelManager(ModelManager):
         if isinstance(x, np.ndarray):
             x = torch.from_numpy(x).float()
         pred = self.model(x).detach().numpy()
-        output_df = pd.DataFrame(np.concatenate((x, pred), axis=1), \
-            columns=self.feature_names+self.target_names)
+        output_df = pd.DataFrame(np.concatenate((x, pred), axis=1),
+                                 columns=self.feature_names+self.target_names)
         output_df = self.dataset.depreprocess(output_df)
         origin_target_name = self.dataset.get_target_names(preprocess=False)
         origin_columns = self.dataset.get_columns(preprocess=False)
-        output_df['{}_pred'.format(origin_target_name)] = output_df[origin_target_name]
+        output_df['{}_pred'.format(origin_target_name)
+                  ] = output_df[origin_target_name]
         output_df['Score'] = pred[:, 1]
         return output_df[origin_columns+['{}_pred'.format(origin_target_name), 'Score']]
 
@@ -135,7 +148,8 @@ class PytorchModelManager(ModelManager):
         x = instances[self.feature_names].values
         x = torch.from_numpy(x).float()
         origin_target_name = self.dataset.get_target_names(preprocess=False)
-        target = self.dataset.get_sample(index, preprocess=False)[origin_target_name]
+        target = self.dataset.get_sample(index, preprocess=False)[
+            origin_target_name]
         output_df = self.predict(x, preprocess=False)
         output_df[origin_target_name] = target
         return output_df.set_index(instances.index)
@@ -144,15 +158,16 @@ class PytorchModelManager(ModelManager):
         for param in self.model.parameters():
             param.requires_grad = False
         self.model.eval()
-        
+
     def release_model(self):
         for param in self.model.parameters():
             param.requires_grad = True
 
-    def train(self, dataset=None, batch_size=32, epoch=40, lr=0.002, verbose=True):
+    def train(self, dataset=None, batch_size=32, epoch=40, lr=0.002, weights=None, verbose=True):
         if dataset is None:
             dataset = self.train_dataset
-        data_loader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
+        data_loader = DataLoader(
+            dataset=dataset, batch_size=batch_size, shuffle=True)
         criterion = nn.BCELoss()
         self.release_model()
         # optimizer = optim.SGD(self.model.parameters(), lr=lr)
@@ -164,20 +179,36 @@ class PytorchModelManager(ModelManager):
                 optimizer.zero_grad()
 
                 pred = self.model(x)
-                loss = criterion(pred, target)
+                # loss = criterion(pred, target)
+                loss = self.weighted_binary_cross_entropy(pred, target, weights)
                 loss.backward()
                 optimizer.step()
             if verbose:
-                print("Epoch: {}, loss={:.3f}, train_accuracy={:.3f}, test_accuracy={:.3f}".format(e, loss, self.evaluate('train'), self.evaluate('test')))
+                print("Epoch: {}, loss={:.3f}, train_accuracy={:.3f}, test_accuracy={:.3f}".format(
+                    e, loss, self.evaluate('train'), self.evaluate('test')))
         self.train_accuracy = float(self.evaluate('train'))
         self.test_accuracy = float(self.evaluate('test'))
         self.dir_manager.update_model_meta()
 
+    def weighted_binary_cross_entropy(self, output, target, weights=None):
+        output = torch.clamp(output,min=1e-8,max=1-1e-8)
+        if weights is not None:
+            assert len(weights) == 2
+            loss = weights[1] * (target * torch.log(output)) + \
+                weights[0] * ((1 - target) * torch.log(1 - output))
+        else:
+            loss = target * torch.log(output) + \
+                (1 - target) * torch.log(1 - output)
+
+        return torch.neg(torch.mean(loss))
+
     def evaluate(self, dataset='test', batch_size=128):
         if dataset == 'test':
-            data_loader = DataLoader(dataset=self.test_dataset, batch_size=batch_size, shuffle=True)
+            data_loader = DataLoader(
+                dataset=self.test_dataset, batch_size=batch_size, shuffle=True)
         else:
-            data_loader = DataLoader(dataset=self.train_dataset, batch_size=batch_size, shuffle=True)
+            data_loader = DataLoader(
+                dataset=self.train_dataset, batch_size=batch_size, shuffle=True)
 
         target_class = np.array([])
         pred_class = np.array([])
@@ -192,15 +223,37 @@ class PytorchModelManager(ModelManager):
             pred_class = np.concatenate((pred_class, pred))
         return (target_class == pred_class).mean()
 
+    def evaluate_class(self, class_idx, dataset='test', batch_size=128):
+        if dataset == 'test':
+            data_loader = DataLoader(
+                dataset=self.test_dataset, batch_size=batch_size, shuffle=True)
+        else:
+            data_loader = DataLoader(
+                dataset=self.train_dataset, batch_size=batch_size, shuffle=True)
+
+        target_class = np.array([])
+        pred_class = np.array([])
+
+        for x, target in data_loader:
+            pred = self.model(x)
+            pred = pred.argmax(axis=1).numpy()
+            target = target.argmax(axis=1).numpy()
+            target_class = np.concatenate((target_class, target))
+            pred_class = np.concatenate((pred_class, pred))
+        return (pred_class[target_class == class_idx] == class_idx).mean()
+
     def save_model(self):
         self.dir_manager.init_dir()
         self.dir_manager.save_pytorch_model_state(self.model.state_dict())
 
     def save_prediction(self):
         """a tmp implemetation"""
-        self.dir_manager.save_prediction(self.predict_instance('all'), 'dataset')
-        self.dir_manager.save_prediction(self.predict_instance('train'), 'train_dataset')
-        self.dir_manager.save_prediction(self.predict_instance('test'), 'test_dataset')
+        self.dir_manager.save_prediction(
+            self.predict_instance('all'), 'dataset')
+        self.dir_manager.save_prediction(
+            self.predict_instance('train'), 'train_dataset')
+        self.dir_manager.save_prediction(
+            self.predict_instance('test'), 'test_dataset')
 
     def get_name(self):
         return self.model_name
@@ -213,6 +266,7 @@ class PytorchModelManager(ModelManager):
 
     def get_dir_manager(self):
         return self.dir_manager
+
 
 if __name__ == '__main__':
     from load_dataset import load_HELOC_dataset
