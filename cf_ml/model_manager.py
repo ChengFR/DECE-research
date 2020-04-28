@@ -179,8 +179,8 @@ class PytorchModelManager(ModelManager):
                 optimizer.zero_grad()
 
                 pred = self.model(x)
-                # loss = criterion(pred, target)
-                loss = self.weighted_binary_cross_entropy(pred, target, weights)
+                loss = criterion(pred, target)
+                # loss = self.weighted_binary_cross_entropy(pred, target, weights)
                 loss.backward()
                 optimizer.step()
             if verbose:

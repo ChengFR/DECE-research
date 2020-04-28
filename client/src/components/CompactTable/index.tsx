@@ -383,8 +383,8 @@ export default class CFTableView extends React.Component<
     const fixedColumns = 1;
     console.debug(columns);
     return (
-      <Panel title="Table View" initialWidth={960} initialHeight={700} x={300}>
-        {this.renderToolBox()}
+      <Panel title="Table View" initialWidth={960} initialHeight={700} x={300} y={5}>
+        {/* {this.renderToolBox()} */}
         {/* <LoadableTable
           isRowLoaded={this.isRowLoaded}
           loadMoreRows={this.loadMoreRows}
@@ -756,7 +756,7 @@ export default class CFTableView extends React.Component<
             histogramType='side-by-side'
             drawHandle={true}
             drawAxis={this.state.drawYAxis}
-            selected={groupIndex === this.state.groupIndex && columnIndex === this.state.groupIndex}
+            selected={groupIndex === this.state.groupIndex && columnIndex === this.state.columnIndex}
             onSelect={() => this.onSelectColumn(groupIndex, columnIndex)}
             expandable={true}
             focusedCategory={tableGroup.focusedClass}
@@ -822,7 +822,7 @@ export default class CFTableView extends React.Component<
     const { pixel } = this.props;
     const { columns, showCF } = this.state;
     const column = columns[columnIndex];
-    if (columnIndex === 1) {
+    if (columnIndex === 0) {
       // index column
       return <div className="cell-content"></div>;
     } else {
@@ -858,6 +858,7 @@ export default class CFTableView extends React.Component<
             margin={collapsedCellMargin}
           // onHoverRow={idx => idx && this.onExpandRow(idx)}
             onClickRow={idx => idx && this.onClickRow(idx)}
+            categoricalColor={columnIndex === 1?defaultCategoricalColor:undefined}
           />
         </Spin>
       );

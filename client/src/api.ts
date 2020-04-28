@@ -148,3 +148,12 @@ export async function GetInstanceCF(
   const data = checkResponse(response, []);
   return data;
 }
+
+export async function predictInstance(
+  params: {queryInstance: CounterFactual}
+): Promise<string> {
+  const url = `${API}/predict`;
+  const response = await axios.post(url, params);
+  const data = checkResponse(response, []);
+  return data;
+}

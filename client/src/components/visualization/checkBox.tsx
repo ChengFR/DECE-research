@@ -47,6 +47,7 @@ export function d3CheckBox(
                 checked = !checked;
                 getChildOrAppend(d3.select(n[i]), "path", "check-box-mark")
                     .classed("check-box-mark-checked", checked)
+                onClick();
             });
 
         const box = getChildOrAppend(base, "rect", "check-box")

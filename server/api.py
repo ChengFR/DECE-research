@@ -175,15 +175,28 @@ def get_cf_subset():
     data_meta = current_app.dir_manager.get_dataset_meta()
     target_name = data_meta['target_name']
     cols = current_app.dataset.get_feature_names(preprocess=False) + ['{}_pred'.format(target_name)]
-    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=1024)
+    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=1024, use_cache=False)
     subset_cf_data = [subset_cf.get_cf()[cols].values.tolist() for _, subset_cf in subset_cf_dict.items()]
     subset_cf_index = [subset_cf.get_cf()[index_col].values.tolist() for _, subset_cf in subset_cf_dict.items()][0]
     return jsonify({'index': subset_cf_index, 'counterfactuals': subset_cf_data})
 
+@api.route('/predict', methods=['POST'])
+def predict_instance():
+    request_params = request.get_json()
+    query_instance_inlist = request_params['queryInstance']
+    features = current_app.dataset.get_feature_names(preprocess=False)
+    disc = current_app.dataset.get_description()
+    for i, name in enumerate(features):
+        if disc[name]['type'] == 'categorical':
+            if query_instance_inlist[i] not in disc[name]['category']:
+                query_instance_inlist[i] = int(query_instance_inlist[i])
+    query_instance = current_app.dataset.preprocess(query_instance_inlist, mode='x')
+    result = current_app.model.predict(query_instance_inlist)
+    print(result['{}_pred'.format(current_app.dataset.get_target_names(False))].values.tolist())
+    return str(result['{}_pred'.format(current_app.dataset.get_target_names(False))].values[0])
 
 @api.route('/cf_instance', methods=['GET', 'POST'])
 def get_cf_instance():
-
     # print(request.get_json())
     features = current_app.dataset.get_feature_names(preprocess=False)
     request_params = request.get_json()
@@ -231,12 +244,12 @@ def get_cf_instance():
     print(query_instance_inlist, setting)
     
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
-        diversity_weight=0.01)
+        diversity_weight=0.01, post_step=0)
     cf_df = subset_cf.get_cf()
     origin_df = subset_cf.get_instance()
-    cols = current_app.dataset.get_feature_names(preprocess=False)
     pred_name = '{}_pred'.format(current_app.dataset.get_target_names(False))
     pred_label = origin_df.loc[0, pred_name]
     print(pred_label)
-    cf_df = cf_df[cf_df[pred_name] != pred_label]
+    # cf_df = cf_df[cf_df[pred_name] != pred_label]
+    cols = current_app.dataset.get_feature_names(preprocess=False) + [pred_name]
     return jsonify(cf_df[cols].values.tolist())

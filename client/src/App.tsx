@@ -10,7 +10,7 @@ import {
 
 import { Layout } from "antd"
 
-import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse } from './api';
+import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance } from './api';
 import { Dataset, DataMeta } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
@@ -32,6 +32,7 @@ export interface IAppState {
   defaultSetsubCF?: SubsetCFResponse;
   CFMeta?: DataMeta;
   queryInstance?: CounterFactual;
+  queryInstanceClass?: string,
   queryResults: CounterFactual[];
 }
 
@@ -73,6 +74,9 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public async instanceQuery(params: QueryParams) {
     this.setState({ queryInstance: params.queryInstance })
+    const queryInstanceClass = await predictInstance({queryInstance: params.queryInstance});
+    console.log(`Query Instance Label: ${queryInstanceClass}`);
+    this.setState({queryInstanceClass})
     this.cacheQueryInstance();
     const cfs = await GetInstanceCF(params);
     console.log(`Query Results: ${cfs}`);
@@ -130,7 +134,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta, queryInstance, queryResults, cfs, defaultSetsubCF } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, cfs, defaultSetsubCF } = this.state;
     return (
       <div className="App">
         {dataset &&
@@ -143,6 +147,7 @@ export class App extends React.Component<IAppProps, IAppState> {
                 queryInstance={queryInstance}
                 queryFunction={this.instanceQuery}
                 queryResults={queryResults}
+                queryInstanceClass={queryInstanceClass}
               />
               {/* </div> */}
               {/* <div className="table-view-container"> */}
