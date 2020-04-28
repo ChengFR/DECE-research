@@ -93,9 +93,15 @@ export function drawLinearSlider(
             .on("end", (d, i, n) => {
                 const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
                 const xValue = x.invert(xPos);
+                let newxPos = xPos;
+                if ((xticks[1] - xticks[0]) <= 0.5) {
+                    newxPos = Math.round(xPos*10)/10;
+                }
+                else{
                 const leftTick = xticks.find(d => d <= xValue) || xticks[0];
                 const rightTick = xticks.find(d => d > xValue) || xticks[xticks.length - 1];
-                const newxPos = x(((xValue - leftTick) < (rightTick - xValue)) ? leftTick : rightTick);
+                newxPos = x(((xValue - leftTick) < (rightTick - xValue)) ? leftTick : rightTick);
+                }
                 // d3.select(n[i]).attr("transform", `translate(${newxPos}, ${0})`);
                 onRangeOneSideChange && onRangeOneSideChange(i, x.invert(newxPos));
             });
@@ -158,8 +164,9 @@ export function drawLinearSlider(
 export interface BandSliderOptions extends ChartOptions {
     defaultValue?: string;
     onValueChange?: (newValue: string) => void;
-    onSelectBand?: (band: string) => void;
+    onSelectBand?: (band: number) => void;
     xScale?: d3.ScaleBand<string>
+    barActivation: boolean[]
 }
 
 export function drawBandSlider(
@@ -167,7 +174,7 @@ export function drawBandSlider(
     options: BandSliderOptions,
     data: ArrayLike<string>,
 ) {
-    const { height, width, onSelectBand, onValueChange, defaultValue } = options;
+    const { height, width, onSelectBand, onValueChange, defaultValue, barActivation } = options;
     const margin = getMargin(options.margin);
     const _width = width - margin.left - margin.right;
     const _height = height - margin.top - margin.bottom;
@@ -201,7 +208,7 @@ export function drawBandSlider(
     // getChildOrAppend(tick, "line", "tick-line")
     //     .attr("y2", 6)
     //     .attr("class", "tick-line");
-    const checkboxes = x.domain().map(d => d3CheckBox({ x: -7, onClick: onSelectBand && (() => onSelectBand(d)) }));
+    const checkboxes = x.domain().map((d, i) => d3CheckBox({ x: -7, defaultValue: barActivation[i], onClick: onSelectBand && (() => onSelectBand(i)) }));
     tick.each((d, i, n) => checkboxes[i](n[i] as SVGGElement))
     getChildOrAppend(tick, "text", "tick-text")
         .text(d => d)

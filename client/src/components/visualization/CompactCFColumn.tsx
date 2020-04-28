@@ -12,7 +12,7 @@ import { on } from "cluster";
 
 export interface ICompactCFOptions extends ChartOptions {
   pixel: number;
-  categoricalColor: (i: number) => string;
+  categoricalColor?: (i: number) => string;
   onHoverRow?: (rowIndex: number | null) => any;
   onClickRow?: (rowIndex: number) => any;
 }
@@ -21,7 +21,7 @@ export const defaultOptions = {
   width: 100,
   height: 200,
   margin: 0,
-  categoricalColor: defaultCategoricalColor
+  // categoricalColor: defaultCategoricalColor
 };
 
 export function drawCFNumerical(
@@ -142,12 +142,16 @@ export function drawCFCategorical(
   cf.select("rect.base")
     .attr("x", d => xScale(d) || 0)
     .attr("width", bandwidth)
-    // .style("fill", d => color(cat2idx[d]));
+  if (color)
+    cf.select("rect.base")
+      .style("fill", d => color(cat2idx[d]));
     
   cf.select("rect.diff")
     .attr("x", (d, i) => cfData[i] ? (xScale(cfData[i]!) || 0) : 0)
     .attr("width", (_, i) => cfData[i] ? bandwidth : 0)
-    // .style("fill", (d, i) => cfData[i] ? color(cat2idx[cfData[i]!]) : '#ccc');
+  if (color)
+    cf.select("rect.diff")
+    .style("fill", (d, i) => cfData[i] ? color(cat2idx[cfData[i]!]) : '#ccc');
 
 }
 
@@ -166,6 +170,7 @@ export interface ICompactCFColumnProps {
   className?: string;
   onHoverRow?: (rowIndex: number | null) => any;
   onClickRow?: (rowIndex: number) => any;
+  categoricalColor?: (i: number) => string;
 }
 
 export interface ICompactCFColumnState {}

@@ -35,10 +35,10 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
     private sliderSvgGRef: React.RefObject<SVGGElement> = React.createRef();
     constructor(props: HistSliderProps) {
         super(props);
-        const { column, defaultInstanceRange, defaultInstanceValue } = props;
+        const { column, defaultInstanceRange, defaultInstanceValue, xScale } = props;
         this.state = {
-            instanceValue: defaultInstanceValue ? defaultInstanceValue : column.extent?column.extent[0]:0,
-            range: defaultInstanceRange ? defaultInstanceRange : [column.extent?column.extent[0]:0, column.extent?column.extent[1]:0],
+            instanceValue: defaultInstanceValue ? defaultInstanceValue : xScale!.domain()[0],
+            range: defaultInstanceRange ? defaultInstanceRange : xScale!.domain() as [number, number],
         };
         this.onInstanceValueChange = this.onInstanceValueChange.bind(this);
         this.onRangeChange = this.onRangeChange.bind(this);
@@ -49,7 +49,14 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
         this.paint();
     }
 
-    public componentDidUpdate() {
+    public componentDidUpdate(prevProps: HistSliderProps) {
+        const {column, defaultInstanceValue, xScale, defaultInstanceRange} = this.props;
+        if (column.name !== prevProps.column.name) {
+            this.setState({
+                instanceValue: defaultInstanceValue ? defaultInstanceValue : xScale!.domain()[0],
+                range: defaultInstanceRange ? defaultInstanceRange : xScale!.domain() as [number, number],
+            });
+        }
         window.setTimeout(this.paint, 50);
     }
 

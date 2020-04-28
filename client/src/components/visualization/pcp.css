@@ -1,13 +1,34 @@
 path.polyline {
-    stroke: #aaa;
-    stroke-width: 2px;
+    stroke-width: 1px;
     fill: none;
+}
+
+path.bad-polyline {
+    stroke-width: 1px;
+    fill: none;
+    stroke: #aaa;
     opacity: 0.5;
+}
+
+path.polyline:not(.selected) {
+    stroke: #aaa;
+}
+
+path.selected {
+    stroke: rgb(73, 103, 236);
+    stroke-width: 2px;
 }
 
 path.origin-polyline {
     stroke: rgb(41, 179, 36);
-    opacity: 0.5;
+    /* opacity: 0.5; */
     stroke-width: 2px;
     fill: none;
+}
+
+text.tick-text {
+    fill: #333;
+    text-anchor: middle;
+    font-size: 12px;
+    font-weight: bolder;
 }

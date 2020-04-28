@@ -29,6 +29,8 @@ export function drawSimpleHistogram(
     const x = xScale ? xScale : getScaleLinear(data, ...xRange);
     const y = d3.scaleLinear().range(yRange);
 
+    const _ticks = d3.thresholdSturges(data);
+
     const histogram = d3
         .histogram()
         .domain(x.domain() as [number, number])

@@ -37,6 +37,8 @@ export interface IBarChartOptions extends ChartOptions {
   direction: 'up' | 'down',
   renderShades?: boolean,
   drawAxis?: boolean,
+  // shadeColor?: boolean,
+  twisty? :(idx: number) => number;
 }
 
 export const defaultOptions: IBarChartOptions = {
@@ -68,7 +70,8 @@ export function drawBarChart(
     xScale,
     direction,
     renderShades,
-    drawAxis
+    drawAxis,
+    twisty
   } = opts;
 
   const margin = getMargin(opts.margin);
@@ -202,6 +205,10 @@ export function drawBarChart(
     .classed("show", (d, idx) =>
       _selectedCategories?.includes(d) || d === _hoveredCategory
     );
+
+  if (twisty) {
+    shadeRects.style("fill", (d, i) => d3.interpolateReds(twisty(i)?twisty(i):0));
+  }
 
   const rerenderShades = () => {
     shadeRects.classed("show", (d, idx) =>

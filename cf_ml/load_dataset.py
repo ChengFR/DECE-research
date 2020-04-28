@@ -50,9 +50,12 @@ def load_diabetes_dataset():
 def load_admission_dataset():
     data_df = pd.read_csv(os.path.join(DATA_DIR, 'admission/admission.csv'))
     description = pd.read_csv(os.path.join(DATA_DIR,'admission/description.csv'), index_col='name').to_dict('index')
-    for _, info in description.items():
+    for name, info in description.items():
         if type(info['category']) is str:
-            info['category'] = [int(cat) for cat in info['category'].split(' ')]
+            if name == 'Admit':
+                info['category'] = info['category'].split(' ')
+            else:
+                info['category'] = [int(cat) for cat in info['category'].split(' ')]
     return Dataset('admission', data_df[list(description.keys())], description, 'Admit')
 
 if __name__ == '__main__':

@@ -60,6 +60,8 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
         this.onSelectCFCategories = this.onSelectCFCategories.bind(this);
         this.onSwitchLink = this.onSwitchLink.bind(this);
 
+        this.twisty = this.twisty.bind(this);
+
         this.shouldPaint = false;
     }
 
@@ -136,6 +138,24 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
         return this.allOriginData && _.flatten(this.allOriginData).length === 0;
     }
 
+    twisty(idx: number) {
+        const {groupByColumn, column} = this.props;
+        if (groupByColumn && this.originData && this.cfData) {
+            const cat = column.categories[idx];
+            const pos = (this.originData[0]?this.originData[0].filter(d => d === cat).length:0) + (this.cfData[1]?this.cfData[1].filter(d => d === cat).length:0);
+            const neg = (this.originData[1]?this.originData[1].filter(d => d === cat).length:0) + (this.cfData[0]?this.cfData[0].filter(d => d === cat).length:0);
+            const sum = pos + neg;
+            if (sum > 0) {
+                return (1 - (pos / sum) ** 2 - (neg / sum) ** 2);
+            }
+            else
+                return 0
+        }
+        else {
+            return 0;
+        }
+    }
+
     paint() {
         const { width, height, margin, histogramType, column, k: key, drawHandle, drawAxis, layout } = this.props;
         const { drawSankey, selectedCategories, selectedCFCategories } = this.state;
@@ -161,7 +181,8 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
                         renderShades: true,
                         onSelectCategories: this.onSelectCategories,
                         drawAxis: drawAxis,
-                        color: color
+                        color: color,
+                        twisty: layout !== 'header' ? this.twisty : undefined
                     });
 
             }
@@ -402,12 +423,12 @@ export default class SubsetCFBar extends React.PureComponent<ISubsetCFBarProps, 
     }
 
     public render() {
-        const { column, className, style, width, height, margin, onSelect } = this.props;
+        const { column, className, style, width, height, margin, onSelect, selected } = this.props;
         const { drawTooltip } = this.state;
 
         return <div className={className} style={{ width, ...style }} onMouseOver={this.onHover} onMouseLeave={this.onMouseLeave}>
-            <div className={(className || "") + " bar-chart"} style={style}>
-                <svg style={{ height: height, width: width }} ref={this.svgRef}>
+            <div className={(className || "") + " bar-chart" + (selected ? " selected-column" : "")} style={style}>
+                <svg style={{ height: height - 5, width: width }} ref={this.svgRef}>
                 </svg>
             </div>
             {drawTooltip &&
