@@ -78,7 +78,6 @@ export function drawCFNumerical(
       onHoverRow && onHoverRow(null);
     })
     .on("click", (d, i) => {
-        console.log(i);
         onClickRow && onClickRow(i);
     })
 
@@ -259,6 +258,30 @@ export class CompactCFColumn extends React.Component<
     // this.afterRender();
     // }
   }
+
+  onEvents = {
+    updateAxisPointer: (e: any) => {
+      const {onHoverRow, startIndex} = this.props;
+      let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      // console.debug("hover", e, index);
+      if (index !== this.hoveredIndex) {
+        onHoverRow && onHoverRow(index);
+        this.hoveredIndex = index;
+        // console.log("hover at dataIndex ", hoveredIndex);
+      }
+    },
+    click: (e: any) => {
+      const {onClickRow, startIndex} = this.props;
+      // let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
+      let index: number | null = (e.data as (undefined | [number, number])) ? (e.data[1] + startIndex) : null;
+      console.debug("click", e);
+      onClickRow && index !== null && onClickRow(index);
+    },
+    contextmenu: (e: any) => {
+      console.debug("rightclick", e);
+      // e.preventDefault();
+    }
+  };
 
   public render() {
     const { style, className, width } = this.props;
