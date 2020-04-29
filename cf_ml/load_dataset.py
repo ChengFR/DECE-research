@@ -44,7 +44,7 @@ def load_diabetes_dataset():
     description = pd.read_csv(os.path.join(DATA_DIR,'diabetes/description.csv'), index_col='name').to_dict('index')
     for _, info in description.items():
         if type(info['category']) is str:
-            info['category'] = [int(cat) for cat in info['category'].split(' ')]
+            info['category'] = info['category'].split(' ')
     return Dataset('diabetes', data_df, description, 'Outcome')
 
 def load_admission_dataset():

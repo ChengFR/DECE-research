@@ -175,7 +175,7 @@ def get_cf_subset():
     data_meta = current_app.dir_manager.get_dataset_meta()
     target_name = data_meta['target_name']
     cols = current_app.dataset.get_feature_names(preprocess=False) + ['{}_pred'.format(target_name)]
-    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=1024, use_cache=False)
+    subset_cf_dict = current_app.cf_engine.generate_cfs_subset(setting, batch_size=1024)
     subset_cf_data = [subset_cf.get_cf()[cols].values.tolist() for _, subset_cf in subset_cf_dict.items()]
     subset_cf_index = [subset_cf.get_cf()[index_col].values.tolist() for _, subset_cf in subset_cf_dict.items()][0]
     return jsonify({'index': subset_cf_index, 'counterfactuals': subset_cf_data})

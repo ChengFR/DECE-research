@@ -7,8 +7,8 @@ div.pcp-svg-container,
 .hist-svg-container {
     position: absolute;
     top: 10;
-    height: calc(100% - 200px);
-    /* overflow: hidden; */
+    height: calc(100% - 250px);
+    overflow: hidden;
 }
 
 div.instance-body-container {

@@ -385,6 +385,7 @@ export default class CFTableView extends React.Component<
     return (
       <Panel title="Table View" initialWidth={960} initialHeight={700} x={300} y={5}>
         {/* {this.renderToolBox()} */}
+        {this.renderLegend()}
         {/* <LoadableTable
           isRowLoaded={this.isRowLoaded}
           loadMoreRows={this.loadMoreRows}
@@ -431,6 +432,22 @@ export default class CFTableView extends React.Component<
         )}
       </Panel>
     );
+  }
+
+  public renderLegend() {
+    const { groupByColumn, columns } = this.state;
+    const color = defaultCategoricalColor;
+    if (groupByColumn) {
+      const classes = columns[groupByColumn].categories;
+      return classes && (
+        <div className="legend">
+          {classes.map((d, i)=> <div className="legend-container">
+            <span className="legend-class">{d}</span>
+            <div className="legend-color-div" style={{backgroundColor: color(i)}}/>
+          </div>)}
+        </div>
+      )
+    }
   }
 
   public renderToolBox() {
@@ -832,6 +849,7 @@ export default class CFTableView extends React.Component<
       // const cf = cfs && notEmpty(cfs[columnIndex]) ? cfs[columnIndex] : undefined;
       let data: number[] | string[] = [];
       let cfData: (number | undefined)[] | (string | undefined)[] | undefined = undefined;
+      const index = columns[0].series;
       if (isNumericalCFColumn(column)) {
         cfData = column.cf?.toArray();
         cfData = cfData && cfData.filter((d, i) => column.valid ? column.valid[i] : false);
@@ -856,9 +874,9 @@ export default class CFTableView extends React.Component<
             width={width}
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
-          // onHoverRow={idx => idx && this.onExpandRow(idx)}
-            onClickRow={idx => idx && this.onClickRow(idx)}
-            categoricalColor={columnIndex === 1?defaultCategoricalColor:undefined}
+            // onHoverRow={idx => idx && this.onExpandRow(idx)}
+            onClickRow={idx => idx && this.onClickRow(idx+rowState.startIndex)}
+            categoricalColor={columnIndex === 1 ? defaultCategoricalColor : undefined}
           />
         </Spin>
       );
@@ -881,8 +899,9 @@ export default class CFTableView extends React.Component<
     }
   }
 
-  onClickRow(idx: number){
-    const {updateQueryInstance} = this.props;
+  onClickRow(idx: number) {
+    const { updateQueryInstance } = this.props;
+    console.log(idx);
     this.onExpandRow(idx);
   }
 
