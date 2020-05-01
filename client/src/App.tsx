@@ -98,16 +98,16 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   loadQueryInstance() {
-    const { CFMeta } = this.state;
-    if (CFMeta) {
-      const index = CFMeta.features[0].name;
-      const resultString = localStorage.getItem(`${index}-queryInstance`);
-      if (resultString) {
-        const queryInstance: CounterFactual = JSON.parse(resultString);
-        this.setState({ queryInstance });
-        console.log("queryInstance loaded");
-      }
-    }
+    // const { CFMeta } = this.state;
+    // if (CFMeta) {
+    //   const index = CFMeta.features[0].name;
+    //   const resultString = localStorage.getItem(`${index}-queryInstance`);
+    //   if (resultString) {
+    //     const queryInstance: CounterFactual = JSON.parse(resultString);
+    //     this.setState({ queryInstance });
+    //     console.log("queryInstance loaded");
+    //   }
+    // }
   }
 
   cacheQueryResults() {
@@ -120,16 +120,16 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   loadQueryResults() {
-    const { CFMeta } = this.state;
-    if (CFMeta) {
-      const index = CFMeta.features[0].name;
-      const resultString = localStorage.getItem(`${index}-queryResults`);
-      if (resultString) {
-        const queryResults: CounterFactual[] = JSON.parse(resultString);
-        this.setState({ queryResults });
-        console.log("queryResults loaded");
-      }
-    }
+    // const { CFMeta } = this.state;
+    // if (CFMeta) {
+    //   const index = CFMeta.features[0].name;
+    //   const resultString = localStorage.getItem(`${index}-queryResults`);
+    //   if (resultString) {
+    //     const queryResults: CounterFactual[] = JSON.parse(resultString);
+    //     this.setState({ queryResults });
+    //     console.log("queryResults loaded");
+    //   }
+    // }
   }
 
   public render() {
