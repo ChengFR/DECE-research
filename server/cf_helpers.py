@@ -87,7 +87,7 @@ def data_meta_translate(des, target, mode="data"):
         'name': '{}_pred'.format(target),
         'type': 'categorical',
         'index': len(des.keys()) if mode == 'data' else len(des.keys())-1,
-        'categories': [str(cat) for cat in des[col]['category']]
+        'categories': [str(cat) for cat in des[target]['category']]
     }
     if mode == 'data':
         data_meta['index'] = {
