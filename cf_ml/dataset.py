@@ -61,7 +61,7 @@ class Dataset:
                 self.dummy_columns += ['{}_{}'.format(col, cat)
                                        for cat in info['category']]
             else:
-                self.dummy_columns.append(col)
+                self.dummy_columns.append([])
 
         # add index of attributes in dataframe
         for i, col in enumerate(self.origin_columns):
