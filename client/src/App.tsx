@@ -18,6 +18,7 @@ import CFTableView from "./components/CFTableView";
 import TableView from "./components/TableView";
 import CompactTable from "./components/CompactTable";
 import InstanceView from "./components/InstanceView"
+import { assert } from "common/utils";
 
 const { Header, Content, Sider } = Layout;
 
@@ -29,7 +30,7 @@ export interface IAppProps {
 export interface IAppState {
   dataset?: Dataset;
   cfs?: (CFResponse | undefined)[];
-  defaultSetsubCF?: SubsetCFResponse;
+  defaultSubsetCF?: SubsetCFResponse;
   CFMeta?: DataMeta;
   queryInstance?: CounterFactual;
   queryInstanceClass?: string,
@@ -55,28 +56,34 @@ export class App extends React.Component<IAppProps, IAppState> {
     const { dataId, modelId } = this.props;
     const newState: Partial<IAppState> = {};
     newState.dataset = await getDataset({ dataId, modelId });
+    assert(newState.dataset instanceof Dataset);
+  
     if (modelId) {
       const params = { dataId, modelId };
       newState.CFMeta = await getCFMeta(params);
-      // console.log(newState.CFMeta);
-      const cfs = await getCFs({ ...params, index: newState.dataset.dataFrame.index });
-      newState.cfs = [];
-      cfs.forEach(cf => newState.cfs![cf.index] = cf);
-      newState.defaultSetsubCF = await getSubsetCF({ filters: [] });
+      assert(newState.CFMeta instanceof DataMeta);
+      // const cfs = await getCFs({ ...params, index: newState.dataset.dataFrame.index });
+      // newState.cfs = [];
+      // cfs.forEach(cf => newState.cfs![cf.index] = cf);
+      newState.defaultSubsetCF = await getSubsetCF({ filters: [] });
+      console.log(newState);
     }
 
-    
-    // console.log(dataset);
-    this.setState({ ...this.state, ...newState });
+    try {
+      // assert(newState instanceof IAppState)
+      this.setState({ ...this.state, ...newState });
+    } catch(err) {
+      console.log("Data loading fail", err);
+    }
     this.loadQueryInstance();
     this.loadQueryResults();
   }
 
   public async instanceQuery(params: QueryParams) {
     this.setState({ queryInstance: params.queryInstance })
-    const queryInstanceClass = await predictInstance({queryInstance: params.queryInstance});
+    const queryInstanceClass = await predictInstance({ queryInstance: params.queryInstance });
     console.log(`Query Instance Label: ${queryInstanceClass}`);
-    this.setState({queryInstanceClass})
+    this.setState({ queryInstanceClass })
     this.cacheQueryInstance();
     const cfs = await GetInstanceCF(params);
     console.log(`Query Results: ${cfs}`);
@@ -84,8 +91,8 @@ export class App extends React.Component<IAppProps, IAppState> {
     this.cacheQueryResults();
   }
 
-  updateQueryInstance(queryInstance: CounterFactual){
-    this.setState({queryInstance});
+  updateQueryInstance(queryInstance: CounterFactual) {
+    this.setState({ queryInstance });
   }
 
   cacheQueryInstance() {
@@ -134,7 +141,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, cfs, defaultSetsubCF } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, cfs, defaultSubsetCF: defaultSetsubCF } = this.state;
     return (
       <div className="App">
         {dataset &&
