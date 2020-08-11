@@ -67,7 +67,7 @@ interface ILoadableTableProps extends ITableProps {
 }
 
 // Deprecated.
-class LoadableTable extends React.PureComponent<ILoadableTableProps> {
+class LoadableTable extends React.Component<ILoadableTableProps> {
   private onRowsRendered?: (params: {
     startIndex: number;
     stopIndex: number;

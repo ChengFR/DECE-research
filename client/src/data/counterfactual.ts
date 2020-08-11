@@ -1,4 +1,4 @@
-import { FeatureDisc, DataMeta, NumFeatureDisc } from './dataset'
+import { FeatureDisc, DataMeta, NumFeatureDisc, DataMetaInput } from './dataset'
 import { Dataset } from './dataset'
 import DataFrame, { IDataFrame } from './data_table'
 import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
@@ -127,3 +127,35 @@ export function buildCFSeries(cfs: (CFResponse | undefined)[], cfMeta: Readonly<
       }
     })
   }
+
+export interface CFDataMetaInput {
+  features: FeatureDisc[];
+  target: FeatureDisc;
+}
+
+export class CFDataMeta extends DataMeta {
+  // private name2feature: {[k: string]: Readonly<FeatureDisc>};
+  private name2CFfeature: {[k: string]: Readonly<FeatureDisc>};
+  public CFFeatures: FeatureDisc[];
+  public CFTarget: FeatureDisc;
+  constructor(input: DataMetaInput, CFInput: CFDataMetaInput){
+    super(input);
+    this.CFFeatures = CFInput.features;
+    this.CFTarget = CFInput.target;
+    this.name2CFfeature = _.keyBy(this.CFFeatures, (f) => f.name);
+  }
+}
+
+export class CFDataFrame extends DataFrame {
+  private _CFColumns?: IColumn[];
+  // private _CFColumnSpecs: ColumnSpec[];
+  // private _name2CFColumn: {[k: string]: IColumn};
+
+  
+}
+
+export function buildCFDataMeta(dataMeta: DataMeta){
+
+}
+
+// export function buildCFDataFrame (dataMeta: )

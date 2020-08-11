@@ -3,6 +3,7 @@ import IDataFrame from './data_table';
 import { FeatureType } from './column';
 import memoize from 'fast-memoize';
 import DataFrame from './data_table';
+import { max } from 'd3';
 
 // export interface FeatureDisc {
 //   name: string;
@@ -45,6 +46,13 @@ function validateFeatureDisc(disc: FeatureDisc): FeatureDisc {
   return disc;
 }
 
+export interface DataMetaInput {
+    features: FeatureDisc[];
+    target: FeatureDisc;
+    prediction?: FeatureDisc;
+    index?: FeatureDisc;
+}
+
 export class DataMeta {
   private name2feature: {[k: string]: Readonly<FeatureDisc>};
   public features: FeatureDisc[];
@@ -52,7 +60,7 @@ export class DataMeta {
   public prediction?: FeatureDisc;
   // add index attribute
   public index?: FeatureDisc;
-  constructor(input: {features: FeatureDisc[], target: FeatureDisc, prediction?: FeatureDisc, index?: FeatureDisc}) {
+  constructor(input: DataMetaInput) {
     this.features = input.features;
     this.target = input.target?validateFeatureDisc(input.target):undefined;
     this.prediction = input.prediction;
@@ -69,8 +77,12 @@ export class DataMeta {
     if (this.prediction && name === this.prediction.name) return this.prediction;
     return this.getFeatureDisc(name);
   }
-  // public getAllNames(): string[] {
-  // }
+
+  public get maxIndex(): number{
+    const index =[...this.features.map(d => d.index), this.target?this.target.index:0, 
+      this.prediction?this.prediction.index:0, this.index?this.index.index:0];
+    return max(index) || 0;
+  }
 }
 
 export class Dataset {
