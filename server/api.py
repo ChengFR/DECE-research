@@ -244,7 +244,7 @@ def get_cf_instance():
     print(query_instance_inlist, setting)
     
     subset_cf = current_app.cf_engine.generate_cfs_from_setting(setting, query_instance_inlist, 
-        diversity_weight=0.01, post_step=0)
+        diversity_weight=0.01, post_step=10)
     cf_df = subset_cf.get_cf()
     origin_df = subset_cf.get_instance()
     pred_name = '{}_pred'.format(current_app.dataset.get_target_names(False))
