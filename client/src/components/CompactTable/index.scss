@@ -239,4 +239,20 @@ div.legend {
 
 div.cell-content {
     font-weight: bold;
+    // float: left;
+    overflow: hidden;
+    // margin-left: 20px;
+    border-top: 1px;
+}
+
+div.cell-content-container {
+    height: 100%;
+    width: 100%;
+    float: left;
+}
+
+.cell-triangle {
+    margin-left: 3px;
+    padding-top: 1px;
+    opacity: 0.8;
 }

@@ -34,15 +34,11 @@ import {
 } from "../Table";
 import { number2string, notEmpty } from "common/utils";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
-import HeaderChart from './HeaderChart';
-import GroupChart from './SubsetChart';
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CategoricalColumn, isNumericalVColumn } from '../Table/common';
-import { filterByColumnStates, SubsetCFTable, CFCategoricalColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn, CFNumericalColumn } from './common';
+import { filterByColumnStates, SubsetCFTable, CFCategoricalColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn, CFNumericalColumn, getValidData, getValidCfData } from './common';
 import "./index.scss";
-import SubsetChart from "./SubsetChart";
-import { group } from "d3";
 import SubsetCFHist from "./SubsetCFHist";
 import SubsetCFBar from "./SubsetCFBar";
 import LabelColumn from "./LabelColumn";
@@ -441,9 +437,9 @@ export default class CFTableView extends React.Component<
       const classes = columns[groupByColumn].categories;
       return classes && (
         <div className="legend">
-          {classes.map((d, i)=> <div className="legend-container">
+          {classes.map((d, i) => <div className="legend-container">
             <span className="legend-class">{d}</span>
-            <div className="legend-color-div" style={{backgroundColor: color(i)}}/>
+            <div className="legend-color-div" style={{ backgroundColor: color(i) }} />
           </div>)}
         </div>
       )
@@ -790,6 +786,7 @@ export default class CFTableView extends React.Component<
     const columnIndex = props.columnIndex + 1;
     const { dataset } = this.props;
     const { dataFrame, columns } = this.state;
+    const column = columns[columnIndex];
     if (columnIndex === -1) {
       // index column
       return (
@@ -804,33 +801,50 @@ export default class CFTableView extends React.Component<
         </div>
       );
     }
-    if (dataset.dataMeta.target && columnIndex === dataset.dataMeta.target.index) {
+    // if (dataset.dataMeta.target && (columnIndex === dataset.dataMeta.target.index)) {
+    else if (columnIndex === 0) {
+      const data = getValidData(column);
+      const cfData = getValidCfData(column);
+      // console.log(row.index, data);
       return (
         <div className="cell-content">
-          <span>{dataFrame.at(row.index, columnIndex)}</span>
+          {/* <span>{dataFrame.at(row.index, columnIndex)}</span> */}
+          <span>{`${data[row.index].toString().substring(0, 3)}->${cfData && cfData[row.index].toString().substring(0, 3)}`}</span>
         </div>
       );
     }
-    const cfs = this.loadedCFs[row.dataIndex];
-    if (!cfs) return undefined;
-    if (props.isScrolling) return (<Spin indicator={LoadingIcon} delay={300} />);
-    // render CFs
-    const cfIndex = this.featureIdx2CFIdx(dataFrame, dataset.dataMeta)[columnIndex]!;
-    return (
-      <div className="cell-content">
-        <FeatureCF
-          baseValue={dataFrame.at(row.index, columnIndex) as number}
-          cfValues={cfs.counterfactuals[cfIndex] as number[]}
-          xScale={
-            columns[columnIndex].xScale as d3.ScaleLinear<number, number>
-          }
-          width={width}
-          height={this.rowHeight({ index: rowIndex })}
-          margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
-        // style={{marginTop: 2, position: 'relative'}}
-        />
+    else {
+      // const cfs = this.loadedCFs[row.dataIndex];
+      // if (!cfs) return undefined;
+      if (props.isScrolling) return (<Spin indicator={LoadingIcon} delay={300} />);
+      // render CFs
+      const cfIndex = this.featureIdx2CFIdx(dataFrame, dataset.dataMeta)[columnIndex]!;
+      const originVal = getValidData(column)[row.index];
+      const cfData = getValidCfData(column);
+      const cfVal = cfData != undefined ? cfData[row.index] : undefined;
+      const originStr = typeof (originVal) === 'string' ? originVal : originVal.toFixed(column.precision);
+      if (originVal === cfVal) {
+        return <div className="cell-content">
+          <span>{`${originStr}`}</span>
+        </div>
+      }
+      else {
+        let color = "#ccc";
+        if (typeof (originVal) === 'number' && typeof (cfVal) === 'number'){
+          color = originVal > cfVal ? "#c06f5b":"#9dbd78";
+        }
+        return <div className="cell-content">
+          <div className="cell-content-container">
+          <span>{`${originStr}`}</span>
+          <svg viewBox="0 0 200 200" height="60%" className="cell-triangle">
+            <polygon points="0, 10 126,100, 0, 190" fill={color}/>
+          </svg>
+          <span>{`${cfVal}`}</span>
+          </div>
       </div>
-    );
+      }
+    }
+
   }
 
   renderCellCollapsed(props: CellProps, rowState: CollapsedRows) {
@@ -847,21 +861,8 @@ export default class CFTableView extends React.Component<
       // if (showCF) {
       // const cfs = this.cfs;
       // const cf = cfs && notEmpty(cfs[columnIndex]) ? cfs[columnIndex] : undefined;
-      let data: number[] | string[] = [];
-      let cfData: (number | undefined)[] | (string | undefined)[] | undefined = undefined;
-      const index = columns[0].series;
-      if (isNumericalCFColumn(column)) {
-        cfData = column.cf?.toArray();
-        cfData = cfData && cfData.filter((d, i) => column.valid ? column.valid[i] : false);
-        data = column.series.toArray();
-        data = data.filter((d, i) => column.valid ? column.valid[i] : false);
-      }
-      else {
-        cfData = column.cf?.toArray();
-        cfData = cfData && cfData.filter((d, i) => column.valid ? column.valid[i] : false);
-        data = column.series.toArray();
-        data = data.filter((d, i) => column.valid ? column.valid[i] : false);
-      }
+      const data = getValidData(column);
+      const cfData = getValidCfData(column);
       return (
         <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
           <CompactCFColumn
@@ -875,26 +876,10 @@ export default class CFTableView extends React.Component<
             height={this.rowHeight({ index: rowIndex })}
             margin={collapsedCellMargin}
             // onHoverRow={idx => idx && this.onExpandRow(idx)}
-            onClickRow={idx => idx && this.onClickRow(idx+rowState.startIndex)}
+            onClickRow={idx => idx && this.onClickRow(idx + rowState.startIndex)}
             categoricalColor={columnIndex === 1 ? defaultCategoricalColor : undefined}
           />
         </Spin>
-      );
-      // }
-      return (
-        <StackedFeature
-          data={columns[columnIndex].series.toArray()}
-          startIndex={rowState.startIndex}
-          endIndex={rowState.endIndex}
-          pixel={pixel}
-          xScale={columns[columnIndex].xScale}
-          width={width}
-          height={this.rowHeight({ index: rowIndex })}
-          margin={collapsedCellMargin}
-          onHoverRow={row => this.onHover(row, columnIndex)}
-          onClickRow={this.onExpandRow}
-        // style={{marginTop: 2, position: 'relative'}}
-        />
       );
     }
   }
@@ -1012,7 +997,7 @@ export default class CFTableView extends React.Component<
 
   public copySubset(index: number) {
     const { cfSubsets } = this.state;
-    cfSubsets.splice(index, 0, cfSubsets[index].copy());
+    cfSubsets.splice(index + 1, 0, cfSubsets[index].copy());
     console.log(cfSubsets);
     this.setState({ cfSubsets });
   }

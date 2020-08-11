@@ -127,7 +127,7 @@ export class SubsetTableGroup {
   public _focuseOn(newClass?: number) {
     this._focusedClass = newClass;
   }
-  
+
   public get focusedClass() {
     return this._focusedClass;
   }
@@ -293,3 +293,59 @@ export const getAllRowLabels = memoize((c: TableColumn) => {
 export function filterUndefined<T>(series: (T | undefined)[]): T[] {
   return series.filter(c => c !== undefined) as T[];
 }
+
+export function getValidData(column: CFTableColumn): number[] | string[] {
+  let data: number[] | string[] = [];
+  if (isNumericalCFColumn(column)) {
+    data = column.series.toArray();
+    // data = data.filter((d, i) => column.valid ? column.valid[i] : false);
+  }
+  else {
+    data = column.series.toArray();
+    // data = data.filter((d, i) => column.valid ? column.valid[i] : false);
+  }
+  return data
+}
+export function getValidCfData(column: CFTableColumn): number[] | string[] | undefined {
+  let cfData: number[] | string[] | undefined = undefined;
+  if (isNumericalCFColumn(column)) {
+    cfData = column.cf?.toArray();
+    // cfData = cfData && cfData.filter((d, i) => column.valid ? column.valid[i] : false);
+  }
+  else {
+    cfData = column.cf?.toArray();
+    // cfData = cfData && cfData.filter((d, i) => column.valid ? column.valid[i] : false);
+  }
+  return cfData
+}
+
+// export function getValidData(column: CFTableColumn): number[] | string[] {
+//   let data: number[] | string[] = [];
+//   let cfData: number[] | string[] | undefined = undefined;
+//   if (isNumericalCFColumn(column)) {
+//     data = column.series.toArray();
+//     cfData = column.cf?.toArray();
+//     data = data.filter((d, i) => cfData ? cfData[i] !== data[i] : false);
+//   }
+//   else {
+//     data = column.series.toArray();
+//     cfData = column.cf?.toArray();
+//     data = data.filter((d, i) => cfData ? cfData[i] !== data[i] : false);
+//   }
+//   return data
+// }
+// export function getValidCfData(column: CFTableColumn): number[] | string[] | undefined {
+//   let data: number[] | string[] = [];
+//   let cfData: number[] | string[] | undefined = undefined;
+//   if (isNumericalCFColumn(column)) {
+//     data = column.series.toArray();
+//     cfData = column.cf?.toArray();
+//     cfData = cfData && cfData.filter((d, i) => d !== data[i]);
+//   }
+//   else {
+//     data = column.series.toArray();
+//     cfData = column.cf?.toArray();
+//     cfData = cfData && cfData.filter((d, i) => d !== data[i]);
+//   }
+//   return cfData
+// }
