@@ -71,7 +71,6 @@ export function drawCFNumerical(
     .attr("width", width - margin.left - margin.right)
     .attr("height", pixel)
     .on("mouseover", (d, i) => {
-      console.log(i);
       onHoverRow && onHoverRow(i);
     })
     .on("mousemove", d => {

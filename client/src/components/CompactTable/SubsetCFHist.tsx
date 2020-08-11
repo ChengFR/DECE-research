@@ -119,13 +119,19 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         // if (this.props.column !== prevProps.column) {
         //     this.setState({selectedRange: undefined, selectedCFRange: undefined});
         // }
+        // console.log(this.props.column.dataRange);
 
         this.shouldPaint = true;
         const delayedPaint = () => {
             if (this.shouldPaint) this.paint();
         };
         window.setTimeout(delayedPaint, 100);
+        // this.setState({...this.state, selectedRange: this.props.column.dataRange});
     }
+
+    // shouldComponentUpdate(prevProps: ISubsetCFHistProps, prevState: ISubsetCFHistState){
+    //     return prevProps.column !== this.props.column || this.state !== prevState || this.props !== prevProps;
+    // }
 
     protected updateParams(props: ISubsetCFHistProps) {
         const { column, protoColumn, groupByColumn, layout, focusedCategory } = this.props;
@@ -133,22 +139,30 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
 
-        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
-        this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
-        this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
+        // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+        // this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
+        // this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
 
-        if (!this.dataEmpty())
-            this.sankeyBins = this.getSankeyBins();
         if (layout && layout === 'header') {
-            const allValidFilter = column.valid && ((idx: number) => column.valid![idx]);
+            // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+            this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
+            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
+            // const allValidFilter = column.valid && ((idx: number) => column.valid![idx]);
+            const allValidFilter = column.valid && ((idx: number) => true);
             const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
             this.allOriginData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.prevSeries.toArray()]);
             this.allCfData = column.allCF && (allGroupArgs ? column.allCF.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.allCF.toArray()]);
         }
         else {
+            const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+            this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
+            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
             this.allOriginData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
             this.allCfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
         }
+
+        if (!this.dataEmpty())
+            this.sankeyBins = this.getSankeyBins();
 
         if (focusedCategory !== undefined) {
             const index = focusedCategory;
@@ -192,7 +206,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         mode: histogramType,
                         onHoverRange: this.onHoverRange,
                         onSelectRange: this.onSelectRange,
-                        rangeSelector: layout === 'header'? 'bin-wise': "as-a-whole",
+                        rangeSelector: layout === 'header' ? 'bin-wise' : "as-a-whole",
                         selectedRange: this.state.selectedRange,
                         drawBand: true,
                         bandValueFn: this.getGini,
@@ -503,7 +517,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 height: 20,
                 width: width,
                 margin: margin,
-                histogramType: focusedCategory === undefined? histogramType:'stacked',
+                histogramType: focusedCategory === undefined ? histogramType : 'stacked',
                 collapsed: !drawSankey,
                 xScale: this.getXScale(),
                 binWidth: this.binWidth,
@@ -512,8 +526,8 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             })
     }
 
-    get binWidth(){
-        const {width, margin, histogramType} = this.props;
+    get binWidth() {
+        const { width, margin, histogramType } = this.props;
         const groupWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 2;
         return histogramType === 'side-by-side' ? (groupWidth / this.originData!.length - 1) : groupWidth;
     }

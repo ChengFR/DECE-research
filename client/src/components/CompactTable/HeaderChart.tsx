@@ -11,18 +11,6 @@ import { TableColumn, isNumericalVColumn } from '../Table/common';
 import SubsetCFHist, {ISubsetCFHistProps} from './SubsetCFHist'
 import { ColumnSizer } from 'react-virtualized';
 
-// export interface IHeaderChartProps {
-//   width: number;
-//   height: number;
-//   margin: IMargin;
-//   column: CFTableColumn;
-//   groupByColumn?: Readonly<CFTableColumn>;
-//   cfFilter?: [number, number];
-//   style?: React.CSSProperties;
-//   className?: string;
-//   extent?: [number, number];
-// }
-
 export interface IHeaderChartProps {
   width: number;
   height: number;
@@ -68,61 +56,6 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
 
 
     if (isNumericalVColumn(column)) {
-      // const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-      // let data = groupArgs ? column.series.groupBy(...groupArgs) : column.series.toArray();
-      // const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
-      // const allData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(...allGroupArgs) : column.prevSeries.toArray());
-      // if (column.cf) {
-      //   const chartHeight = (height - 24)/2;
-      //   return (
-      //     <div className={className} style={style}>
-      //       <Histogram 
-      //         data={data}
-      //         allData={allData}
-      //         onSelectRange={column.onFilter}
-      //         selectedRange={column.filter}
-      //         xScale={column.xScale}
-      //         width={width}
-      //         height={chartHeight}
-      //         margin={margin}
-      //         extent={column.extent}
-      //         onHoverRange={this.onHoverRange}
-      //       />
-      //       <Histogram 
-      //         data={this.validateCFs(column.cf.toArray()) as number[]}
-      //         allData={column.allCF && this.validateAllCFs(column.allCF.toArray()) as number[]}
-      //         onSelectRange={column.onFilterCF}
-      //         selectedRange={column.cfFilter}
-      //         xScale={column.xScale}
-      //         width={width}
-      //         height={chartHeight}
-      //         margin={margin}
-      //         extent={column.extent}
-      //         onHoverRange={this.onHoverRange}
-      //       />
-      //       <div className="info">
-      //         {hoveredBin
-      //           ? `${hoveredBin[0]} - ${hoveredBin[1]}`
-      //           : (column.extent && `${number2string(column.extent[0],3)} - ${number2string(column.extent[1],3)}`)
-      //         }
-      //       </div>
-      //     </div>
-      //   );
-      // }
-      // return (
-      //   <Histogram 
-      //     data={data}
-      //     allData={allData}
-      //     onSelectRange={column.onFilter}
-      //     selectedRange={column.filter}
-      //     xScale={column.xScale}
-      //     width={width}
-      //     height={height}
-      //     margin={margin}
-      //     extent={column.extent}
-      //     drawRange={true}
-      //   />
-      // );
       return <SubsetCFHist 
         {...this.props as ISubsetCFHistProps}
       />

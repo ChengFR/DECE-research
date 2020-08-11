@@ -41,6 +41,7 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
             barActivation: defaultBarActivation?defaultBarActivation: xScale.domain().map(d => true)
         }
 
+        this.onBarClicked = this.onBarClicked.bind(this);
         this.onBarSelected = this.onBarSelected.bind(this);
         this.onValueChange =  this.onValueChange.bind(this);
         this.drawAll = this.drawAll.bind(this);
@@ -88,13 +89,17 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         const barChartNode = this.barRef.current;
         const onValueChange = this.onValueChange;
         if (barChartNode) {
-            drawSimpleBarchart(barChartNode, {width, height, margin, xScale, selected: barActivation}, column.series.toArray())
+            drawSimpleBarchart(barChartNode, {width, height, margin, xScale, selected: barActivation, onClick: this.onBarClicked}, column.series.toArray())
         }
         if (sliderNode){
             drawBandSlider(sliderNode, {width, height, margin, xScale, defaultValue: instanceValue, barActivation, onValueChange, onSelectBand: this.onBarSelected}, column.series.toArray());
         }
         
 
+    }
+
+    onBarClicked(index: number) {
+        this.onValueChange(this.props.column.categories[index]);
     }
 
     onBarSelected(index: number){
