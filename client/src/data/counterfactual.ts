@@ -1,10 +1,11 @@
 import { FeatureDisc, DataMeta, NumFeatureDisc, DataMetaInput } from './dataset'
 import { Dataset } from './dataset'
-import DataFrame, { IDataFrame } from './data_table'
+import DataFrame, { IDataFrame, Row, DataFrameInput } from './data_table'
 import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
-import {Series, IColumn} from './column'
+import {Series, IColumn, ColumnSpec} from './column'
 import { memoize } from 'lodash'
 import _ from 'lodash'
+import { timeHours } from 'd3'
 
 // export type CounterFactual = (string | number)[];
 
@@ -147,11 +148,63 @@ export class CFDataMeta extends DataMeta {
 }
 
 export class CFDataFrame extends DataFrame {
-  private _CFColumns?: IColumn[];
+  private _CFColumns: IColumn[];
   // private _CFColumnSpecs: ColumnSpec[];
   // private _name2CFColumn: {[k: string]: IColumn};
+  private _CFData: Readonly<Row<string|number>[]>;
+  private _name2CFColumn: { [k: string]: IColumn };
 
+  static fromCFColumns(columns: IColumn[], CFColumns: IColumn[], index?: number[]) {
+    const dataT = columns.map(c => c.series.toArray());
+    const CFDataT = CFColumns.map(c => c.series.toArray());
+    const newCFDF = new CFDataFrame({dataT, columns, index}, 
+      {dataT: CFDataT, columns: CFColumns, index}, false);
+
+    return newCFDF;
+  }
   
+  constructor(input: DataFrameInput, cfInput: DataFrameInput, validate: boolean = true) {
+    super(input, validate);
+
+    this.atCF = this.atCF.bind(this);
+    this._CFData = DataFrame.updateData(cfInput);
+
+    this._CFColumns = this.updateColumn(cfInput.columns, this.atCF);
+    this._name2CFColumn = _.keyBy(this._CFColumns, c => c.name);
+  }
+
+  private _updateCFColumn(columns: (ColumnSpec | IColumn)[]) {
+    const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
+    return this.updateColumn(columns, at);
+  }
+
+  public atCF = (row: number, col: number) => {
+    return this._CFData[row][col];
+  }
+
+  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+    this._index = this.sortIndex(columnName, order);
+    this._validIndex = this._index.filter(id => id in this._validSet);
+
+    this._updateColumn(this.columns);
+    this._updateCFColumn(this.CFColumns)
+
+    return this;
+  }
+
+  public filterBy(filters: Filter[]): DataFrame{
+    this._validSet = this.filterIndex(filters);
+    this._validIndex = this._index.filter(id => id in this._validSet);
+    
+    this._updateColumn(this.columns);
+    this._updateCFColumn(this.CFColumns);
+
+    return this;
+  }
+
+  public get CFColumns() {
+    return this._CFColumns;
+  }
 }
 
 export function buildCFDataMeta(dataMeta: DataMeta){
