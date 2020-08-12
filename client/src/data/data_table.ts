@@ -87,6 +87,24 @@ export default class DataFrame implements IDataFrame {
     return _data;
   }
 
+  constructor(input: DataFrameInput, validate: boolean = true) {
+    const { columns } = input;
+
+    this.at = this.at.bind(this);
+    this.sortBy = this.sortBy.bind(this);
+    this.filterBy = this.filterBy.bind(this);
+
+    this._data = DataFrame.updateData(input);
+    // this._index = input.index ? input.index : _.range(0, this.length);
+    this._index = _.range(0, this.length);
+    this._validSet = [...this._index];
+    this._validIndex = [...this._index];
+    // this._validData = this.updateValidData(this._validIndex);
+
+    this._columns = this._updateColumn(columns);
+    this._name2column = _.keyBy(this._columns, c => c.name);
+  }
+
   protected updateColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
     const _columns = columns.map((c, i) => {
       const column = {
@@ -105,24 +123,6 @@ export default class DataFrame implements IDataFrame {
       return column;
     });
     return _columns;
-  }
-
-  constructor(input: DataFrameInput, validate: boolean = true) {
-    const { columns } = input;
-
-    this.at = this.at.bind(this);
-    this.sortBy = this.sortBy.bind(this);
-    this.filterBy = this.filterBy.bind(this);
-
-    this._data = DataFrame.updateData(input);
-    // this._index = input.index ? input.index : _.range(0, this.length);
-    this._index = _.range(0, this.length);
-    this._validSet = [...this._index];
-    this._validIndex = [...this._index];
-    // this._validData = this.updateValidData(this._validIndex);
-
-    this._columns = this._updateColumn(columns);
-    this._name2column = _.keyBy(this._columns, c => c.name);
   }
 
   private _updateColumn(columns: (ColumnSpec | IColumn)[]){
