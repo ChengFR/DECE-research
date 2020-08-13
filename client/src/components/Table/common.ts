@@ -4,7 +4,7 @@ import { getScaleLinear, getScaleBand } from "../visualization/common";
 import { getTextWidth } from '../../common/utils';
 
 export const getFixedGridWidth = memoize(
-  (fixedColumns: number, columns: TableColumn[]): number => {
+  (fixedColumns: number, columns: VColumn[]): number => {
     let width = 0;
     for (let index = 0; index < fixedColumns; index++) {
       width += columns[index].width;
@@ -15,30 +15,34 @@ export const getFixedGridWidth = memoize(
 
 export const IndexWidth = 25;
 
-export interface VColumn<T> {
-  onSort?: (order: "descend" | "ascend") => any;
-  sorted?: 'descend' | 'ascend' | null;
+// export interface VColumn<T> {
+//   onChangeColumnWidth?: (width: number) => any;
+//   prevSeries?: ISeries<T>;
+// }
+
+export interface VNumColumn {
+  type: "numerical"
+  width: number;
   onChangeColumnWidth?: (width: number) => any;
-  prevSeries?: ISeries<T>;
-}
-
-export interface CategoricalColumn extends VColumn<string>, ICatColumn{
-  type: "categorical";
-  width: number;
-  xScale: d3.ScaleBand<string>;
-  filter?: string[];
-  onFilter?: (filters?: string[]) => any;
-}
-
-export interface NumericalColumn extends VColumn<number>, INumColumn {
-  type: "numerical";
-  width: number;
   xScale: d3.ScaleLinear<number, number>;
-  filter?: [number, number];
-  onFilter?: (filter?: [number, number]) => any;
+  // prevSeries?: ISeries<number>;
 }
 
-export type TableColumn = CategoricalColumn | NumericalColumn;
+export interface VCatColumn {
+  type: "categorical"
+  width: number;
+  onChangeColumnWidth?: (width: number) => any;
+  xScale: d3.ScaleBand<string>;
+  // prevSeries?: ISeries<string>;
+}
+
+export interface NumTableColumn extends VNumColumn, INumColumn {}
+
+export interface CatTableColumn extends VCatColumn, ICatColumn {}
+
+export type VColumn = VNumColumn | VCatColumn;
+
+export type TableColumn = CatTableColumn | NumTableColumn;
 
 export const columnMargin = {
   left: 8,
@@ -48,8 +52,8 @@ export const columnMargin = {
 };
 
 export function isNumericalVColumn(
-  column: CategoricalColumn | NumericalColumn
-): column is NumericalColumn {
+  column: VCatColumn | VNumColumn
+): column is VNumColumn {
   return column.type === "numerical";
 }
 
