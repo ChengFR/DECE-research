@@ -7,12 +7,12 @@ import memoizeOne from "memoize-one";
 import { shallowCompare, number2string, decile2precision, assert } from '../../common/utils';
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight } from '../visualization/common';
 import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
-import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn, isNumericalCFColumn, isArrays } from './common';
+import { getRowLabels, filterUndefined, isArrays } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { drawLink } from '../visualization/link'
 import { runInThisContext } from 'vm';
-import { columnMargin } from 'components/Table';
+import { columnMargin, NumTableColumn, CatTableColumn, TableColumn } from 'components/Table';
 
 export interface SubsetChartProps {
     width: number;
@@ -22,9 +22,12 @@ export interface SubsetChartProps {
     className?: string;
     k: string;
 
-    column: CFTableColumn;
-    protoColumn?: CFTableColumn;
-    groupByColumn?: Readonly<CFTableColumn>;
+    column: TableColumn;
+    CFColumn: TableColumn;
+    validFilter: (id: number) => boolean;
+    protoColumn?: TableColumn;
+    labelColumn?: Readonly<CatTableColumn>;
+    allLabelColumn?: Readonly<CatTableColumn>;
     focusedCategory?: number;
     drawAxis?: boolean;
     selected: boolean;
@@ -35,10 +38,15 @@ export interface SubsetChartProps {
 }
 
 export interface ISubsetCFHistProps extends SubsetChartProps {
-    column: CFNumericalColumn;
-    protoColumn?: CFNumericalColumn;
+    column: NumTableColumn;
+    CFColumn: NumTableColumn;
+    allColumn?: NumTableColumn;
+    allCFColumn?: NumTableColumn;
+    protoColumn?: NumTableColumn;
+    selectedRange?: [number, number];
+    selectedCFRange?: [number, number];
 
-    onUpdateFilter?: (extent?: [number, number], categories?: string[]) => void;
+    onUpdateFilter?: (extent?: [number, number]) => void;
     onUpdateCFFilter?: (extent?: [number, number]) => void;
     histogramType: 'side-by-side' | 'stacked';
     drawLineChart?: boolean;
@@ -46,8 +54,8 @@ export interface ISubsetCFHistProps extends SubsetChartProps {
 }
 
 export interface ISubsetCFHistState {
-    selectedRange?: [number, number];
-    selectedCFRange?: [number, number];
+    // selectedRange?: [number, number];
+    // selectedCFRange?: [number, number];
     drawSankey: boolean;
     drawTooltip: boolean;
 }
@@ -90,7 +98,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     constructor(props: ISubsetCFHistProps) {
         super(props);
         const { column } = this.props;
-        this.state = { selectedRange: column.dataRange, drawSankey: false, drawTooltip: false };
+        this.state = { drawSankey: false, drawTooltip: false };
         this.updateParams(props);
 
         this.onHoverRange = this.onHoverRange.bind(this);
@@ -134,31 +142,25 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     // }
 
     protected updateParams(props: ISubsetCFHistProps) {
-        const { column, protoColumn, groupByColumn, layout, focusedCategory } = this.props;
+        const { column, CFColumn, allColumn, allCFColumn, labelColumn, allLabelColumn, layout, focusedCategory, validFilter } = this.props;
 
 
-        const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-
-        // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
-        // this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
-        // this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
+        const groupArgs = labelColumn && getRowLabels(labelColumn);
 
         if (layout && layout === 'header') {
-            // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
             this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
-            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
-            // const allValidFilter = column.valid && ((idx: number) => column.valid![idx]);
-            const allValidFilter = column.valid && ((idx: number) => true);
-            const allGroupArgs = groupByColumn && getAllRowLabels(groupByColumn);
-            this.allOriginData = column.prevSeries && (allGroupArgs ? column.prevSeries.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.prevSeries.toArray()]);
-            this.allCfData = column.allCF && (allGroupArgs ? column.allCF.groupBy(allGroupArgs[0], allGroupArgs[1], allValidFilter) : [column.allCF.toArray()]);
+            this.cfData = CFColumn.series && (groupArgs ? CFColumn.series.groupBy(groupArgs[0], groupArgs[1]) : [CFColumn.series.toArray()]);
+            
+            const allGroupArgs = allLabelColumn && getRowLabels(allLabelColumn);
+            this.allOriginData = allColumn && (allGroupArgs ? allColumn.series.groupBy(allGroupArgs[0], allGroupArgs[1]) : [allColumn.series.toArray()]);
+            this.allCfData = allCFColumn && (allGroupArgs ? allCFColumn.series.groupBy(allGroupArgs[0], allGroupArgs[1]) : [allCFColumn.series.toArray()]);
         }
         else {
-            const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+            // const validFilter = (idx: number) => column.series.at(idx) !== CFColumn.series.at(idx);
             this.originData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.series.toArray()];
-            this.cfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1], validFilter) : [column.cf.toArray()]);
+            this.cfData = groupArgs ? CFColumn.series.groupBy(groupArgs[0], groupArgs[1], validFilter) : [CFColumn.series.toArray()];
             this.allOriginData = groupArgs ? column.series.groupBy(groupArgs[0], groupArgs[1]) : [column.series.toArray()];
-            this.allCfData = column.cf && (groupArgs ? column.cf.groupBy(groupArgs[0], groupArgs[1]) : [column.cf.toArray()]);
+            this.allCfData = CFColumn.series && (groupArgs ? CFColumn.series.groupBy(groupArgs[0], groupArgs[1]) : [CFColumn.series.toArray()]);
         }
 
         if (!this.dataEmpty())
@@ -173,7 +175,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 this.allCfData = this.allCfData && [this.allCfData[index]];
             }
             else {
-                throw Error(`focusing category invalid: ${focusedCategory}, which should be in ${groupByColumn?.categories}`)
+                throw Error(`focusing category invalid: ${focusedCategory}, which should be in ${allLabelColumn?.categories}`)
             }
         }
     }
@@ -207,7 +209,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         onHoverRange: this.onHoverRange,
                         onSelectRange: this.onSelectRange,
                         rangeSelector: layout === 'header' ? 'bin-wise' : "as-a-whole",
-                        selectedRange: this.state.selectedRange,
+                        selectedRange: this.props.selectedRange,
                         drawBand: true,
                         bandValueFn: this.getGini,
                         key: `${key}-${column.name}-origin`,
@@ -251,7 +253,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         snapping: true,
                         onSelectRange: this.onSelectCFRange,
                         rangeSelector: this.props.onUpdateCFFilter ? "bin-wise" : undefined,
-                        selectedRange: this.state.selectedCFRange,
+                        selectedRange: this.props.selectedCFRange,
                     });
 
             if (!this.dataEmpty()) {
@@ -319,7 +321,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
     drawHandle(root: SVGSVGElement) {
         const { margin, height } = this.props;
-        const { selectedRange } = this.state;
+        const { selectedRange } = this.props;
         const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const _root = d3.select(root);
         const x = this.getXScale();
@@ -420,7 +422,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     getTwisty() {
-        const range = this.state.selectedRange;
+        const range = this.props.selectedRange;
         if (this.originData && this.cfData && range) {
             const posNum = this.originData[0] ? this.originData[0].length : 0 + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
             const negNum = this.originData[1] ? this.originData[1].length : 0 + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
@@ -434,7 +436,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     getSankeyBins() {
-        const { column, groupByColumn, focusedCategory } = this.props;
+        const { column, CFColumn, labelColumn: groupByColumn, focusedCategory } = this.props;
         const x = this.getXScale();
         const ticks = this.getTicks();
         const histogram = d3
@@ -443,8 +445,8 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             .thresholds(ticks);
 
         const originData = column.series.toArray();
-        const cfData = column.cf?.toArray();
-        const validArray: boolean[] = column.selectedValid ? column.selectedValid : _.range(originData.length).map(() => true);
+        const cfData = CFColumn.series.toArray();
+        const validArray: boolean[] = _.range(originData.length).map((d) => originData[d] !== cfData[d]);
         const labelArray: any[] | undefined = groupByColumn?.series.toArray();
         if (cfData) {
 
@@ -562,13 +564,15 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     _groupByArgs(): undefined | [number[], number[]] {
-        const { groupByColumn } = this.props;
+        const { labelColumn: groupByColumn } = this.props;
         return groupByColumn && getRowLabels(groupByColumn);
     }
 
     onHoverRange(hoveredBin?: [number, number]) {
+        const {onUpdateFilter} = this.props;
         const bin = this._checkBins(hoveredBin);
-        this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        // this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        onUpdateFilter && bin && onUpdateFilter([bin[0], bin[1]]);
     };
 
     onSelectRange(hoveredBin?: [number, number]) {
@@ -576,7 +580,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         const bin = this._checkBins(hoveredBin);
         onUpdateFilter && onUpdateFilter(bin);
         // onSelect && onSelect();
-        this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        // this.setState({ selectedRange: bin && [bin[0], bin[1]] });
     };
 
     onSelectCFRange(hoveredBin?: [number, number]) {
@@ -584,7 +588,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         const bin = this._checkBins(hoveredBin);
         onUpdateCFFilter && onUpdateCFFilter(bin);
         // onSelect && onSelect();
-        this.setState({ selectedCFRange: bin && [bin[0], bin[1]] });
+        // this.setState({ selectedCFRange: bin && [bin[0], bin[1]] });
     };
 
     private _checkPrecision(num: number): number {
@@ -604,11 +608,12 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     private getGini(x: number) {
-        const { groupByColumn, column } = this.props;
+        const { labelColumn: groupByColumn, column, CFColumn } = this.props;
         const data = column.series.toArray();
-        const cf = column.cf?.toArray();
+        const cf = CFColumn.series.toArray();
+        const validArray: boolean[] = _.range(data.length).map((d) => data[d] !== cf[d]);
         const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+        // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
         // const geqValidFilter = validFilter && ((idx: number) => idx >= x && validFilter(idx));
         // const lessValidFilter = validFilter && ((idx: number) => idx < x && validFilter(idx));
@@ -618,13 +623,13 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
             const lessData: number[][] = [];
             groupArgs[1].forEach(d => { geqData[d] = []; lessData[d] = [] });
             data.forEach((d, i) => {
-                if (validFilter === undefined || validFilter(i)) {
+                if (validArray[i]) {
                     if (d >= x) geqData[labels[i]].push(d);
                     else lessData[labels[i]].push(d);
                 }
             })
             cf && cf.forEach((d, i) => {
-                if (validFilter === undefined || validFilter(i)) {
+                if (validArray[i]) {
                     if (d >= x) geqData[labels[i] ^ 1].push(d);
                     else lessData[labels[i] ^ 1].push(d);
                 }
@@ -643,20 +648,20 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
         }
     }
 
-    private getGeneralGini(x: number[]) {
-        const { groupByColumn, column } = this.props;
-        const data = column.series.toArray();
-        const cf = column.cf?.toArray();
-        const groupArgs = groupByColumn && getRowLabels(groupByColumn);
-        const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
+    // private getGeneralGini(x: number[]) {
+    //     const { groupByColumn, column, CFColumn } = this.props;
+    //     const data = column.series.toArray();
+    //     const cf = CFColumn.series.toArray();
+    //     const groupArgs = groupByColumn && getRowLabels(groupByColumn);
+    //     const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
-        if (x[0] > column.extent[0]) {
-            x.splice(0, 0, column.extent[0]);
-        }
-        if (x[1] < column.extent[1]) {
-            x.push(column.extent[1]);
-        }
-        const bins = _.range(x.length - 1);
-    }
+    //     if (x[0] > column.extent[0]) {
+    //         x.splice(0, 0, column.extent[0]);
+    //     }
+    //     if (x[1] < column.extent[1]) {
+    //         x.push(column.extent[1]);
+    //     }
+    //     const bins = _.range(x.length - 1);
+    // }
 
 }

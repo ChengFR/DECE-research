@@ -88,7 +88,7 @@ export default class Table extends React.PureComponent<
     return columns.map((c, i) => {
       const prevColumn = prevColumns && prevColumns[i];
       if (prevColumn) return { ...prevColumn, ...c } as TableColumn;
-      return createColumn(c);
+      else return createColumn(c);
     });
   }
 

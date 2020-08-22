@@ -4,7 +4,7 @@
 import memoizeOne from 'memoize-one';
 import * as d3 from 'd3';
 import * as _ from 'lodash';
-import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
+import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical, ISeries } from './column';
 import { Filter } from '../api'
 import { notEmpty } from '../common/utils'
 import { DataMeta } from './dataset';
@@ -29,8 +29,26 @@ function validate(value: string | number, type: FeatureType) {
   return value;
 }
 
+export function validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean = false): Row<string | number>[] {
+  const featureTypes = columnSpecs.map(spec => spec.type);
+  if (transposed) {
+    data.forEach((c, i) => {
+      c.forEach((e, j) => {
+        c[j] = validate(e, featureTypes[i]);
+      })
+    });
+  } else {
+    data.forEach(r => {
+      r.forEach((e, i) => {
+        r[i] = validate(e, featureTypes[i]);
+      })
+    });
+  }
+  return data;
+}
+
 export type DataFrameInput = {
-  data?: (string | number)[][];
+  data?: Readonly<(string | number)[][]>;
   dataT?: (string | number)[][];
   columns: (ColumnSpec | IColumn)[];
   index?: number[];
@@ -39,32 +57,14 @@ export type DataFrameInput = {
 export type tablePointer = (row: number, col: number) => (number | string);
 
 export default class DataFrame implements IDataFrame {
-  private _columns: IColumn[];
+  protected _columns: IColumn[];
   private _data: Readonly<Row<string | number>[]>;
   // private _validData: Row<string | number>[];
   private _name2column: { [k: string]: IColumn };
-  private _filters: (Filter | undefined)[];
+  // private _filters: (Filter | undefined)[];
   protected _index: number[];
   protected _validSet: ArrayLike<number>;
   protected _validIndex: ArrayLike<number>;
-
-  static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean = false): Row<string | number>[] {
-    const featureTypes = columnSpecs.map(spec => spec.type);
-    if (transposed) {
-      data.forEach((c, i) => {
-        c.forEach((e, j) => {
-          c[j] = validate(e, featureTypes[i]);
-        })
-      });
-    } else {
-      data.forEach(r => {
-        r.forEach((e, i) => {
-          r[i] = validate(e, featureTypes[i]);
-        })
-      });
-    }
-    return data;
-  }
 
   static fromColumns(columns: IColumn[], index?: number[]) {
     // console.debug(columns);
@@ -74,13 +74,27 @@ export default class DataFrame implements IDataFrame {
     return newDF;
   }
 
-  static updateData(input: DataFrameInput): Row<number | string>[] {
+  static col2filter(columns: (IColumn|ColumnSpec)[]): Filter[] {
+    const filters: (Filter|undefined)[] = columns.map(col => {
+      if ("filter" in col && col.filter) {
+        if (isColumnNumerical(col)) {
+          return { name: col.name, extent: col.filter }
+        }
+        else {
+          return { name: col.name, categories: col.filter }
+        }
+      }
+    })
+    return filters.filter(notEmpty);
+  }
+
+  static initData(input: DataFrameInput): Readonly<Row<number | string>[]> {
     const { data, dataT, columns } = input;
     let _data = data;
     if (data) {
-      _data = validate ? DataFrame.validateData(data, columns) : data;
+      _data = data;
     } else if (dataT) {
-      const _dataT = validate ? DataFrame.validateData(dataT, columns, true) : dataT;
+      const _dataT = dataT;
       _data = _dataT[0].map((_, r) => _dataT!.map(col => col[r]));
     } else {
       throw "Should have either data or dataT in the input!";
@@ -94,20 +108,24 @@ export default class DataFrame implements IDataFrame {
     this.at = this.at.bind(this);
     this.sortBy = this.sortBy.bind(this);
     this.filterBy = this.filterBy.bind(this);
+    this.filter = this.filter.bind(this);
+    this.copy = this.copy.bind(this);
 
-    this._data = DataFrame.updateData(input);
+    this._initColumn = this._initColumn.bind(this);
+
+    this._data = DataFrame.initData(input);
     // this._index = input.index ? input.index : _.range(0, this.length);
-    this._index = _.range(0, this.length);
-    this._validSet = [...this._index];
-    this._validIndex = [...this._index];
+    this._index = _.range(0, this._data.length);
+    this._validSet = this.filterBy(DataFrame.col2filter(columns));
+    this._validIndex = this._index.filter(id => id in this._validSet);
     // this._validData = this.updateValidData(this._validIndex);
-
-    this._columns = this._updateColumn(columns);
+    const at = (row: number, col: number) => this.at(this._validIndex[row], col);
+    this._columns = this._initColumn(columns, at);
     this._name2column = _.keyBy(this._columns, c => c.name);
-    this._filters = this._columns.map(() => undefined);
+    // this._filters = this._columns.map(() => undefined);
   }
 
-  protected updateColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
+  protected _initColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
     const _columns = columns.map((c, i) => {
       const column = {
         description: "",
@@ -115,10 +133,10 @@ export default class DataFrame implements IDataFrame {
         series: new Series(this.length, j => at(j, i)),
       } as IColumn;
       if (isColumnNumerical(column)) {
-        if (!column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
+        if (!column.extent) 
+          column.extent = d3.extent(column.series.toArray()) as [number, number];
         column.onFilter = (filter: [number, number] | undefined) => {
           column.filter = filter;
-          this._updateFilter(column.name, filter ? { name: column.name, extent: filter } : undefined);
           this.filter();
         }
       } else {
@@ -128,7 +146,6 @@ export default class DataFrame implements IDataFrame {
         }
         column.onFilter = (filter: string[] | undefined) => {
           column.filter = filter;
-          this._updateFilter(column.name, filter ? { name: column.name, categories: filter } : undefined);
           this.filter();
         }
       }
@@ -138,15 +155,21 @@ export default class DataFrame implements IDataFrame {
     return _columns;
   }
 
-  protected _updateColumn(columns: (ColumnSpec | IColumn)[]) {
+  protected _updateColumn() {
+    this._validIndex = this._index.filter(id => id in this._validSet);
     const at = (row: number, col: number) => this.at(this._validIndex[row], col);
-    return this.updateColumn(columns, at);
+    if (this._columns === undefined) {
+      this._initColumn(this._columns, at);
+    }
+    this._columns.forEach((col, i) => {
+      col.series = new Series(this.length, j => at(j, i)) as ISeries<number> | ISeries<string>;
+    })
   }
 
-  protected _updateFilter(colName: string, filter: Filter | undefined) {
-    const colIndex = this._columns.findIndex(d => d.name === colName);
-    this._filters[colIndex] = filter;
-  }
+  // protected _updateFilter(colName: string, filter: Filter | undefined) {
+  //   const colIndex = this._columns.findIndex(d => d.name === colName);
+  //   this._filters[colIndex] = filter;
+  // }
 
   public get index() {
     return this._index;
@@ -160,15 +183,20 @@ export default class DataFrame implements IDataFrame {
     return this._data;
   }
 
-  public get filters() {
-    return this._filters;
-  }
+  // public get filters() {
+  //   return this._filters;
+  // }
   // Note that row is the loc in the array rather than the this.index which could be discontinued.
   public at = (row: number, col: number) => {
     return this._data[row][col];
   }
+
+  // public _at = (row: number, col: number) => {
+  //   return this.at(this._validIndex[row], col);
+  // }
+
   public get length() {
-    return this._data.length;
+    return this._validIndex.length;
   }
   public get shape(): [number, number] {
     return [this.length, this.columns.length];
@@ -224,17 +252,14 @@ export default class DataFrame implements IDataFrame {
     return sortedIndex;
   }
 
-  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+  public sortBy(columnName: string, order: 'descend' | 'ascend') {
     this._index = this.sortIndex(columnName, order);
-    this._validIndex = this._index.filter(id => id in this._validSet);
-
-    this._updateColumn(this.columns);
-
-    return this;
+    this._updateColumn();
+    // return this;
   }
 
-  protected filterIndex(filters: Filter[]): ArrayLike<number> {
-    let filteredLocs: number[] = _.range(0, this.length);
+  public filterBy(filters: Filter[], update: boolean = false): ArrayLike<number> {
+    let filteredLocs: number[] = _.range(0, this.index.length);
     filters.forEach((filter: Filter) => {
       const columnName = filter.name;
       const columnIndex = this.columns.findIndex(c => c.name === columnName);
@@ -259,35 +284,20 @@ export default class DataFrame implements IDataFrame {
           filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i)!)));
       }
     })
+    if (update) {
+      this._validSet = filteredLocs;
+      this._updateColumn();
+    }
     return filteredLocs;
   }
 
-  public filterBy(filters: Filter[]): DataFrame {
-    this._validSet = this.filterIndex(filters);
-    this._validIndex = this._index.filter(id => id in this._validSet);
-    this._updateColumn(this._columns);
-    return this;
+  public filter() {
+    this.filterBy(DataFrame.col2filter(this._columns), true);
   }
 
-  public filter(): DataFrame {
-    return this.filterBy(this._filters.filter(notEmpty));
+  public copy() {
+    return new DataFrame({data: this.data, columns: this._columns});
   }
-
-  // public filterByLoc(validIndex: number[]) {
-  //   // this._validData = this.updateValidData(validIndex);
-  //   return this;
-  // }
-
-  // public filterByIndex(index: number[]) {
-  //   const validSet = new Set(index);
-  //   const newIndex = this.index.filter((idx => validSet.has(idx)));
-  //   const data = index.map(idx => this.data[idx]);
-  //   const columns = this.columns.map(c => {
-  //     const {series, ...rest} = c;
-  //     return rest;
-  //   })
-  //   return new DataFrame({data, index, columns}, false);
-  // }
 }
 
 export function buildDataFrame(dataMeta: DataMeta, data: (string | number)[][]): DataFrame {
@@ -307,5 +317,5 @@ export function buildDataFrame(dataMeta: DataMeta, data: (string | number)[][]):
   const index = data.map((row, i) =>
     dataMeta.index ? Number(row[dataMeta.index.index]) : i
   );
-  return new DataFrame({ data, columns, index });
+  return new DataFrame({ data: validateData(data, columns), columns, index });
 }

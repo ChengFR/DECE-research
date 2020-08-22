@@ -2,24 +2,16 @@ import * as React from 'react';
 import * as _ from "lodash";
 import memoizeOne from "memoize-one";
 
-
-import { shallowCompare, number2string, decile2precision, assert } from '../../common/utils';
 import { IMargin, defaultCategoricalColor, getScaleBand, getChildOrAppend } from '../visualization/common';
-import Histogram, { } from '../visualization/histogram';
-import { CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined, CFTableColumn, isNumericalCFColumn } from './common';
-import BarChart from '../visualization/barchart';
-import { TableColumn, isNumericalVColumn } from '../Table/common';
-import { ColumnSizer } from 'react-virtualized';
+import { TableColumn, isNumericalVColumn, CatTableColumn } from '../Table/common';
 import * as d3 from 'd3';
-import { timeHours } from 'd3';
-import { timingSafeEqual } from 'crypto';
 
 export interface ILabelColumnProps {
     width: number;
     height: number;
     margin: IMargin;
-    targetColumn: CFCategoricalColumn;
-    predColumn: CFCategoricalColumn;
+    targetColumn: CatTableColumn;
+    predColumn: CatTableColumn;
     style?: React.CSSProperties;
     className?: string;
     histogramType: 'side-by-side' | 'stacked';
