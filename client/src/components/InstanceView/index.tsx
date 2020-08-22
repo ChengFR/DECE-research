@@ -72,7 +72,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             return createColumn(rawColumn);
         })
 
-        console.log(this.columns.map(col => col.series.toArray()));
+        // console.log(this.columns.map(col => col.series.toArray()));
 
         this.updateNumAttributeRange = this.updateNumAttributeRange.bind(this);
         this.updateAttributeValue = this.updateAttributeValue.bind(this);
@@ -298,7 +298,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         const classes = (CFMeta.prediction! as CatFeatureDisc).categories;
         const layout = [8, 8, 4];
         const predClassId = queryInstanceClass !== undefined ? classes.indexOf(queryInstanceClass) : undefined;
-        console.log(predClassId);
         const oppositeClass = predClassId !== undefined ? classes[predClassId ^ 1] : undefined;
         const predColor = predClassId !== undefined ? defaultCategoricalColor(predClassId) : "#eee";
         const targetColor = predClassId !== undefined ? defaultCategoricalColor(predClassId ^ 1) : "#eee";
@@ -348,7 +347,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         const { CFMeta } = this.props;
         const index = CFMeta.features[0].name;
         const resultString = localStorage.getItem(`${index}-queryResults`);
-        console.log(resultString);
         if (resultString)
             return JSON.parse(resultString) as CounterFactual[]
         else

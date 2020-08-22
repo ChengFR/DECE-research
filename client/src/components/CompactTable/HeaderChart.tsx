@@ -5,7 +5,7 @@ import memoizeOne from "memoize-one";
 import { shallowCompare, number2string, assert } from '../../common/utils';
 import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
-import { CFTableColumn, CFNumericalColumn, CFCategoricalColumn, getRowLabels, getAllRowLabels, filterUndefined } from './common';
+import { getRowLabels, filterUndefined } from './common';
 import BarChart from '../visualization/barchart';
 import { TableColumn, isNumericalVColumn } from '../Table/common';
 import SubsetCFHist, {ISubsetCFHistProps} from './SubsetCFHist'
@@ -15,10 +15,11 @@ export interface IHeaderChartProps {
   width: number;
   height: number;
   margin: IMargin;
-  column: CFTableColumn;
-  protoColumn?: CFTableColumn;
-  groupByColumn?: Readonly<CFTableColumn>;
-  protoColumnGroupBy?: Readonly<CFTableColumn>;
+  column: TableColumn;
+  allColumn: TableColumn;
+  protoColumn?: TableColumn;
+  groupByColumn?: Readonly<TableColumn>;
+  protoColumnGroupBy?: Readonly<TableColumn>;
   cfFilter?: [number, number];
   style?: React.CSSProperties;
   className?: string;
@@ -51,7 +52,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
   }
 
   public render() {
-    const { column, groupByColumn, className, style, width, height, margin} = this.props;
+    const { column, allColumn, className, style, width, height, margin} = this.props;
     const {hoveredBin} = this.state;
 
 
@@ -69,7 +70,7 @@ export default class HeaderChart extends React.PureComponent<IHeaderChartProps, 
         xScale={column.xScale}
         onSelectCategories={column.onFilter}
         selectedCategories={column.filter}
-        allData={column.prevSeries?.toArray()}
+        allData={allColumn.series.toArray() as string[]}
       />
     );
   }

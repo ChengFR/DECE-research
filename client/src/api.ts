@@ -35,7 +35,7 @@ export async function getDataMeta(params: {
 
 export async function getCFMeta(params: {
   dataId: string;
-  modelId: string;
+  modelId?: string;
 }): Promise<DataMeta> {
   const url = `${API}/cf_meta`;
   const response = await axios.get(url, { params });

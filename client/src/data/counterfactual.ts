@@ -2,7 +2,7 @@ import { FeatureDisc, DataMeta, NumFeatureDisc, DataMetaInput } from './dataset'
 import { Dataset } from './dataset'
 import DataFrame, { IDataFrame, Row, DataFrameInput, tablePointer } from './data_table'
 import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
-import { Series, IColumn, ColumnSpec, isColumnNumerical } from './column'
+import { Series, IColumn, ColumnSpec, isColumnNumerical, ISeries } from './column'
 import { memoize } from 'lodash'
 import _ from 'lodash'
 import { timeHours } from 'd3'
@@ -30,86 +30,13 @@ export interface CFSubsetProps {
   cfMeta: DataMeta,
 }
 
-export class CFSubset extends Dataset {
-  private _dataset: Readonly<Dataset>;
-  private _cfFrames: DataFrame[];
-  private _filters: (Filter | undefined)[];
-  private _cfMeta: DataMeta;
-  constructor(props: CFSubsetProps) {
-    super(props.dataset.dataFrame.filterBy(props.filters), props.dataset.dataMeta);
-    const { dataset, filters, cfData, cfMeta } = props;
-    const { dataMeta, dataFrame } = dataset;
-
-    this._cfFrames = cfData.map(d => buildCFDataFrame(d, cfMeta));
-    this._filters = this.features.map(col => {
-      const filter = filters.find(f => f.name === col.name);
-      return filter ? filter : undefined
-    });
-    this._dataset = dataset;
-    this._cfMeta = cfMeta;
-  }
-
-  // public get dataFrame() {
-  //   return this.dataFrame;
-  // }
-
-  public get dataset() {
-    return this._dataset;
-  }
-
-  public get cfFrames() {
-    return this._cfFrames;
-  }
-
-  public get filters() {
-    return this._filters;
-  }
-
-  public getCFPrediction(index: number) {
-    return this.dataMeta.prediction && this._cfFrames[index].columns[this.dataMeta.prediction.index];
-  }
-
-  public getCFFeatures(index: number) {
-    return this.dataMeta.features.map(f => this.dataFrame.columns[f.index]);
-  }
-
-  public reorderedSubsetColumns(index: number): (IColumn | undefined)[] | undefined {
-    const order = this.order;
-    const columnName = order[index];
-    const columnIndex = this._cfMeta.getColumnDisc(columnName)?.index;
-    if (columnIndex !== undefined && this.cfFrames[columnIndex]) {
-      const df: DataFrame = this.cfFrames[columnIndex];
-      const columns: (IColumn | undefined)[] = order.map(name => df.getColumnByName(name));
-      return columns;
-    }
-    else return undefined
-  }
-
-  public reorderedSubsetColMat(): ((IColumn | undefined)[] | undefined)[] {
-    return _.range(this.order.length).map((d, i) => this.reorderedSubsetColumns(i));
-  }
-
-  public reorderedFilters(): (undefined | Filter)[] {
-    return [undefined, undefined, ...this._filters];
-  }
-
-}
-
-
-
-export function buildCFDataFrame(cfs: CounterFactual[], dataMeta: Readonly<DataMeta>): DataFrame {
-  // a tmp implementation
-  const columns = [...dataMeta.features];
-  if (dataMeta.prediction) {
-    columns.push(dataMeta.prediction);
-  }
-  return new DataFrame({ data: cfs, columns: columns });
-}
-
 export class _CFSubset {
-  constructor(public CFDataFrames: CFDataFrame[], public filters: Filter[],
-    public dataMeta: Readonly<DataMeta>, public CFMeta: Readonly<DataMeta>) {
-
+  private _filters: Filter[];
+  private _focusedClass?: number;
+  constructor(public CFDataFrames: CFDataFrame[], public dataMeta: Readonly<DataMeta>,
+    public CFMeta: Readonly<DataMeta>, filters: Filter[], focusedClass?: number) {
+    this._filters = filters;
+    this._focusedClass = focusedClass;
   }
 
   public get prediction() {
@@ -126,6 +53,24 @@ export class _CFSubset {
       return undefined
   }
 
+  public get filters() {
+    return this._filters;
+  }
+
+  public get focusedClass() {
+    return this._focusedClass;
+  }
+
+  public updateFilter(featIndex: number, newFilter: Filter) {
+    this._filters[featIndex] = newFilter;
+    return this;
+  }
+
+  public updateFocusedClass(newClass?: number) {
+    this._focusedClass = newClass;
+    return this;
+  }
+
   public getCFPrediction(index: number) {
     if (this.CFMeta.prediction)
       return this.CFDataFrames[index].CFColumns[this.CFMeta.prediction.index];
@@ -139,6 +84,12 @@ export class _CFSubset {
 
   public getCFFeatures(index: number) {
     return this.CFMeta.features.map(f => this.CFDataFrames[index].CFColumns[f.index])
+  }
+
+  // TODO-1 - replace this function with a deep copy
+  public copy() {
+    return new _CFSubset(this.CFDataFrames.map(d => d.copy()), 
+      this.dataMeta, this.CFMeta, [...this.filters], this.focusedClass);
   }
 }
 
@@ -184,12 +135,9 @@ export class CFDataMeta extends DataMeta {
 
 export class CFDataFrame extends DataFrame {
   private _CFColumns: IColumn[];
-  // private _CFColumnSpecs: ColumnSpec[];
-  // private _name2CFColumn: {[k: string]: IColumn};
   private _CFData: Readonly<Row<string | number>[]>;
   private _name2CFColumn: { [k: string]: IColumn };
   private _validCFSet: ArrayLike<number>;
-  private _CFFilters: (Filter | undefined)[];
 
   static fromCFColumns(columns: IColumn[], CFColumns: IColumn[], index?: number[]) {
     const dataT = columns.map(c => c.series.toArray());
@@ -204,65 +152,70 @@ export class CFDataFrame extends DataFrame {
     super(input, validate);
 
     this.atCF = this.atCF.bind(this);
-    this._CFData = DataFrame.updateData(cfInput);
+    this.copy = this.copy.bind(this);
+    this.filter = this.filter.bind(this);
+    this.filterBy = this.filterBy.bind(this);
 
-    this._CFColumns = this.updateColumn(cfInput.columns, this.atCF);
+    this._CFData = DataFrame.initData(cfInput);
+
+    const validSets = this.filterByBoth(DataFrame.col2filter(input.columns), DataFrame.col2filter(cfInput.columns));
+    this._validSet = validSets[0];
+    this._validCFSet = validSets[1];
+    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet))
+    const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
+    this._CFColumns = this._initCFColumn(cfInput.columns, at);
     this._name2CFColumn = _.keyBy(this._CFColumns, c => c.name);
-
-    this._CFFilters = this._CFColumns.map(() => undefined);
-    this._validCFSet = [...this.index];
+    
   }
 
-  // private updateCFColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
-  //   const _columns = super.updateColumn(columns, at);
-  // }
+  public get CFData() {
+    return this._CFData;
+  }
 
-  private _updateCFColumn(columns: (ColumnSpec | IColumn)[]) {
-    const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
-    const _columns = this.updateColumn(columns, at);
+  private _initCFColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer) {
+    const _columns = this._initColumn(columns, at);
     _columns.forEach(column => {
       if (isColumnNumerical(column))
         column.onFilter = (filter: [number, number] | undefined) => {
           column.filter = filter;
-          this._updateCFFilter(column.name, filter ? { name: column.name, extent: filter } : undefined);
+          // this._updateCFFilter(column.name, filter ? { name: column.name, extent: filter } : undefined);
           this.filter();
         }
       else
         column.onFilter = (filter: string[] | undefined) => {
           column.filter = filter;
-          this._updateCFFilter(column.name, filter ? { name: column.name, categories: filter } : undefined);
+          // this._updateCFFilter(column.name, filter ? { name: column.name, categories: filter } : undefined);
           this.filter();
         }
     });
     return _columns;
   }
 
+  protected _updateColumn() {
+    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet))
+    super._updateColumn();
+
+    const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
+    this._CFColumns.forEach((d, i) => d.series = new Series(this.length, j => at(j, i)) as ISeries<number> | ISeries<string>)
+  }
+
   public atCF = (row: number, col: number) => {
-    return this._CFData[row][col];
+    try {
+      return this._CFData[row][col];
+    } catch (err) {
+      throw `(${row}, ${col}) not in [${this._CFData.length}, ${this._CFData[0].length}].\n${err}`;
+    }
   }
 
-  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+  public sortBy(columnName: string, order: 'descend' | 'ascend') {
     this._index = this.sortIndex(columnName, order);
-    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet));
+    this._updateColumn();
 
-    this._updateColumn(this.columns);
-    this._updateCFColumn(this.CFColumns)
-
-    return this;
+    // return this;
   }
 
-  public filterBy(filters: Filter[]): DataFrame {
-    this._validSet = this.filterIndex(filters);
-    this._validIndex = this._index.filter(id => id in this._validSet);
-
-    this._updateColumn(this.columns);
-    this._updateCFColumn(this.CFColumns);
-
-    return this;
-  }
-
-  public filterCFIndex(filters: Filter[]): ArrayLike<number> {
-    let filteredLocs: number[] = _.range(0, this.length);
+  public filterByCF(filters: Filter[]): ArrayLike<number> {
+    let filteredLocs: number[] = _.range(0, this.index.length);
     filters.forEach((filter: Filter) => {
       const columnName = filter.name;
       const columnIndex = this.CFColumns.findIndex(c => c.name === columnName);
@@ -290,46 +243,38 @@ export class CFDataFrame extends DataFrame {
     return filteredLocs;
   }
 
-  public filterByCF(CFFilters: Filter[]): DataFrame {
-    this._validCFSet = this._index.filter(id => id in this.filterCFIndex(CFFilters))
-    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet));
+  // public filterByCF(CFFilters: Filter[]) {
+  //   this._validCFSet = this._index.filter(id => id in this.filterByCF(CFFilters))
+  //   this._updateColumn();
 
-    this._updateColumn(this.columns);
-    this._updateCFColumn(this.CFColumns);
+  //   // return this;
+  // }
 
-    return this;
+  public filterByBoth(filters: Filter[], CFFilters: Filter[], update: boolean = false) {
+    const validSet = this._index.filter(id => (id in super.filterBy(filters)));
+    const validCFSet = this._index.filter(id => id in this.filterByCF(CFFilters))
+    if (update){
+      this._validSet = validSet;
+      this._validCFSet = validCFSet;
+      this._updateColumn();
+    }
+    return [validSet, validCFSet];
   }
 
-  public filterByBoth(filters: Filter[], CFFilters: Filter[]): DataFrame {
-    this._validSet = this._index.filter(id => (id in this.filterIndex(filters)));
-    this._validCFSet = this._index.filter(id => id in this.filterCFIndex(CFFilters))
-    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet));
-
-    this._updateColumn(this.columns);
-    this._updateCFColumn(this.CFColumns);
-
-    return this;
-  }
-
-  protected _updateCFFilter(colName: string, filter: Filter | undefined) {
-    const colIndex = this.CFColumns.findIndex(d => d.name === colName);
-    this._CFFilters[colIndex] = filter;
-  }
-
-  public filter(): DataFrame {
-    return this.filterByBoth(this.filters.filter(notEmpty), this.CFFilters.filter(notEmpty));
+  public filter() {
+    this.filterByBoth(DataFrame.col2filter(this._columns), DataFrame.col2filter(this._CFColumns), true);
   }
 
   public get CFColumns() {
     return this._CFColumns;
   }
 
-  public get CFFilters() {
-    return this._CFFilters;
-  }
-
   public getCFColumnByName(name: string) {
     return this._name2CFColumn[name];
+  }
+
+  public copy(){
+    return new CFDataFrame({data: this.data, columns: this.columns}, {data: this.CFData, columns: this._CFColumns});
   }
 }
 

@@ -10,12 +10,10 @@ import {
 
 import { Layout } from "antd"
 
-import { getDataset, getCFs, getCFMeta, getCF, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance } from './api';
-import { Dataset, DataMeta } from "./data";
+import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance, getDataMeta, Filter } from './api';
+import { Dataset, DataMeta, _CFSubset, buildDataFrame, CFDataFrame, DataFrame, validateData } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
-import CFTableView from "./components/CFTableView";
-import TableView from "./components/TableView";
 import CompactTable from "./components/CompactTable";
 import InstanceView from "./components/InstanceView"
 import { assert } from "common/utils";
@@ -28,10 +26,12 @@ export interface IAppProps {
 }
 
 export interface IAppState {
-  dataset?: Dataset;
-  cfs?: (CFResponse | undefined)[];
-  defaultSubsetCF?: SubsetCFResponse;
+  dataMeta?: DataMeta;
   CFMeta?: DataMeta;
+  dataset?: Dataset;
+
+  defaultSubsetCF?: _CFSubset;
+
   queryInstance?: CounterFactual;
   queryInstanceClass?: string,
   queryResults: CounterFactual[];
@@ -46,37 +46,67 @@ export class App extends React.Component<IAppProps, IAppState> {
     this.updateData = this.updateData.bind(this);
     this.instanceQuery = this.instanceQuery.bind(this);
     this.updateQueryInstance = this.updateQueryInstance.bind(this);
+
+    this.getSubset = this.getSubset.bind(this);
   }
 
   public componentDidMount() {
-    this.updateData();
+    this.initMeta();
+    // this.initSubset();
+  }
+
+  public async initMeta() {
+    const { dataId, modelId } = this.props;
+    const dataMeta = await getDataMeta({ dataId, modelId });
+    const CFMeta = await getCFMeta({ dataId, modelId });
+    const dataset = await getDataset({ dataId, modelId });
+    try {
+      this.setState({ dataMeta, CFMeta, dataset });
+    } catch (err) {
+      console.log("Data loading fail", err);
+    }
+
+    await this.initSubset();
   }
 
   public async updateData() {
-    const { dataId, modelId } = this.props;
-    const newState: Partial<IAppState> = {};
-    newState.dataset = await getDataset({ dataId, modelId });
-    assert(newState.dataset instanceof Dataset);
-  
-    if (modelId) {
-      const params = { dataId, modelId };
-      newState.CFMeta = await getCFMeta(params);
-      assert(newState.CFMeta instanceof DataMeta);
-      // const cfs = await getCFs({ ...params, index: newState.dataset.dataFrame.index });
-      // newState.cfs = [];
-      // cfs.forEach(cf => newState.cfs![cf.index] = cf);
-      newState.defaultSubsetCF = await getSubsetCF({ filters: [] });
-      console.log(newState);
-    }
 
-    try {
-      // assert(newState instanceof IAppState)
-      this.setState({ ...this.state, ...newState });
-    } catch(err) {
-      console.log("Data loading fail", err);
+    // this.loadQueryInstance();
+    // this.loadQueryResults();
+  }
+
+  public async getSubset(params: { filters: Filter[] }) {
+    const { dataset, CFMeta, dataMeta } = this.state;
+    if (dataset && CFMeta && dataMeta) {
+      const df = dataset.dataFrame.copy();
+      df.filterBy(params.filters, true);
+      const cfResponse = await getSubsetCF(params);
+      const cfData = cfResponse.counterfactuals;
+      const cfDataFrames = CFMeta.features.map((feat, i) => {
+        // const cfDf = buildDataFrame(CFMeta, cfData[i]);
+        const columns = [CFMeta.prediction!, ...CFMeta.features].sort((a, b) => a.index - b.index);
+        const cfDf = new DataFrame({ data: validateData(cfData[i], columns), columns: columns });
+        console.log(df, cfDf);
+        assert(df.length === cfDf.length);
+        const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);
+        console.log(df.columns);
+        console.log(cfDataFrame.length);
+        return cfDataFrame
+      })
+      console.log(cfDataFrames);
+      return new _CFSubset(cfDataFrames, dataMeta, CFMeta, params.filters);
     }
-    this.loadQueryInstance();
-    this.loadQueryResults();
+    else {
+      throw "Dataset information is missing."
+    }
+  }
+
+  public async initSubset() {
+    const { dataMeta } = this.state;
+    if (dataMeta) {
+      const defaultSubsetCF = await this.getSubset(({ filters: dataMeta.features.map(d => d) }));
+      this.setState({ defaultSubsetCF });
+    }
   }
 
   public async instanceQuery(params: QueryParams) {
@@ -141,11 +171,11 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   public render() {
     const { dataId, modelId } = this.props;
-    const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, cfs, defaultSubsetCF: defaultSetsubCF } = this.state;
+    const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, defaultSubsetCF } = this.state;
     return (
       <div className="App">
         {dataset &&
-          (modelId && CFMeta && defaultSetsubCF ? (
+          (modelId && CFMeta && defaultSubsetCF ? (
             <div className="main-container">
               {/* <div className="instance-view-container"> */}
               <InstanceView
@@ -159,16 +189,16 @@ export class App extends React.Component<IAppProps, IAppState> {
               {/* </div> */}
               {/* <div className="table-view-container"> */}
               <CompactTable
-                dataset={dataset}
-                CFMeta={CFMeta}
-                cfs={cfs}
-                getCFs={(params) =>
-                  getCFs({ dataId, modelId, ...params })
-                }
-                getCF={(index) => getCF({ dataId, modelId, index })}
-                getSubsetCF={getSubsetCF}
-                defaultSetsubCF={defaultSetsubCF}
-                updateQueryInstance={this.updateQueryInstance}
+                // dataset={dataset}
+                // CFMeta={CFMeta}
+                // cfs={cfs}
+                // getCFs={(params) =>
+                //   getCFs({ dataId, modelId, ...params })
+                // }
+                // getCF={(index) => getCF({ dataId, modelId, index })}
+                getSubsetCF={this.getSubset}
+                defaultSubset={defaultSubsetCF}
+              // updateQueryInstance={this.updateQueryInstance}
               />
               {/* </div> */}
             </div>
