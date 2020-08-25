@@ -413,7 +413,7 @@ export class BarChartLayout {
   }
 
   private getXScale(xScale?: d3.ScaleBand<string>): d3.ScaleBand<string> {
-    return xScale ? xScale : getScaleBand(_.flatten(this._dmcData), ...this.xRange);
+    return xScale ? xScale : getScaleBand(this.xRange[0], this.xRange[1], _.flatten(this._dmcData));
   }
 
   private getYScales(yScale?: d3.ScaleLinear<number, number>):

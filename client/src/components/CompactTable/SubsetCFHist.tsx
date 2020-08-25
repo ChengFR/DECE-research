@@ -4,14 +4,12 @@ import * as _ from "lodash";
 import memoizeOne from "memoize-one";
 
 
-import { shallowCompare, number2string, decile2precision, assert } from '../../common/utils';
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight } from '../visualization/common';
 import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
 import { getRowLabels, filterUndefined, isArrays } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { drawLink } from '../visualization/link'
-import { runInThisContext } from 'vm';
 import { columnMargin, NumTableColumn, CatTableColumn, TableColumn } from 'components/Table';
 
 export interface SubsetChartProps {
@@ -54,7 +52,7 @@ export interface ISubsetCFHistProps extends SubsetChartProps {
 }
 
 export interface ISubsetCFHistState {
-    // selectedRange?: [number, number];
+    selectedRange?: [number, number];
     // selectedCFRange?: [number, number];
     drawSankey: boolean;
     drawTooltip: boolean;
@@ -97,8 +95,8 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
     constructor(props: ISubsetCFHistProps) {
         super(props);
-        const { column } = this.props;
-        this.state = { drawSankey: false, drawTooltip: false };
+        const { selectedRange } = this.props;
+        this.state = { drawSankey: false, drawTooltip: false, selectedRange };
         this.updateParams(props);
 
         this.onHoverRange = this.onHoverRange.bind(this);
@@ -196,12 +194,12 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 .attr("transform", `translate(0, ${this.originHistY})`);;
             const originHistNode = originHistBase.node();
             if (originHistNode && this.originData && !this.dataEmpty()) {
-                drawGroupedHistogram(originHistNode,
-                    this.originData,
-                    this.allOriginData,
+                drawGroupedHistogram({
+                    root: originHistNode,
+                    data: this.originData,
+                    allData: this.allOriginData,
                     // this.props.protoColumn && this.props.protoColumn.series.toArray(),
-                    undefined,
-                    {
+                    options: {
                         width,
                         margin,
                         height: this.histHeight,
@@ -219,7 +217,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         drawAxis: drawAxis,
                         twisty: layout === 'header' ? 0 : this.getTwisty(),
                         color: color
-                    });
+                    }});
 
             }
             if (drawHandle)
@@ -235,12 +233,12 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                 .attr("transform", `translate(0, ${this.histHeight + this.originHistY + (drawSankey ? 20 : 3)})`);
             const cfHistNode = cfHistBase.node();
             if (cfHistNode && this.cfData && !this.dataEmpty())
-                drawGroupedHistogram(cfHistNode,
-                    this.cfData,
-                    this.allCfData,
+                drawGroupedHistogram({
+                    root: cfHistNode,
+                    data: this.cfData,
+                    allData: this.allCfData,
                     // this.props.protoColumn && this.props.protoColumn.series.toArray(),
-                    undefined,
-                    {
+                    options: {
                         width,
                         margin,
                         height: this.histHeight,
@@ -254,7 +252,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
                         onSelectRange: this.onSelectCFRange,
                         rangeSelector: this.props.onUpdateCFFilter ? "bin-wise" : undefined,
                         selectedRange: this.props.selectedCFRange,
-                    });
+                    }});
 
             if (!this.dataEmpty()) {
                 if (layout === 'header') {
@@ -321,7 +319,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
 
     drawHandle(root: SVGSVGElement) {
         const { margin, height } = this.props;
-        const { selectedRange } = this.props;
+        const { selectedRange } = this.state;
         const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const _root = d3.select(root);
         const x = this.getXScale();
@@ -535,7 +533,7 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     }
 
     public render() {
-        const { column, className, style, width, height, margin, onSelect, expandable, selected } = this.props;
+        const { column, className, style, width, height, onSelect, selected } = this.props;
         const { drawTooltip } = this.state;
 
         return <div className={className} style={{ width, ...style }} onMouseOver={this.onHover} onMouseLeave={this.onMouseLeave}>
@@ -571,23 +569,22 @@ export default class SubsetCFHist extends React.PureComponent<ISubsetCFHistProps
     onHoverRange(hoveredBin?: [number, number]) {
         const {onUpdateFilter} = this.props;
         const bin = this._checkBins(hoveredBin);
-        // this.setState({ selectedRange: bin && [bin[0], bin[1]] });
-        onUpdateFilter && bin && onUpdateFilter([bin[0], bin[1]]);
+        this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        // onUpdateFilter && bin && onUpdateFilter([bin[0], bin[1]]);
     };
 
     onSelectRange(hoveredBin?: [number, number]) {
         const { onUpdateFilter } = this.props;
         const bin = this._checkBins(hoveredBin);
-        onUpdateFilter && onUpdateFilter(bin);
-        // onSelect && onSelect();
-        // this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        
+        this.setState({ selectedRange: bin && [bin[0], bin[1]] });
+        onUpdateFilter && onUpdateFilter(this.state.selectedRange);
     };
 
     onSelectCFRange(hoveredBin?: [number, number]) {
         const { onUpdateCFFilter } = this.props;
         const bin = this._checkBins(hoveredBin);
         onUpdateCFFilter && onUpdateCFFilter(bin);
-        // onSelect && onSelect();
         // this.setState({ selectedCFRange: bin && [bin[0], bin[1]] });
     };
 

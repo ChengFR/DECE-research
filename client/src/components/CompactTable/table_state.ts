@@ -153,7 +153,8 @@ function _expandRows(rows: RowState[], action: ExpandRows) {
 function _remapRows(rows: RowState[], action: ReorderRows | FilterRows): RowState[] {
   const {index} = action;
   const index2new: (number | undefined)[] = [];
-  index.forEach((idx, i) => index2new[idx] = i);
+  // index.forEach((idx, i) => index2new[idx] = i);
+  _.range(index.length).forEach((idx, i) => index2new[idx] = i);
 
   let expandedRows: ExpandedRow[] = rows.filter(r => isExpandedRow(r)) as ExpandedRow[];
   // The expandedRows with updated index

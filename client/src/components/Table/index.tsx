@@ -13,7 +13,8 @@ import {
   createColumn,
   TableColumn,
   IndexWidth,
-  changeColumnWidth
+  changeColumnWidth,
+  infuseCol
 } from "./common";
 import { number2string } from "common/utils";
 import "./index.scss";
@@ -253,7 +254,8 @@ export default class Table extends React.PureComponent<
 
   onChangeColumnWidth({ index, width }: { index: number; width: number }) {
     const { columns } = this.state;
-    columns.splice(index, 1, changeColumnWidth(columns[index], width));
+    const newCol = infuseCol(changeColumnWidth(columns[index], width), columns[index])
+    columns.splice(index, 1, newCol);
     // console.log(`change column ${index} width to ${width}`);
 
     this.setState({ columns: [...columns] });

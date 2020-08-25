@@ -77,8 +77,9 @@
         opacity: 0.8;
     }
     div.selected-column {
-        border-color: red;
-        border-style: solid;
+        // border-color: red;
+        // border-style: solid;
+        box-shadow: inset 0px 0px 1px 1px #f00;
     }
     .histogram {
         svg {

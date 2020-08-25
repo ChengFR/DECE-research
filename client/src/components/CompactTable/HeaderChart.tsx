@@ -7,7 +7,7 @@ import { IMargin } from '../visualization/common';
 import Histogram from '../visualization/histogram';
 import { getRowLabels, filterUndefined } from './common';
 import BarChart from '../visualization/barchart';
-import { TableColumn, isNumericalVColumn } from '../Table/common';
+import { TableColumn, isNumericalVColumn, CatTableColumn } from '../Table/common';
 import SubsetCFHist, {ISubsetCFHistProps} from './SubsetCFHist'
 import { ColumnSizer } from 'react-virtualized';
 
@@ -18,7 +18,7 @@ export interface IHeaderChartProps {
   column: TableColumn;
   allColumn: TableColumn;
   protoColumn?: TableColumn;
-  groupByColumn?: Readonly<TableColumn>;
+  groupByColumn?: Readonly<CatTableColumn>;
   protoColumnGroupBy?: Readonly<TableColumn>;
   cfFilter?: [number, number];
   style?: React.CSSProperties;

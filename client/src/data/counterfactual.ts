@@ -88,7 +88,7 @@ export class _CFSubset {
 
   // TODO-1 - replace this function with a deep copy
   public copy() {
-    return new _CFSubset(this.CFDataFrames.map(d => d.copy()), 
+    return new _CFSubset(this.CFDataFrames.map(d => d.copy()),
       this.dataMeta, this.CFMeta, [...this.filters], this.focusedClass);
   }
 }
@@ -137,7 +137,7 @@ export class CFDataFrame extends DataFrame {
   private _CFColumns: IColumn[];
   private _CFData: Readonly<Row<string | number>[]>;
   private _name2CFColumn: { [k: string]: IColumn };
-  private _validCFSet: ArrayLike<number>;
+  private _validCFSet: number[];
 
   static fromCFColumns(columns: IColumn[], CFColumns: IColumn[], index?: number[]) {
     const dataT = columns.map(c => c.series.toArray());
@@ -161,42 +161,37 @@ export class CFDataFrame extends DataFrame {
     const validSets = this.filterByBoth(DataFrame.col2filter(input.columns), DataFrame.col2filter(cfInput.columns));
     this._validSet = validSets[0];
     this._validCFSet = validSets[1];
-    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet))
+    this._validIndex = this._index.filter(id => (this._validSet.includes(id)) && (this._validCFSet.includes(id)))
     const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
-    this._CFColumns = this._initCFColumn(cfInput.columns, at);
+    this._CFColumns = this._initColumn(cfInput.columns, at);
     this._name2CFColumn = _.keyBy(this._CFColumns, c => c.name);
-    
+
   }
 
   public get CFData() {
     return this._CFData;
   }
 
-  private _initCFColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer) {
-    const _columns = this._initColumn(columns, at);
-    _columns.forEach(column => {
-      if (isColumnNumerical(column))
-        column.onFilter = (filter: [number, number] | undefined) => {
-          column.filter = filter;
-          // this._updateCFFilter(column.name, filter ? { name: column.name, extent: filter } : undefined);
-          this.filter();
-        }
-      else
-        column.onFilter = (filter: string[] | undefined) => {
-          column.filter = filter;
-          // this._updateCFFilter(column.name, filter ? { name: column.name, categories: filter } : undefined);
-          this.filter();
-        }
-    });
-    return _columns;
-  }
+  // private _initCFColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer) {
+  //   const _columns = this._initColumn(columns, at);
+  //   return _columns;
+  // }
 
   protected _updateColumn() {
-    this._validIndex = this._index.filter(id => (id in this._validSet) && (id in this._validCFSet))
-    super._updateColumn();
+    this._validIndex = this._index.filter(id => (this._validSet.includes(id)) && (this._validCFSet.includes(id)))
+    // super._updateColumn();
 
-    const at = (row: number, col: number) => this.atCF(this._validIndex[row], col);
-    this._CFColumns.forEach((d, i) => d.series = new Series(this.length, j => at(j, i)) as ISeries<number> | ISeries<string>)
+    
+    const at = (row: number, col: number) => this.at(this._validIndex[row], col);
+    this._columns = this._columns.map((col, i) => {
+      const newSeries = new Series(this.length, j => at(j, i)) as ISeries<number> | ISeries<string>;
+      return { ...col, series: newSeries } as IColumn;
+    })
+    this._name2column = _.keyBy(this._columns, c => c.name);
+
+    const atCF = (row: number, col: number) => this.atCF(this._validIndex[row], col);
+    this._CFColumns.forEach((d, i) => d.series = new Series(this.length, j => atCF(j, i)) as ISeries<number> | ISeries<string>)
+    this._name2CFColumn = _.keyBy(this._CFColumns, c => c.name);
   }
 
   public atCF = (row: number, col: number) => {
@@ -207,14 +202,14 @@ export class CFDataFrame extends DataFrame {
     }
   }
 
-  public sortBy(columnName: string, order: 'descend' | 'ascend') {
-    this._index = this.sortIndex(columnName, order);
-    this._updateColumn();
-
-    // return this;
+  public sortBy(columnName: string, order: 'descend' | 'ascend', update: boolean = false) {
+    const index = super.sortBy(columnName, order, update);
+    if (update)
+      this._updateColumn();
+    return index;
   }
 
-  public filterByCF(filters: Filter[]): ArrayLike<number> {
+  public filterByCF(filters: Filter[]): number[] {
     let filteredLocs: number[] = _.range(0, this.index.length);
     filters.forEach((filter: Filter) => {
       const columnName = filter.name;
@@ -251,9 +246,9 @@ export class CFDataFrame extends DataFrame {
   // }
 
   public filterByBoth(filters: Filter[], CFFilters: Filter[], update: boolean = false) {
-    const validSet = this._index.filter(id => (id in super.filterBy(filters)));
-    const validCFSet = this._index.filter(id => id in this.filterByCF(CFFilters))
-    if (update){
+    const validSet = this._index.filter(id => (super.filterBy(filters).includes(id)));
+    const validCFSet = this._index.filter(id => this.filterByCF(CFFilters).includes(id))
+    if (update) {
       this._validSet = validSet;
       this._validCFSet = validCFSet;
       this._updateColumn();
@@ -265,6 +260,12 @@ export class CFDataFrame extends DataFrame {
     this.filterByBoth(DataFrame.col2filter(this._columns), DataFrame.col2filter(this._CFColumns), true);
   }
 
+  public onChangeCFFilter(columnName: string, filter?: string[] | [number, number]) {
+    const index = this.CFColumns.findIndex(c => c.name === columnName);
+    this._CFColumns[index].filter = filter;
+    this.filter();
+  }
+
   public get CFColumns() {
     return this._CFColumns;
   }
@@ -273,9 +274,15 @@ export class CFDataFrame extends DataFrame {
     return this._name2CFColumn[name];
   }
 
-  public copy(){
-    return new CFDataFrame({data: this.data, columns: this.columns}, {data: this.CFData, columns: this._CFColumns});
+  public copy() {
+    // return new CFDataFrame({data: this.data, columns: this.columns}, {data: this.CFData, columns: this._CFColumns});
+    return CFDataFrame.fromCFColumns(this.columns, this.CFColumns);
   }
+
+  get validIndex() {
+    return this._validIndex;
+  }
+
 }
 
 export function buildCFDataMeta(dataMeta: DataMeta) {
