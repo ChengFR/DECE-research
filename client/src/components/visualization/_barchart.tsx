@@ -29,7 +29,7 @@ export function drawSimpleBarchart(
 
     const xRange = [0, width - margin.right - margin.left] as [number, number];
     const yRange = [0, height - margin.top - margin.bottom] as [number, number];
-    const x = xScale ? xScale : getScaleBand(data, ...xRange);
+    const x = xScale ? xScale : getScaleBand(xRange[0], xRange[1], data);
     const categoryData = countCategories(data, x.domain())
     const y = d3.scaleLinear()
         .range(yRange)

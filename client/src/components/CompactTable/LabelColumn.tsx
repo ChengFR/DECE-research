@@ -165,7 +165,7 @@ export default class LabelColumn extends React.PureComponent<ILabelColumnProps, 
 
     getXScale() {
         const { predColumn, width, margin } = this.props;
-        return predColumn.xScale || getScaleBand(predColumn.series.toArray(), 0, width - margin.left - margin.right, predColumn.categories);
+        return predColumn.xScale || getScaleBand(0, width - margin.left - margin.right, predColumn.series.toArray(), predColumn.categories);
     }
 
     render() {

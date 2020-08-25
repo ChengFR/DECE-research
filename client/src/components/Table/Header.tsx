@@ -11,7 +11,7 @@ import { CellRenderer, CellProps } from './TableGrid';
 import PureGrid from './PureGrid'
 
 export interface IHeaderProps {
-  columns: (VColumn | TableColumn)[];
+  columns: TableColumn[];
   // distGroupBy?: number;
   // columnWidths: number[];
   onChangeColumnWidth?: (p: { index: number; width: number }) => any;
@@ -267,6 +267,7 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
   const { column, style } = props;
   const { width, onChangeColumnWidth } = column;
   const { onSort, sorted, name } = column;
+
   return (
     <div className="row-title" style={style}>
       <div
@@ -277,10 +278,10 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
       </div>
       {onSort && (
         <Icon
-          type="arrow-up"
+          type="arrow-down"
           // style={{ position: "absolute", right: 3 }}
           className={(sorted ? `arrow sorted ${sorted}` : "arrow")}
-          onClick={() => onSort(column.sorted === "descend" ? "ascend" : "descend")}
+          onClick={() => onSort(column.sorted === "ascend" ? "descend" : "ascend")}
         />
       )}
       {onChangeColumnWidth && (

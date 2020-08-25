@@ -83,17 +83,13 @@ export class App extends React.Component<IAppProps, IAppState> {
       const cfResponse = await getSubsetCF(params);
       const cfData = cfResponse.counterfactuals;
       const cfDataFrames = CFMeta.features.map((feat, i) => {
-        // const cfDf = buildDataFrame(CFMeta, cfData[i]);
         const columns = [CFMeta.prediction!, ...CFMeta.features].sort((a, b) => a.index - b.index);
         const cfDf = new DataFrame({ data: validateData(cfData[i], columns), columns: columns });
-        console.log(df, cfDf);
         assert(df.length === cfDf.length);
+
         const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);
-        console.log(df.columns);
-        console.log(cfDataFrame.length);
         return cfDataFrame
       })
-      console.log(cfDataFrames);
       return new _CFSubset(cfDataFrames, dataMeta, CFMeta, params.filters);
     }
     else {
