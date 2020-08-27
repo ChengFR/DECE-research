@@ -51,14 +51,15 @@ export const defaultOptions: IBarChartOptions = {
   direction: 'up'
 };
 
-export function drawBarChart(
+export function drawBarChart(params: {
   svg: SVGElement,
   // data: Category[],
   data: string[] | string[][],
   allData?: string[] | string[][],
   dmcData?: string[] | string[][],
-  options?: Partial<IBarChartOptions>
+  options?: Partial<IBarChartOptions>}
 ) {
+  const {svg, data, allData, dmcData, options} = params;
   const opts = { ...defaultOptions, ...options };
   const {
     height,
@@ -296,14 +297,15 @@ export class BarChart extends React.PureComponent<
       const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
       // const barData = this.count(data, xScale.domain());
       // const allBars = allData && this.countAll(allData, xScale.domain());
-      drawBarChart(svg, data, allData, data, {
+      drawBarChart(
+        {svg, data, allData, dmcData: data, options: {
         ...rest,
         // height: height - 20,
         xScale,
         height: height,
         // onRectMouseOver: this.onMouseOverBar,
         // onRectMouseLeave: this.onMouseLeaveBar,
-      });
+      }});
       this.shouldPaint = false;
     }
   }

@@ -10,7 +10,7 @@ import {
   InfiniteLoaderChildProps
 } from "react-virtualized";
 import { CFResponse, SubsetCFResponse, Filter, getSubsetCF, CounterFactual } from "api";
-import { Dataset, DataMeta, DataFrame, IColumn, _CFSubset, CFDataFrame } from "data";
+import { Dataset, DataMeta, DataFrame, IColumn, CFSubset, CFDataFrame } from "data";
 import Panel from "components/Panel";
 import Table, { CellProps, columnMargin } from "components/Table";
 import {
@@ -40,6 +40,7 @@ import { CatTableColumn, isNumericalVColumn, VColumn, VCatColumn, NumTableColumn
 // import { filterByColumnStates, SubsetCFTable, CFCatColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn, CFNumColumn, getValidData, getValidCfData } from './common';
 import "./index.scss";
 import { NumHeaderFeatCol, NumSubsetFeatCol } from "./NumFeatCol"
+import { CatHeaderFeatCol, CatSubsetFeatCol } from "./CatFeatCol"
 // import SubsetCFBar from "./SubsetCFBar";
 import LabelColumn from "./LabelColumn";
 import { defaultCategoricalColor } from "components/visualization/common";
@@ -72,13 +73,13 @@ export interface ICompactTableProps {
   rowHeight: number;
   pixel: number;
 
-  defaultSubset: _CFSubset;
-  getSubsetCF: (param: { filters: Filter[] }) => Promise<_CFSubset>;
+  defaultSubset: CFSubset;
+  getSubsetCF: (param: { filters: Filter[] }) => Promise<CFSubset>;
   // updateQueryInstance?: (queryInstance: CounterFactual) => void;
 }
 
 export interface ICompactTableState {
-  subsets: _CFSubset[];
+  subsets: CFSubset[];
   focusedDF: CFDataFrame;
   focusedDFProto: CFDataFrame;
   featCols: VColumn[];
@@ -220,26 +221,6 @@ export default class CFTableView extends React.Component<
     });
   });
 
-  // changeDataFrame(dataFrame: CFDataFrame) {
-  //   if (dataFrame !== this.state.focusedDF) {
-  //     const name2column = _.keyBy(this.state.columns, c => c.name);
-  //     // const cfs = this.props.cfs && this.getCFs(this.props.cfs, this.props.dataset.dataMeta, dataFrame);
-  //     return {
-  //       dataFrame,
-  //       columns: dataFrame.columns.map((c, i) => {
-  //         // const cf = cfs ? cfs[i] : undefined;
-  //         if (c.name in name2column) {
-  //           // merge and update the column
-  //           return { ...name2column[c.name], ...c } as CFTableColumn;
-  //         }
-  //         // init new column
-  //         return this.initColumn(c);
-  //       })
-  //     };
-  //   }
-  //   return null;
-  // }
-
   public componentDidUpdate(prevProps: ICompactTableProps, prevState: ICompactTableState) {
     // if (prevProps.dataset !== this.props.dataset) {
     //   // const newState = this.changeDataFrame(
@@ -253,13 +234,7 @@ export default class CFTableView extends React.Component<
   public render() {
     const { focusedDF, hovered } = this.state;
     const { rows, subsets: allColumns } = this.state;
-    const { defaultSubset } = this.props;
-    const rowCount = focusedDF.length;
     const hoveredValue = hovered ? focusedDF.at(...hovered) : "";
-    // const fixedColumns =
-    //   Number(Boolean(dataset?.dataMeta.prediction)) +
-    //   Number(Boolean(dataset?.dataMeta.target));
-    // const columns = _.range(1, focusedDF.columns.length).map(d => focusedDF.columns[d]);
     const fixedColumns = 1;
     const columns = this.makeHeaderCols()[0];
     return (
@@ -363,7 +338,7 @@ export default class CFTableView extends React.Component<
   }
 
   onClearFilter() {
-    this.setState({focusedDF: this.state.focusedDFProto.copy()});
+    this.setState({ focusedDF: this.state.focusedDFProto.copy() });
   }
 
   onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
@@ -373,7 +348,7 @@ export default class CFTableView extends React.Component<
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
     console.log(focusedDF.columns);
-    this.setState({focusedDF, rows: newRows});
+    this.setState({ focusedDF, rows: newRows });
   }
 
   onChangeCFFilter(columnName: string, filter?: string[] | [number, number]) {
@@ -383,7 +358,7 @@ export default class CFTableView extends React.Component<
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
     console.log(focusedDF.columns);
-    this.setState({focusedDF, rows: newRows});
+    this.setState({ focusedDF, rows: newRows });
   }
 
   onHover(row: number | null, column: number | null) {
@@ -418,13 +393,15 @@ export default class CFTableView extends React.Component<
 
   initFocusedDF(focusedDF: CFDataFrame) {
     const columns = focusedDF.columns.map((col, i) => {
-      return { ...col, 
+      return {
+        ...col,
         onSort: this.onSort.bind(this, this.featNames[i]),
         onFilter: this.onChangeFilter.bind(this, this.featNames[i])
       }
     })
     const CFColumns = focusedDF.CFColumns.map((col, i) => {
-      return { ...col, 
+      return {
+        ...col,
         onFilter: this.onChangeCFFilter.bind(this, this.featNames[i])
       }
     })
@@ -526,35 +503,37 @@ export default class CFTableView extends React.Component<
         />
       }
       else if (!isNumericalVColumn(column) && !isNumericalVColumn(CFColumn)) {
-        // return (
-        //   <SubsetCFBar
-        //     className={`header-chart`}
-        //     column={column}
-        //     protoColumn={this.basicColumns[columnIndex] as CFCatColumn}
-        //     // column={columns[columnIndex]}
-        //     groupByColumn={columns[groupByColumn]}
-        //     // onUpdateFilter={(categories?: string[]) => tableGroup.updateFilter(columnIndex, undefined, categories)}
-        //     // protoColumnGroupBy={this.basicColumns[groupByColumn]}
-        //     onUpdateFilter={(categories?: string[]) => {
-        //       column.onFilter && column.onFilter(categories)
-        //     }}
-        //     onUpdateCFFilter={(categories?: string[]) => {
-        //       column.onFilterCF && column.onFilterCF(categories)
-        //     }}
-        //     width={width}
-        //     height={subsetChartHeight}
-        //     margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
-        //     k={`header-${columnIndex}`}
-        //     histogramType='side-by-side'
-        //     drawHandle={false}
-        //     drawAxis={this.state.drawYAxis}
-        //     selected={false}
-        //     layout={"header"}
-        //     expandable={false}
-        //     focusedCategory={focusedClass}
-        //     color={focusedClass === 1 ? i => defaultCategoricalColor(i ^ 1) : defaultCategoricalColor}
-        //   />
-        // );
+        return (
+          <CatHeaderFeatCol
+
+            className={`header-chart`}
+            width={column.width}
+            histHeight={20}
+            margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
+            drawAxis={this.state.drawYAxis}
+            histogramType='side-by-side'
+            k={`header-${columnIndex}`}
+
+            column={column}
+            CFColumn={CFColumn}
+            allColumn={allColumn as CatTableColumn}
+            allCFColumn={allCFColumn as CatTableColumn}
+            validFilter={this.getValidFilter(focusedDF)}
+            labelColumn={labelColumn}
+            allLabelColumn={allLabelColumn}
+            protoColumn={infuseCol(featCols[featIndex], protoCol) as CatTableColumn}
+
+            onUpdateFilter={(categories?: string[]) => {
+              column.onFilter && column.onFilter(categories)
+            }}
+            onUpdateCFFilter={(categories?: string[]) => {
+              CFColumn.onFilter && CFColumn.onFilter(categories);
+            }}
+
+            focusedCategory={focusedClass}
+            color={focusedClass === 1 ? i => defaultCategoricalColor(i ^ 1) : defaultCategoricalColor}
+          />
+        );
       }
       else {
         throw "Type of column and CF column should be consistent."
@@ -591,13 +570,14 @@ export default class CFTableView extends React.Component<
       }
     }
     else {
-      const df = subset.CFDataFrames[columnIndex - 1];
-      const featName = this.featNames[columnIndex - 1];
-      const column = infuseCol(featCols[columnIndex - 1], df.getColumnByName(featName));
-      const CFColumn = infuseCol(featCols[columnIndex - 1], df.getCFColumnByName(featName));
+      const featIndex = columnIndex - 1;
+      const df = subset.CFDataFrames[featIndex];
+      const featName = this.featNames[featIndex];
+      const column = infuseCol(featCols[featIndex], df.getColumnByName(featName));
+      const CFColumn = infuseCol(featCols[featIndex], df.getCFColumnByName(featName));
       const labelColumn = infuseCol(predCol, df.getColumnByName(this.predName)) as CatTableColumn;
       assert(column.series.length === CFColumn.series.length);
-      const protoCol = this.props.defaultSubset.getFeatures(columnIndex - 1)[columnIndex - 1];
+      const protoCol = this.props.defaultSubset.getFeatures(featIndex)[featIndex];
 
       if (isNumericalVColumn(column) && isNumericalVColumn(CFColumn)) {
         return <NumSubsetFeatCol
@@ -612,9 +592,9 @@ export default class CFTableView extends React.Component<
           column={column}
           CFColumn={CFColumn}
           validFilter={this.getValidFilter(df)}
-          protoColumn={infuseCol(featCols[columnIndex - 1], protoCol) as NumTableColumn}
+          protoColumn={infuseCol(featCols[featIndex], protoCol) as NumTableColumn}
           labelColumn={labelColumn}
-          selectedRange={subset.filters[columnIndex - 1].extent || column.extent}
+          selectedRange={subset.filters[featIndex].extent || column.extent}
           onUpdateSelectedRange={(extent?: [number, number]) => this.onUpdateFilter(groupIndex, columnIndex, { name: column.name, extent })}
 
           onSelect={() => this.onSelectColumn(groupIndex, columnIndex)}
@@ -623,30 +603,32 @@ export default class CFTableView extends React.Component<
           color={subset.focusedClass === 1 ? i => defaultCategoricalColor(i ^ 1) : defaultCategoricalColor}
         />
       }
+      else if (!isNumericalVColumn(column) && !isNumericalVColumn(CFColumn)) {
+        return <CatSubsetFeatCol
+          className={`subset-chart`}
+          width={column.width}
+          histHeight={20}
+          margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
+          k={`subset-${groupIndex}-${columnIndex}`}
+          histogramType='side-by-side'
+          drawAxis={this.state.drawYAxis}
+
+          column={column}
+          CFColumn={CFColumn}
+          validFilter={this.getValidFilter(df)}
+          labelColumn={labelColumn}
+          protoColumn={infuseCol(featCols[featIndex], protoCol) as CatTableColumn}
+          selectedCategories={subset.filters[featIndex].categories || column.categories}
+          onUpdateSelectedCategories={(categories?: string[]) => this.onUpdateFilter(groupIndex, columnIndex, { name: column.name, categories })}
+
+          onSelect={() => this.onSelectColumn(groupIndex, columnIndex)}
+          selected={groupIndex === this.state.groupIndex && columnIndex === this.state.columnIndex}
+          focusedCategory={subset.focusedClass}
+          color={subset.focusedClass === 1 ? i => defaultCategoricalColor(i ^ 1) : defaultCategoricalColor}
+        />
+      }
       else {
-        // return (
-        //   <SubsetCFBar
-        //     className={`subset-chart`}
-        //     column={column}
-        //     protoColumn={this.basicColumns[columnIndex] as CFCatColumn}
-        //     // column={columns[columnIndex]}
-        //     labelColumn={columns[groupByColumn]}
-        //     onUpdateFilter={(categories?: string[]) => tableGroup.updateFilter(columnIndex, undefined, categories)}
-        //     // protoColumnGroupBy={this.basicColumns[groupByColumn]}
-        //     width={width}
-        //     height={subsetChartHeight}
-        //     margin={this.state.drawYAxis ? { ...columnMargin, left: 30 } : columnMargin}
-        //     k={`subset-${groupIndex}-${columnIndex}`}
-        //     histogramType='side-by-side'
-        //     drawHandle={true}
-        //     drawAxis={this.state.drawYAxis}
-        //     selected={groupIndex === this.state.groupIndex && columnIndex === this.state.columnIndex}
-        //     onSelect={() => this.onSelectColumn(groupIndex, columnIndex)}
-        //     expandable={true}
-        //     focusedCategory={tableGroup.focusedClass}
-        //     color={tableGroup.focusedClass === 1 ? i => defaultCategoricalColor(i ^ 1) : defaultCategoricalColor}
-        //   />
-        // );
+        throw "Type of column and CF column should be consistent."
       }
     }
   }
@@ -693,7 +675,7 @@ export default class CFTableView extends React.Component<
       const cfData = CFColumn.series.toArray();
 
       const originVal = data[row.index];
-      const cfVal = cfData != undefined ? cfData[row.index] : undefined;
+      const cfVal = cfData[row.index];
       const originStr = typeof (originVal) === 'string' ? originVal : originVal.toFixed(column.precision);
       if (originVal === cfVal) {
         return <div className="cell-content">
@@ -729,10 +711,6 @@ export default class CFTableView extends React.Component<
       // index column
       return <div className="cell-content"></div>;
     } else {
-      // if (props.isScrolling) return (<Spin indicator={LoadingIcon} delay={300} />);
-      // if (showCF) {
-      // const cfs = this.cfs;
-      // const cf = cfs && notEmpty(cfs[columnIndex]) ? cfs[columnIndex] : undefined;
       let data: string[] | number[] = [];
       let cfData: string[] | number[] = [];
       let column = infuseCol(predCol, focusedDF.getColumnByName(this.predName) as ICatColumn);
@@ -748,8 +726,6 @@ export default class CFTableView extends React.Component<
 
       data = column.series.toArray();
       cfData = CFColumn.series.toArray();
-      // data = getValidData(column);
-      // cfData = getValidCfData(column);
       return (
         <Spin indicator={LoadingIcon} spinning={props.isScrolling} delay={200}>
           <CompactCFColumn
@@ -819,7 +795,7 @@ export default class CFTableView extends React.Component<
 
   onSubsetFocusOnClass(groupId: number, newClass?: number) {
     const { subsets: cfSubsets } = this.state;
-    // cfSubsets[groupId]._focuseOn(newClass);
+    cfSubsets[groupId].updateFocusedClass(newClass);
     this.setState({ subsets: [...cfSubsets] });
   }
 
@@ -890,7 +866,7 @@ export default class CFTableView extends React.Component<
     // const cacheString = localStorage.getItem(`cfSubsets`);
     let filterMat: Filter[][] = cacheString ? JSON.parse(cacheString) : [[]];
     if (filterMat.length > 0) {
-      let subsets: _CFSubset[] = [];
+      let subsets: CFSubset[] = [];
       for (let filters of filterMat) {
         const _filters = filters.filter(f => this.featNames.includes(f.name));
         const subset = await getSubsetCF({ filters: _filters });
