@@ -30,7 +30,7 @@ export interface CFSubsetProps {
   cfMeta: DataMeta,
 }
 
-export class _CFSubset {
+export class CFSubset {
   private _filters: Filter[];
   private _focusedClass?: number;
   constructor(public CFDataFrames: CFDataFrame[], public dataMeta: Readonly<DataMeta>,
@@ -88,7 +88,7 @@ export class _CFSubset {
 
   // TODO-1 - replace this function with a deep copy
   public copy() {
-    return new _CFSubset(this.CFDataFrames.map(d => d.copy()),
+    return new CFSubset(this.CFDataFrames.map(d => d.copy()),
       this.dataMeta, this.CFMeta, [...this.filters], this.focusedClass);
   }
 }

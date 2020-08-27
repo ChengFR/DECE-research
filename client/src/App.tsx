@@ -11,7 +11,7 @@ import {
 import { Layout } from "antd"
 
 import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance, getDataMeta, Filter } from './api';
-import { Dataset, DataMeta, _CFSubset, buildDataFrame, CFDataFrame, DataFrame, validateData } from "./data";
+import { Dataset, DataMeta, CFSubset, buildDataFrame, CFDataFrame, DataFrame, validateData } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CompactTable from "./components/CompactTable";
@@ -30,7 +30,7 @@ export interface IAppState {
   CFMeta?: DataMeta;
   dataset?: Dataset;
 
-  defaultSubsetCF?: _CFSubset;
+  defaultSubsetCF?: CFSubset;
 
   queryInstance?: CounterFactual;
   queryInstanceClass?: string,
@@ -90,7 +90,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);
         return cfDataFrame
       })
-      return new _CFSubset(cfDataFrames, dataMeta, CFMeta, params.filters);
+      return new CFSubset(cfDataFrames, dataMeta, CFMeta, params.filters);
     }
     else {
       throw "Dataset information is missing."
