@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.special import softmax
 import timeit
 import math
 import copy
@@ -9,73 +10,96 @@ import torch
 from torch import nn
 import torch.optim as optim
 
-from cf_engine.counterfactual import CounterfactualExample, CounterfactualExampleBySubset
+from cf_ml.cf_engine import CounterfactualExample, CounterfactualExampleBySubset
 
+DEFAULT_SETTING = {
+    'k': -1,
+    'num': 1,
+    'cf_range': {},
+    'changeable_attr': 'all',
+    'desired_class': 'opposite'
+}
+
+DEFAULT_CONFIG = {
+    'feature_weights': 'mads',
+    'validity_weight': 1,
+    'proximity_weight': 0.01,
+    'diversity_weight': 0,
+    'lr': 0.01,
+    'min_iter': 500,
+    'max_iter': 2000,
+    'project_frequency': 100,
+    'post_steps': 10,
+    'batch_size': 1024,
+    'loss_diff': 1e-5,
+    'metric': ['Validity_Rate', 'Avg_Distance'],
+    "refine_with_topk": -1
+}
+
+class Softmax(nn.Module):
+
+    def __init__(self, dummy_indexes):
+        super(Softmax, self).__init__()
+
+        self._dummy_indexes = dummy_indexes
+
+    def forward(self, x):
+        y = torch.tensor(x)
+        for dummies in self._index_of_dummy_cat_features:
+                y[:, dummies] = torch.softmax(x[:, dummies], dim=1)
+        return y
 
 class CFEnginePytorch:
     """A class to generate counterfactual examples."""
 
-    def __init__(self, model_manager, dataset):
-        self.model_manager = model_manager
-        self.dataset = dataset
-        self.dir_manager = self.model_manager.get_dir_manager()
-        self.desc = self.dataset.get_description()
-        self.features = self.dataset.get_feature_names()
+    def __init__(self, dataset, model_manager, config=DEFAULT_CONFIG):
+        self._dataset = dataset
+        self._mm = model_manager
+        self._dir_manager = self._mm.dir_manager
+        self._desc = self._dataset.description
+        self._data_meta = self._dir_manager.dataset_meta
+        self._target = self._data_meta["target"]
+        self._prediction = self._data_meta["prediction"]
+        self._features = self._data_meta["features"]
+        self._columns = self._features + [self._target, self._prediction]
+        self._config = {**DEFAULT_CONFIG, **config}
 
-    def generate_cfs_subset(self, subset={}, weight='mads', **kwargs):
-        """
-        """
-        results = OrderedDict()
-        for feature in self.dataset.get_feature_names(False):
-            setting = {'data_range': copy.deepcopy(subset), 'cf_range': copy.deepcopy(subset)}
-            if feature in subset:
-                del setting['cf_range'][feature]
-            results[feature] = self.generate_cfs_from_setting(setting, None, **kwargs)
-        return results
+        self._index_of_num_features = [i for i, f in enumerate(self._dataset.features) if self._dataset.is_num(f)]
+        dummy_features = [self._dataset.get_dummy_columns(f) for f in self._dataset.features if not self._dataset.is_num(f)]
+        self._index_of_dummy_cat_features = [[self._dataset.dummy_features.index(d) for d in dummies] for dummies in dummy_features]
+        min_scales = pd.DataFrame(self._data_meta["description"]).T['scale'].fillna(0)
+        self._min_scales = np.array([min_scales[col] if col in min_scales else 0 for col in self._dataset.features])
 
-    def generate_cfs_from_setting(self, setting, data=None, weight='mads', proximity_weight=0.01, diversity_weight=0, lr=0.01, clip_frequency=50, init_cat='rand', max_iter=2000, min_iter=100,
-                                  loss_diff=5e-6, post_step=5, batch_size=1, evaluate=1, verbose=1, use_cache=True, cache=True):
+    def update_config(self, new_config):
+        self._config = {**self._config, **new_config}
+
+    def generate_r_counterfactuals(self, subset_range=None, use_cache=True, cache=True, verbose=True):
         """
-        :param setting: {'index': list of int or str, optional
-                        'changeable_attribute': str or list of str, 
-                        'k': int, number of changed attribute,
-                        'cf_range': dict, range of attribute
-                        'data_range': dict, range of attribute
-                        'cf_num': int, 
-                        'desired_class': 'opposite' or ndarray}
         """
-        if data is None and use_cache and self.dir_manager.indexof_setting(setting) >= 0:
-            subset_cf = self.dir_manager.load_cf_with_setting(setting)
-        else:
-            changeable_attribute = setting.get('changeable_attribute', 'all')
-            data_range = setting.get('data_range', {})
-            cf_num = setting.get('cf_num', 1)
-            desired_class = setting.get('desired_class', 'opposite')
-            k = setting.get('k', -1)
-            cf_range = setting.get('cf_range', {})
-            index = setting.get('index', 'all')
-            if data is None:
-                data_df = self.dataset.get_sample(
-                    index=index, filters=data_range, preprocess=False)
-            elif isinstance(data, list) or isinstance(data, np.ndarray):
-                data = np.array(data)
-                if len(data.shape) == 1:
-                    data = data[np.newaxis, :]
-                data_df = pd.DataFrame(
-                    data, columns=self.dataset.get_feature_names(False))
+        subset_range = subset_range if subset_range is not None else {}
+        cf_range = copy.deepcopy(subset_range)
+        subset = self._dataset.get_subset(filters=subset_range)
+        X = subset[self._dataset.dummy_features]
+
+        r_counterfactuals = CounterfactualExampleBySubset(self._data_meta, subset_range, subset)
+        for feature in self._dataset.features:
+            by_feature_cf_range = {k: v for k, v in cf_range.items() if k != feature}
+            if use_cache and self._dir_manager.include_setting(subset_range, by_feature_cf_range):
+                subset_cf = CounterfactualExample(self._data_meta, 
+                    self._dir_manager.load_subset_cf(subset_range, by_feature_cf_range))
             else:
-                data_df = data
-            subset_cf = self.generate_cfs(data_df, cf_num, desired_class, weight, proximity_weight, diversity_weight, lr, clip_frequency, changeable_attribute,
-                                          k, cf_range, init_cat, max_iter, min_iter, loss_diff, post_step, batch_size, evaluate, verbose)
-        if data is None and cache:
-            self.dir_manager.save_cf_with_setting(subset_cf, setting)
-        return subset_cf
+                subset_cf = self.generate_cfs_from_setting(X, setting={'cf_range': by_feature_cf_range}, verbose=verbose)
 
-    def generate_cfs(self, data_df, cf_num=4, desired_class='opposite', weight='mads', proximity_weight=0.1, diversity_weight=1.0, lr=0.05, clip_frequency=50,
-                     changeable_attr='all', k=-1, cf_range={}, init_cat='rand', 
-                     max_iter=2000, min_iter=100, loss_diff=5e-6, post_step=5, batch_size=1, evaluate=True, verbose=1):
+            if cache:
+                self._dir_manager.save_subset_cf(subset_range, by_feature_cf_range, subset_cf.all)
+
+            r_counterfactuals.append_counterfactuals(feature, subset_cf)
+        return r_counterfactuals
+
+    def generate_cfs_from_setting(self, X, setting=DEFAULT_SETTING, verbose=True):
         """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
-        :param data_df: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
+
+        :param data: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
         :param cf_num: int, number of the generated counterfactual examples
         :param desired_class: 'opposite' or pandas.DataFrame
         :param proximity_weight: float, weight of proximity loss part
@@ -93,481 +117,373 @@ class CFEnginePytorch:
         :param batch_size: int, number of instance in a batch
         :param verbose: boolean, whether to print out the log information
         """
-        self.update_config(cf_num, desired_class, proximity_weight, weight,
-                           diversity_weight, clip_frequency, changeable_attr, k, cf_range, init_cat, max_iter, min_iter, loss_diff, lr)
+        batch_size = self._config["batch_size"]
+
         # init timer
         start_time = timeit.default_timer()
-        # init result contrainer
-        subset_cf = CounterfactualExampleBySubset(self.dataset, self.cf_num)
-        # init original instances
-        data_df = self.dataset.preprocess(data_df, mode='x')
-        data_num = len(data_df)
-        total_loss = 0
+        data_num = len(X)
+        mask = self._gradient_mask_by_setting(setting)
+        if_sparse = self._if_sparse(setting)
+        weights = self._feature_weights()
+        min_values = self._generate_min_array(setting)
+        max_values = self._generate_max_array(setting)
+        reports = []
+
         # start generating
         for batch_num in range(math.ceil(data_num / batch_size)):
             checkpoint = timeit.default_timer()
-            start_id = batch_num*batch_size
-            end_id = min(batch_num*batch_size+batch_size, len(data_df))
-            # get original instances in a batch
-            instances = data_df[self.features].iloc[start_id: end_id].values
+            start_id = batch_num * batch_size
+            end_id = min(batch_num * batch_size + batch_size, len(X))
 
-            expanded_mask = np.repeat(
-                self.mask_change[np.newaxis, :], self.cf_num*(end_id-start_id), axis=0)
-            # init target classes
-            if type(desired_class) is str and desired_class == 'opposite':
-                targets = self.get_desired_class(instances)
-            else:
-                targets = desired_class
-            # prepare initialized counterfactuals, target, and instances for generation
-            init_cfs, targets, instances = self.prepare_cfs(
-                targets=targets, instances=instances, mask=expanded_mask)
-            # optimization process
-            cfs, _, loss, iter = self.optimize(
-                init_cfs, instances, targets, expanded_mask, lr)
-            # regenerate counterfactual examples if the number of changeable attributes is fixed
-            if self.k > 0 and self.k < self.mask_change.sum():
-                diff = (cfs - instances).abs()
-                key_features = diff.argsort(dim=1, descending=True)[:, :k]
-                new_mask = torch.zeros(cfs.shape[0], cfs.shape[1])
-                for i in range(cfs.shape[0]):
-                    new_mask[i, key_features[i]] = 1
-                cfs, _, loss, iter = self.optimize(
-                    init_cfs, instances, targets, expanded_mask, lr)
+            # init counterfactual values and targets
+            original_X = self._expand_array(X.iloc[start_id: end_id].values, setting)
+            # _y = self._expand_array(y.iloc[start_id: end_id].values, setting)
+            targets = self._target_array(original_X, setting)
+            inited_cfs = self._init_cfs(original_X, setting)
 
-            cfs = cfs.detach().numpy()
+            # STEP-0: select top-k important features and update the mask if sparsity is required
+            if if_sparse:
+                cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, weights, min_values, max_values)
+                top_k_features = self._topk_features(cfs, original_X)
+                # update the mask with the top-k important feaures
+                mask = self._gradient_mask(top_k_features)
+            
+            # STEP-1: optimize the counterfactual examples
+            cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, weights, min_values, max_values)
 
-            # project the counterfactuals to the original space
-            projected_cfs = self.project(cfs)
+            # STEP-2: refine counterfactual examples
+            cfs = self._refine(cfs, original_X, targets, mask, weights, min_values, max_values, verbose=verbose > 1)
+            
+            # generate report (features, target, predictions) for counterfactual examples
+            report = self._mm.report(x=cfs, y=targets, preprocess=False)
+            reports.append(report)
 
-            # post steps to refine counterfactual examples
-            for _ in range(post_step):
-                projected_cfs = self.post_step(
-                    projected_cfs, instances, targets, expanded_mask, verbose=verbose>1)
-
-            # store the final counterfactuals and the original instances into the container
-            predicted_cfs = self.model_manager.predict(
-                projected_cfs[self.dataset.get_feature_names(preprocess=False)])
-            predicted_instances = self.model_manager.predict(
-                data_df.iloc[start_id: end_id], preprocess=False).set_index(data_df.iloc[start_id: end_id].index)
-            subset_cf.append_cfs(predicted_cfs, predicted_instances)
-
-            total_loss += loss*(end_id-start_id)
-
-            if evaluate:
-                eval_result = self.evaluate_cfs(
-                    predicted_cfs, predicted_instances)
-            if verbose > 0:
+            if verbose:
                 print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, validation rate: {:.3f}".format(
-                    end_id, data_num, batch_num, timeit.default_timer()-checkpoint, loss, iter, eval_result['valid_rate']))
-        if evaluate:
-            eval_result = self.evaluate_cfs(
-                subset_cf.get_cf(), subset_cf.get_instance())
-            print('Total time cost: {:.3f}, validation rate: {:.3f}, average distance: {:.3f}, average loss: {:.3f}'.format(
-                timeit.default_timer()-start_time, eval_result['valid_rate'], eval_result['avg_distance'], total_loss/data_num))
-        return subset_cf
+                        end_id, data_num, batch_num, timeit.default_timer() - checkpoint, loss, iter, 
+                        (report[self._target] == report[self._prediction]).sum()/len(report)))
 
-    def update_config(self, cf_num, desired_class, proximity_weight, weight, diversity_weight, clip_frequency, changeable_attribute,
-                      k, cf_range, init_cat, max_iter, min_iter, loss_diff, lr):
-        self.cf_num = cf_num
-        self.desired_class = desired_class
-        self.proximity_weight = proximity_weight
-        self.diversity_weight = diversity_weight
-        self.category_weight = 0.01
-        self.clip_frequency = clip_frequency
-        self.init_cat = init_cat
-        self.reload_frequency = 500
-        if isinstance(changeable_attribute, str) and changeable_attribute == 'all':
-            changeable_attribute = self.dataset.get_feature_names(False)
-        self.changeable_attribute = self.dataset.process_columns(changeable_attribute)
-        self.max_iter = max_iter
-        self.min_iter = min_iter
-        self.loss_diff = loss_diff
-        self.lr = lr
-        self.k = k
-        # set mask of changeable attributes; numerical attributes; categorical attributes
+        return CounterfactualExample(self._data_meta, pd.concat(reports))
+
+    def _gradient_mask(self, changeable_attr):
+        """"""
+        if isinstance(changeable_attr, str) and changeable_attr == 'all':
+            mask = pd.DataFrame(np.ones((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
+        else:
+            mask = pd.DataFrame(np.zeros((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
+            for feature in changeable_attr:
+                mask[self._dataset.get_dummy_columns(feature)] = 1
+        return mask.values.squeeze()
+
+    def _gradient_mask_by_setting(self, setting):
+        """"""
+        cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
+        changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
+
+        # set the mask of the unchangeable feature to 0
+        mask = pd.DataFrame([self._gradient_mask(changeable_attr)], columns=self._dataset.dummy_features)
+
+        # set the mask of banned categories to 0
+        for feature, range in cf_range.items():
+            if 'categories' in range:
+                mask[self._dataset.get_dummy_columns(feature, range['categories'])] = 0
+
+        return mask.values.squeeze()
+
+    
+    def _if_sparse(self, setting):
+        k = setting.get('k', DEFAULT_SETTING['k'])
+        changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
+        if isinstance(changeable_attr, str) and changeable_attr == 'all':
+            changeable_attr = self._features
+        sparse = k > 0 and k < len(changeable_attr)
+        return sparse
+
+    def _generate_max_array(self, setting):
+        max_array = pd.DataFrame(np.ones((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
+        cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
+
+        # set the max value of numerical features according to cf_range
+        for feature, range in cf_range.items():
+            if 'max' in range:
+                max_array[feature] = self._dataset.normalize_feature(feature, range['max'])
         
+        # set the max value of banned categories to 0
+        for feature, range in cf_range.items():
+            if 'categories' in range:
+                max_array[self._dataset.get_dummy_columns(feature, range['categories'])] = 0
 
-        self.mask_num = \
-            np.array(
-                [True if attr in self.desc else False for attr in self.features]).astype(int)
+        return max_array.values.squeeze()
 
-        self.mask_cat = \
-            np.array(
-                    [False if attr in self.desc else True for attr in self.features]).astype(int)
+    def _generate_min_array(self, setting):
+        min_array = pd.DataFrame(np.zeros((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
 
-        self.mask_cat_num = []
-        for feature in self.dataset.get_feature_names(False):
-            if self.desc[feature]['type'] == 'numerical':
-                self.mask_cat_num.append(1)
+        cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
+
+        # set the min value of numerical features according to cf_range
+        for feature, range in cf_range.items():
+            if 'min' in range:
+                min_array[feature] = self._dataset.normalize_feature(feature, range['min'])
+
+        return min_array.values.squeeze()
+
+    def _feature_weights(self, dummy=True):
+        """"""
+        if self._config['feature_weights'] == 'mads':
+            mads = self._dataset.get_mads()
+            if dummy:
+                weights = np.array([round(1 / (1 + mads.get(f, 1)), 3) for f in self._dataset.dummy_features])
             else:
-                for i in range(len(self.desc[feature]['category'])):
-                    self.mask_cat_num.append(1 / len(self.desc[feature]['category']))
-        self.mask_cat_num = np.array(self.mask_cat_num)
-
-        # list of the indexes of dummy attributes
-        self.categorical_attr_list = []
-        for attr, info in self.desc.items():
-            if attr != self.dataset.get_target_names(False) and info['type'] == 'categorical':
-                self.categorical_attr_list.append([self.features.index(
-                    '{}_{}'.format(attr, cat)) for cat in info['category']])
-        # set feature weight
-        if weight == 'mads':
-            mads = self.dataset.get_mads()
-            features = self.dataset.get_feature_names(preprocess=True)
-            self.feature_weight = np.array(
-                [round(1 / (1 + mads[f]), 3) for f in features])
-        elif weight == 'unit':
-            features = self.dataset.get_feature_names(preprocess=True)
-            self.feature_weight = np.array([1 for f in features])
-        else:
-            self.feature_weight = np.array(weight)
-        self.feature_weight = torch.from_numpy(self.feature_weight).float()
-
-        # set min and max of both the preprocessed data and the non-preprocessed data
-        target = self.dataset.get_target_names(preprocess=False)
-        self.cf_range = OrderedDict()
-        for col, info in self.desc.items():
-            if col != target:
-                self.cf_range[col] = {}
-                if col in cf_range:
-                    self.cf_range[col] = cf_range[col]
-                elif info['type'] == 'numerical':
-                    self.cf_range[col]['min'] = info['min']
-                    self.cf_range[col]['max'] = info['max']
-                else:
-                    self.cf_range[col]['category'] = info['category']
-
-        self.mask_change = []
-        for feature in self.dataset.get_feature_names(False):
-            if feature in changeable_attribute:
-                if self.desc[feature]['type'] == 'numerical':
-                    self.mask_change.append(1)
-                else:
-                    for cat in self.desc[feature]['category']:
-                        if cat in self.cf_range[feature]['category']:
-                            self.mask_change.append(1)
-                        else:
-                            self.mask_change.append(0)
+                weights = np.array([round(1 / (1 + mads[f]), 3) for f in self._dataset.features])
+        elif self._config['feature_weights'] == 'unit':
+            if dummy:
+                weights = np.ones(len(self._dataset.dummy_features))
             else:
-                if self.desc[feature]['type'] == 'numerical':
-                    self.mask_change.append(0)
-                else:
-                    for cat in self.desc[feature]['category']:
-                        self.mask_change.append(0)
-
-        self.mask_change = np.array(self.mask_change).astype(int)
-
-        self.normed_min = self.dataset.preprocess([info['min'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
-                                                   for col, info in self.cf_range.items()], mode='x')
-        for col, info in self.desc.items():
-            if col != target and info['type'] == 'categorical':
-                for cat in info['category']:
-                    self.normed_min['{}_{}'.format(col, cat)] = 0
-
-        self.normed_max = self.dataset.preprocess([info['max'] if self.desc[col]['type'] == 'numerical' else info['category'][0]
-                                                   for col, info in self.cf_range.items()], mode='x')
-        for col, info in self.desc.items():
-            if col != target and info['type'] == 'categorical':
-                for cat in info['category']:
-                    if cat in self.cf_range[col]['category']:
-                        self.normed_max['{}_{}'.format(col, cat)] = 1
-                    else:
-                        self.normed_max['{}_{}'.format(col, cat)] = -0.001
-                        self.normed_min['{}_{}'.format(col, cat)] = -0.001
-
-        self.normed_min = torch.from_numpy(self.normed_min.values).float()
-        self.normed_max = torch.from_numpy(self.normed_max.values).float()
-
-        # print(self.cf_range)
-        # print(self.normed_min)
-        # print(self.mask_change)
-
-    def init_cfs(self, data, mask):
-        cfs = np.repeat(data, self.cf_num, axis=0)
-        cfs += mask * self.mask_num * np.random.rand(cfs.shape[0], cfs.shape[1])*0.1
-        if self.init_cat == 'rand':
-            cfs[:, mask[0] * self.mask_cat] = np.random.rand(cfs.shape[0], len(self.mask_cat))
-        elif self.init_cat == 'avg':
-            cfs[:, mask[0] * self.mask_cat] = np.zeros(cfs.shape[0], len(self.mask_cat)).fill(0.5)
-        return cfs
-
-    def init_targets(self, target):
-        return np.repeat(target, self.cf_num, axis=0)
-
-    def init_instances(self, instances):
-        return np.repeat(instances, self.cf_num, axis=0)
-
-    def prepare_cfs(self, instances, targets, cfs=None, mask=None):
-
-        # init cfs
-        if cfs is None:
-            cfs = torch.from_numpy(self.init_cfs(instances, mask)).float()
+                weights = np.ones(len(self._dataset.features))
         else:
-            cfs = torch.from_numpy(cfs).float()
+            raise NotImplementedError
+        return weights
 
-        cfs = self.clip(cfs)
+    def _target_array(self, original_X, setting):
+        target = setting.get('desired_class', DEFAULT_SETTING['desired_class'])
+
+        if isinstance(target, str) and target == 'opposite':
+            original_X = torch.from_numpy(original_X).float()
+            pred = self._mm.forward(original_X).detach().numpy()
+            pred = pred > 0.5 - 1e-6
+            target = np.logical_not(pred).astype(int)
+            
+        elif isinstance(target, list):
+            target = np.array(target)
+        
+        return target
+
+    def _init_cfs(self, X, setting, mask=None):
+        if mask is None:
+            mask = self._gradient_mask_by_setting(setting)
+
+        cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
+        cfs += mask * np.random.rand(*cfs.shape) * 0.1
+
+        for feature in self._dataset.categorical_features:
+            dummy_features = self._dataset.get_dummy_columns(feature)
+            # cfs[dummy_features] = softmax(np.random.rand(cfs.shape[0], len(dummy_features)), axis=1)
+            cfs[dummy_features] = np.ones((cfs.shape[0], len(dummy_features))) * 0.5
+
+        return cfs.values
+
+    def _expand_array(self, array, setting):
+        k = setting.get('num', DEFAULT_SETTING['num'])
+        return np.repeat(array, k, axis=0)
+
+    def _topk_features(self, cfs, original_X):
+        feature_weights = self._feature_weights(dummy=False)
+        difference = self._dataset.inverse_preprocess_X(cfs) - self._dataset.inverse_preprocess_X(original_X)
+        topk_features_index = abs(feature_weights * difference.values).argsort(dim=1, descending=True)[:, :k]
+        return [self._dataset.features[i] for i in topk_features_index]
+
+    def _optimize(self, cfs, original_X, target, mask, weights=None, min_values=None, max_values=None):
+
+        cfs = torch.from_numpy(cfs).float()
         cfs.requires_grad = True
-        # init targets
-        targets = torch.from_numpy(self.init_targets(targets)).float()
-        # init instances
-        instances = torch.from_numpy(self.init_instances(instances)).float()
-        return cfs, targets, instances
-
-    def get_desired_class(self, data):
-        data = torch.from_numpy(data).float()
-        output = self.model_manager.forward(data)
-        target_idx = output.argmin(axis=1).numpy()  # the opposite class
-        return np.eye(output.shape[1])[target_idx]
-
-    def project(self, data):
-        if len(data.shape) == 1:
-            data = np.array([data])
-        data_df = pd.DataFrame(data,
-                               columns=self.features)
-        projected_df = self.dataset.depreprocess(data_df, mode='x')
-        return projected_df
-
-    def optimize(self, cfs, data_instances, target, mask, lr):
-
-        self.model_manager.fix_model()
-        self.init_loss()
-
+        original_X = torch.from_numpy(original_X).float()
+        target = torch.from_numpy(target).float()
         mask = torch.from_numpy(mask).int()
+
+        if min_values is not None:
+            min_values = torch.from_numpy(min_values).float()
+        if max_values is not None:
+            max_values = torch.from_numpy(max_values).float()
+        if weights is not None:
+            weights = torch.from_numpy(weights).float()
 
         def backward_hook(grad):
             out = grad.clone()
-            out = out*mask
+            out = out * mask
             return out
 
         cfs.register_hook(backward_hook)
 
-        optimizer = optim.SGD([cfs], lr=lr)
+        optimizer = optim.SGD([cfs], lr=self._config['lr'])
+        criterion = nn.MarginRankingLoss(reduction='sum')
 
-        iter = 0
+        stored_loss = 0
+        for iter in range(self._config["max_iter"]):
 
-        pred = self.model_manager.forward(cfs)
-        loss = self.get_loss(cfs, data_instances, pred, target)
-        old_loss = loss
-
-        while(not self.checkstopable(iter, pred, target, loss, old_loss-loss)):
             optimizer.zero_grad()
+            pred = self._mm.forward(cfs)
 
-            pred = self.model_manager.forward(cfs)
-            old_loss = loss.clone()
-            loss = self.get_loss(cfs, data_instances, pred, target)
-
+            loss = self._loss(cfs, original_X, pred, target, criterion, weights, min_values, max_values)
             loss.backward()
             optimizer.step()
 
-            iter += 1
-            if iter % self.clip_frequency == 0:
-                cfs.data = self.clip(cfs.data)
+            if self._stopable(iter, pred, target, stored_loss - loss):
+                break
 
-            if iter % self.reload_frequency == 0:
-                cfs.data = self.reload(cfs.data)
-        cfs.data = self.clip(cfs.data)
-        return cfs, pred, loss.detach().numpy(), iter
+            if iter % self._config["project_frequency"] == 0:
+                cfs.data = self._clip_tensor(cfs.data, min_values, max_values)
+                cfs.data = self._reload_tensor(cfs.data)
+            
+            stored_loss = loss.clone()
 
-    def init_loss(self):
-        # self.criterion = nn.HingeEmbeddingLoss(reduction='sum')
-        # self.criterion = nn.L1Loss(reduction='sum')
-        self.criterion = nn.MarginRankingLoss(reduction='sum')
+        cfs.data = self._clip_tensor(cfs.data, min_values, max_values)
+        return cfs.detach().numpy(), pred.detach().numpy(), loss.detach().numpy(), iter
 
-    def get_loss(self, cfs, data_instances, pred, target):
+    def _loss(self, cfs, original_X, pred, target, criterion, weights=None, min_values=None, max_values=None):
         # prediction loss
-        loss = self.criterion(pred, torch.ones(pred.shape)*0.5, target)
+        loss = self._config["validity_weight"] * criterion(pred, torch.ones(pred.shape) * 0.5, target)
+
         # proximity loss
-        loss += self.proximity_weight * self.get_proximity_loss(cfs, data_instances, 'L1')
+        loss += self._config["proximity_weight"] * self._proximity_loss(cfs, original_X, weights, 'L1')
+
         # diversity loss
-        if self.diversity_weight > 0 and self.cf_num > 1:
-            loss += self.diversity_weight * self.get_diversity_loss(cfs, 'avg')
-        # category loss
-        loss += self.category_weight * self.get_category_loss(cfs)
-        
+        if self._config["diversity_weight"] > 0 and self.cf_num > 1:
+            loss += self._config["diversity_weight"] * self._diversity_loss(cfs, weights, 'avg')
+
         return loss
 
-    def get_proximity_loss(self, cfs, data_instances, metric='L1'):
-        proximity_loss = torch.sum(self.get_distance_quick(
-                cfs, data_instances, metric))
+    def _proximity_loss(self, cfs, original_X, weights=None, metric='L1'):
+        proximity_loss = torch.sum(self._distance_quick(
+            cfs, original_X, weights, metric))
         return proximity_loss
 
-    def get_diversity_loss(self, cfs, metric='avg'):
+    def _diversity_loss(self, cfs, weights=None, metric='avg'):
         diversity_loss = torch.tensor(0).float()
         if metric == 'avg':
             for i in range(len(cfs) // self.cf_num):
                 for j in range(self.cf_num):
-                    start = i*self.cf_num
-                    end = (i+1)*self.cf_num
-                    diversity_loss += (1 - self.get_distance_quick(cfs[start: end], cfs[start+j]).mean())
+                    start = i * self.cf_num
+                    end = (i + 1) * self.cf_num
+                    diversity_loss += (1 - self._distance_quick(cfs[start: end], cfs[start + j]).mean(), weights)
         else:
             raise NotImplementedError
         return diversity_loss
 
-    def get_category_loss(self, cfs):
-        category_loss = torch.tensor(0).float()
-        for cat_index in self.categorical_attr_list:
-            category_loss += (cfs[:, cat_index].sum(axis=1) - torch.ones([1, len(cfs)])).abs().sum()
-        return category_loss
-    
-    def get_distance(self, cf, origin, metric='L1'):
+    def _distance(self, cf, origin, weights=None, metric='L1'):
+        diff = torch.abs(cf - origin)
+        if weights is not None:
+            diff = diff * weights
+
         if metric == 'L1':
-            # dist = torch.dist(cf, origin, 1)
-            dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
+            dist = torch.sum(diff)
         elif metric == 'L2':
-            dist = torch.sum(torch.sqrt(
-                (torch.abs(cf - origin) * self.feature_weight)**2))
-            # dist = torch.sum(torch.abs(cf - origin) * self.feature_weight)
+            dist = torch.sum(diff ** 2)
         return dist
 
-    def get_distance_quick(self, cfs, origins, metric='L1'):
+    def _distance_quick(self, cfs, origins, weights=None, metric='L1'):
         if origins.dim == 1:
             origins = origins.unsqueeze(0).repeat(len(cfs), 1)
+
+        diff = torch.abs(cfs - origins)
+        if weights is not None:
+            diff = diff * weights.unsqueeze(0).repeat(len(cfs), 1)
+
         if metric == 'L1':
-            dist = torch.sum(torch.abs(
-                cfs - origins) * self.feature_weight.unsqueeze(0).repeat(len(cfs), 1), axis=1)
+            dist = torch.sum(diff, axis=1)
         elif metric == 'L2':
-            dist = torch.sum(torch.sqrt((torch.abs(
-                cfs - origins) * self.feature_weight.unsqueeze(0).repeat(len(cfs), 1))**2), axis=1)
+            dist = torch.sum(diff**2, axis=1)
+
         return dist
 
-    def clip(self, data):
-        # """clip value of each feature to [0, 1]"""
-        # torch.clamp_(data, min=0, max=1)
-        return torch.max(torch.min(data, self.normed_max), self.normed_min)
+    def _clip_tensor(self, data, min_tensor=None, max_tensor=None):
+        if min_tensor is not None:
+            data = torch.max(data, min_tensor)
+        if max_tensor is not None:
+            data = torch.min(data, max_tensor)
+        return data
 
-    def reload(self, data):
-        return torch.from_numpy(self.dataset.preprocess(self.project(data), 'x').values).float()
+    def _reload_tensor(self, data):
+        return torch.from_numpy(self._dataset.preprocess_X(self._dataset.inverse_preprocess_X(data)).values).float()
 
-    def checkvalid(self, pred, target):
+    def _check_valid(self, pred, target):
         pred_class = pred.argmax(axis=1).numpy()
         target_class = target.argmax(axis=1).numpy()
         return np.equal(pred_class, target_class).all()
 
-    def checkstopable(self, iter, pred, target, loss, loss_diff):
-        if iter < self.min_iter:
+    def _stopable(self, iter, pred, target, loss_diff):
+        if iter < self._config["min_iter"]:
             return False
-        elif iter < self.clip_frequency + 1 or iter < self.reload_frequency + 1:
+        elif iter <= self._config["project_frequency"]:
             return False
-        elif iter >= self.max_iter:
+        elif iter >= self._config["max_iter"]:
             return True
-        elif self.checkvalid(pred, target) and loss_diff > 0 and loss_diff <= self.loss_diff:
+        elif self._check_valid(pred, target) and loss_diff < self._config["loss_diff"]:
             return True
         else:
             return False
 
-    def get_gradient(self, cfs, data_instances, target, mask):
-        self.model_manager.fix_model()
-        self.init_loss()
+    def _get_gradient(self, cfs, original_X, target, criterion, weight):
 
-        mask = torch.from_numpy(mask).int()
-        pred = self.model_manager.forward(cfs)
-        loss = self.get_loss(cfs, data_instances, pred, target)
+        pred = self._mm.forward(cfs)
+        loss = self._loss(cfs, original_X, pred, target, criterion, weight)
 
         loss.backward()
         gradient = cfs.grad
-        return gradient*mask, pred
+        return gradient, pred
 
-    def post_step_by_instance(self, projected_cf, data_instance, target, mask, verbose):
-        feature_names = self.features
-        target_name = self.dataset.get_target_names(preprocess=False)
-        raise NotImplementedError
+    def _refine(self, cfs, original_X, targets, mask, weights=None, min_values=None, max_values=None, verbose=True):
 
-    def post_step(self, projected_cfs, data_instances, target, mask, verbose=True):
-        feature_names = self.features
-        target_name = self.dataset.get_target_names(preprocess=False)
-
-        cfs = torch.from_numpy(self.dataset.preprocess(
-            projected_cfs, 'x')[feature_names].values).float()
-
-        valid_pos_grad_mask = (cfs < (self.normed_max-0.001)).detach().numpy()
-        valid_neg_grad_mask = (cfs > (self.normed_min+0.001)).detach().numpy()
-
+        numerical_feature_mask = self._gradient_mask(self._dataset.numerical_features)
+        if weights is not None:
+            weights = torch.from_numpy(weights).float()
+        inv_cfs = self._dataset.inverse_preprocess_X(cfs)
+        cfs = torch.from_numpy(cfs).float()
+        original_X = torch.from_numpy(original_X).float()
+        targets = torch.from_numpy(targets).float()
         cfs.requires_grad = True
-        grad, pred = self.get_gradient(cfs, data_instances, target, mask)
-        grad = -grad.detach().numpy()
+        
+        criterion = nn.MarginRankingLoss(reduction='sum')
 
-        # numerical_grad = grad * (self.mask_cat_num > 0.9)
-        categorical_grad = grad * (self.mask_cat_num < 0.9)
-        grad = grad * (self.normed_max > 0).numpy()
+        for iter in range(self._config["post_steps"]):
+            cfs.data = torch.from_numpy(self._dataset.preprocess_X(inv_cfs).values).float()
 
-        pos_grad = grad.copy()
-        pos_grad[pos_grad < 0] = 0
-        neg_grad = grad.copy()
-        neg_grad[neg_grad > 0] = 0
-        valid_grad = pos_grad * valid_pos_grad_mask + neg_grad * valid_neg_grad_mask
+            grad, pred = self._get_gradient(cfs, original_X, targets, criterion, weights)
 
-        salient_attr = abs(valid_grad).argmax(axis=1)
-        grad_sign = np.sign(grad)
+            if self._check_valid(pred, targets):
+                break
 
-        invalid_cfs = pred.argmax(
-            axis=1).numpy() != target.argmax(axis=1).numpy()
+            invalid_index = (pred.argmax(axis=1) != targets.argmax(axis=1)).int().numpy()
+            invalid_mask = np.repeat(invalid_index[:, np.newaxis], cfs.shape[1], axis=1)
 
-        for i in range(len(projected_cfs)):
-            if invalid_cfs[i]:
-                salient_feature_name = feature_names[salient_attr[i]]
-                if salient_feature_name in self.desc.keys() and self.desc[salient_feature_name]['type'] == 'numerical':
-                    max_value = self.cf_range[salient_feature_name]['max']
-                    min_value = self.cf_range[salient_feature_name]['min']
-                    precision = self.desc[salient_feature_name]['decile']
-                    scale = max_value - min_value
-                    sign = grad_sign[i, salient_attr[i]]
-                    update = sign * max(10**precision, round(abs(grad[i, salient_attr[i]])*self.lr*scale, precision))
-                    if sign > 0:
-                        update = min(update, max_value - projected_cfs.loc[i, salient_feature_name])
-                    else:
-                        update = max(update, min_value - projected_cfs.loc[i, salient_feature_name])
-                    # update = grad_sign[i, salient_attr[i]] * 1 / \
-                    #     10**self.desc[salient_feature_name]['decile']
-                    if verbose:
-                        print("{}: {:.3f}->{}: {}:{} + {}".format(
-                            i, pred[i, 0], target[i, 0], salient_feature_name, projected_cfs.loc[i, salient_feature_name], update))
-                    projected_cfs.loc[i, salient_feature_name] += update
-                else:
-                    sign = grad_sign[i, salient_attr[i]]
-                    # dummy_name = self.dataset.idx2name(salient_attr[i])
-                    
-                    relative_idxes = self.dataset.dummy2idxes(salient_feature_name)
-                    # print(relative_idxes, salient_feature_name)
-                    # print(self.normed_max.shape)
-                    # relative_idxes = [self.normed_max[0, idx] >=0 for idx in relative_idxes]
-                    relative_idxes = [x for x in filter(lambda idx: self.normed_max[0, idx] >=0, relative_idxes)]
-                    if sign > 0:
-                        cfs[i][salient_attr[i]] = 1
-                        cfs[i][relative_idxes] = 0
-                        new_cat_name = feature_names[salient_attr[i]]
-                    else:
-                        cfs[i][salient_attr[i]] = 0
-                        new_cat_index = relative_idxes[valid_grad[i][relative_idxes].argmax()]
+            # only numerical features will be updated in the refinement process
+            grad_updates = -grad.detach().numpy() * mask * numerical_feature_mask * invalid_mask * self._config["lr"]
+            inv_grad_updates = self._inverse_updates(cfs.detach().numpy(), grad_updates, min_values, max_values)
+            scale_udpates = self._min_scales * np.sign(inv_grad_updates)
+            inv_scale_udpates = self._inverse_updates(cfs.detach().numpy(), scale_udpates, min_values, max_values, False)
 
-                        new_cat_name = feature_names[new_cat_index]
-                        cfs[i][new_cat_index] = 1
-                    projected_cfs.loc[i, :] = self.project(
-                        cfs[i].detach().numpy()).loc[0, :]
-                    if verbose:
-                        print("{}: {:.3f}->{}: {} set to {}".format(i,
-                                                                 pred[i, 0], target[i, 0], salient_feature_name, new_cat_name))
-        return projected_cfs
+            # select the top-k feature
+            if self._config["refine_with_topk"] > 0:
+                inv_salient_update_mask = abs(inv_grad_updates).argsort(axis=1) >= (inv_grad_updates.shape[1] - self._config["refine_with_topk"])
+                inv_grad_updates = inv_grad_updates * inv_salient_update_mask 
+                inv_scale_udpates = inv_scale_udpates * inv_salient_update_mask
 
-    def evaluate_cfs(self, cf_df, instance_df, metrics=['valid_rate', 'avg_distance']):
-        result = {}
-        if 'valid_rate' in metrics:
-            target_name = self.dataset.get_target_names(preprocess=False)
-            cf_pred = cf_df['{}_pred'.format(target_name)].values
-            instance_pred = np.repeat(
-                instance_df['{}_pred'.format(target_name)].values, self.cf_num, axis=0)
-            result['valid_rate'] = np.not_equal(
-                cf_pred, instance_pred).sum() / cf_pred.shape[0]
-        if 'avg_distance' in metrics:
-            dist = 0
-            preprocessed_feature_name = self.dataset.get_feature_names(
-                preprocess=True)
-            pp_cf_data = torch.from_numpy(self.dataset.preprocess(
-                cf_df)[preprocessed_feature_name].values).float()
-            pp_instance_data = torch.from_numpy(self.dataset.preprocess(
-                instance_df)[preprocessed_feature_name].values).float()
-            for i, cf_data in enumerate(pp_cf_data):
-                dist += self.get_distance(cf_data,
-                                          pp_instance_data[i//self.cf_num])
-            dist /= len(pp_cf_data)
-            result['avg_distance'] = dist.numpy()
-        return result
+            inv_updates = (abs(inv_grad_updates) >= abs(inv_scale_udpates)) * inv_grad_updates \
+                    + (abs(inv_scale_udpates) > abs(inv_grad_updates)) * inv_scale_udpates
+
+            # apply updates to the counterfactuals in the original data space
+            inv_cfs[self._dataset.numerical_features] += inv_updates[:, self._index_of_num_features]
+
+        return self._dataset.preprocess_X(inv_cfs)
+
+    def _inverse_updates(self, cfs, updates, min_values=None, max_values=None, preprocess=True):
+        process = self._dataset.preprocess_X
+        inverse = self._dataset.inverse_preprocess_X
+        min_values = min_values if min_values is not None else 0
+        max_values = max_values if max_values is not None else 1
+        if preprocess:
+            updates = np.clip(cfs + updates, a_min=min_values, a_max=max_values) - cfs
+            updated = inverse(cfs + updates)
+        else:
+            updated = inverse(cfs)
+            updated[self._dataset.numerical_features] += updates[:, self._index_of_num_features]
+            updated = inverse(np.clip(process(updated).values, a_min=min_values, a_max=max_values))
+        original = self._dataset.inverse_preprocess_X(cfs)
+        num_diff = updated[self._dataset.numerical_features] - original[self._dataset.numerical_features] 
+        all_diff = pd.DataFrame(columns=self._dataset.features)
+        all_diff[self._dataset.numerical_features] = num_diff
+        return all_diff.fillna(0).values
+
+    def _scales(self):
+        scale = pd.DataFrame(self._data_meta["description"]).T['scale'].fillna(0)
+        scales = np.array([scale[col] if col in scale else 0 for col in self._dataset.features])
+        return scales

@@ -77,8 +77,9 @@
         opacity: 0.8;
     }
     div.selected-column {
-        border-color: red;
-        border-style: solid;
+        // border-color: red;
+        // border-style: solid;
+        box-shadow: inset 0px 0px 1px 1px #f00;
     }
     .histogram {
         svg {
@@ -125,6 +126,7 @@
                 height: 5px;
                 // fill: url(#gini-gradient);
             }
+            transition: transform 2s;
         }
         .info {
             line-height: 18px;
@@ -215,4 +217,44 @@
         // stroke: rgb(180, 91, 2);
     }
     text.bar-text {}
+}
+
+div.legend {
+    div.legend-container {
+        float: right;
+        margin-right: 10px;
+    }
+    div.legend-color-div {
+        width: 10px;
+        height: 20px;
+        float: left;
+        margin-left: 5px;
+        margin-right: 2px;
+        border-radius: 5px;
+    }
+    height: 30px;
+    margin-left: 30px;
+    span.legend-class {
+        font-weight: bolder;
+    }
+}
+
+div.cell-content {
+    font-weight: bold;
+    // float: left;
+    overflow: hidden;
+    // margin-left: 20px;
+    border-top: 1px;
+}
+
+div.cell-content-container {
+    height: 100%;
+    width: 100%;
+    float: left;
+}
+
+.cell-triangle {
+    margin-left: 3px;
+    padding-top: 1px;
+    opacity: 0.8;
 }

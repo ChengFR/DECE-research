@@ -26,7 +26,7 @@ export function drawSimpleHistogram(
 
     const xRange = [0, width - margin.right - margin.left] as [number, number];
     const yRange = [0, height - margin.top - margin.bottom] as [number, number];
-    const x = xScale ? xScale : getScaleLinear(data, ...xRange);
+    const x = xScale ? xScale : getScaleLinear(xRange[0], xRange[1], data);
     const y = d3.scaleLinear().range(yRange);
 
     const _ticks = d3.thresholdSturges(data);

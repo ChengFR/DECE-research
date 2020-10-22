@@ -35,7 +35,7 @@ export async function getDataMeta(params: {
 
 export async function getCFMeta(params: {
   dataId: string;
-  modelId: string;
+  modelId?: string;
 }): Promise<DataMeta> {
   const url = `${API}/cf_meta`;
   const response = await axios.get(url, { params });
@@ -111,9 +111,10 @@ export async function getCF(params: {
 
 export async function getSubsetCF(params: {filters: Filter[]
 }): Promise<SubsetCFResponse> {
-  const url = `${API}/cf_subset`;
+  const url = `${API}/r_counterfactuals`;
   const response = await axios.post(url, { ...params });
   const data = checkResponse(response, []);
+  console.log(data)
   return data;
 }
 
@@ -137,7 +138,6 @@ export async function getCFs(params: {
   const data = checkResponse(response, []);
   return data;
 }
-
 
 
 export async function GetInstanceCF(

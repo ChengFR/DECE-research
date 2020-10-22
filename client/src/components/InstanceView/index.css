@@ -7,8 +7,9 @@ div.pcp-svg-container,
 .hist-svg-container {
     position: absolute;
     top: 10;
-    height: calc(100% - 200px);
-    /* overflow: hidden; */
+    /* height: calc(100% - 250px); */
+    height: calc(100% - 120px);
+    overflow: hidden;
 }
 
 div.instance-body-container {
@@ -19,7 +20,8 @@ div.instance-body-container {
 
 div.instance-vis-container {
     position: absolute;
-    height: calc(100% - 250px);
+    /* height: calc(100% - 250px); */
+    height: calc(100% - 120px);
     overflow: scroll;
 }
 

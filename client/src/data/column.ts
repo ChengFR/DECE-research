@@ -32,13 +32,23 @@ export interface INumColumn extends ColumnSpec {
   series: ISeries<number>;
   type: 'numerical';
   extent: [number, number];
-  precision: number
+  precision: number;
+
+  sorted?: 'descend' | 'ascend' | null;
+  onSort?: (order: "descend" | "ascend") => any;
+  filter?: [number, number];
+  onFilter?: (filter?: [number, number]) => any;
 }
 
 export interface ICatColumn extends ColumnSpec {
   series: ISeries<string>;
   type: 'categorical';
-  categories: Readonly<string[]>
+  categories: Readonly<string[]>;
+
+  sorted?: 'descend' | 'ascend' | null;
+  onSort?: (order: "descend" | "ascend") => any;
+  filter?: string[];
+  onFilter?: (filters?: string[]) => any;
 }
 
 export type IColumn = INumColumn | ICatColumn

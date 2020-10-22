@@ -36,7 +36,7 @@ export function drawLinearSlider(
     const _height = height - margin.top - margin.bottom;
 
     const xRange = [0, width - margin.right - margin.left] as [number, number];
-    const x = xScale ? xScale : getScaleLinear(data, ...xRange);
+    const x = xScale ? xScale : getScaleLinear(xRange[0], xRange[1], data);
 
     const defaultRange = options.defaultRange ? options.defaultRange : x.domain()
 
@@ -179,7 +179,7 @@ export function drawBandSlider(
     const _width = width - margin.left - margin.right;
     const _height = height - margin.top - margin.bottom;
     const xRange = [0, width - margin.right - margin.left] as [number, number];
-    const x = options.xScale ? options.xScale : getScaleBand(data, 0, _width)
+    const x = options.xScale ? options.xScale : getScaleBand(0, _width, data)
 
     const root = d3.select(rootEle);
     const base = getChildOrAppend<SVGGElement, SVGElement | SVGGElement>(root, "g", "slider-base")

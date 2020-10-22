@@ -1,4 +1,9 @@
 import logging
+import os
+import functools
+import json
+
+import pandas as pd
 
 def get_logger(name, verbose=False):
 
@@ -13,3 +18,16 @@ def get_logger(name, verbose=False):
     logger.handlers = []
     logger.addHandler(console_handler)
     return logger
+
+def trans_data_meta(data_meta):
+    features = data_meta["features"]
+    target = data_meta["target"]
+    prediction = data_meta["prediction"]
+    desc = data_meta["description"]
+
+    return {
+        "features": [{**desc[f], "name": f, "extent": [desc[f].get("min", 0), desc[f].get("max", 0)+desc[f].get("scale", 0)]} for f in features],
+        "target": {**desc[target], "name": target}, 
+        "prediction": {**desc[target], "name": prediction, 
+            "index": desc[target]["index"]+1}
+    }

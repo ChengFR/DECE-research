@@ -4,9 +4,9 @@
 import memoizeOne from 'memoize-one';
 import * as d3 from 'd3';
 import * as _ from 'lodash';
-import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical } from './column';
-import {Filter} from '../api'
-import {notEmpty} from '../common/utils'
+import { IColumn, Series, FeatureType, ColumnSpec, isColumnNumerical, ISeries } from './column';
+import { Filter } from '../api'
+import { notEmpty } from '../common/utils'
 import { DataMeta } from './dataset';
 
 export type Row<T> = T[];
@@ -16,8 +16,8 @@ export interface IDataFrame {
   length: number;
   shape: [number, number];
   columns: IColumn[];
-  data: Row<string | number>[];
-  at (row: number, col: number): string | number;
+  data: Readonly<Row<string | number>[]>;
+  at(row: number, col: number): string | number;
   getColumnNames(): string[];
   toColumns(): (string[] | number[] | (string | number)[])[];
 }
@@ -29,108 +29,175 @@ function validate(value: string | number, type: FeatureType) {
   return value;
 }
 
-export type DataFrameInput = {  
-  data?: (string | number)[][];
+export function validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean = false): Row<string | number>[] {
+  const featureTypes = columnSpecs.map(spec => spec.type);
+  if (transposed) {
+    data.forEach((c, i) => {
+      c.forEach((e, j) => {
+        c[j] = validate(e, featureTypes[i]);
+      })
+    });
+  } else {
+    data.forEach(r => {
+      r.forEach((e, i) => {
+        r[i] = validate(e, featureTypes[i]);
+      })
+    });
+  }
+  return data;
+}
+
+export type DataFrameInput = {
+  data?: Readonly<(string | number)[][]>;
   dataT?: (string | number)[][];
   columns: (ColumnSpec | IColumn)[];
   index?: number[];
 };
 
-export default class DataFrame implements IDataFrame {
-  private _columns?: IColumn[];
-  private _columnSpecs: ColumnSpec[];
-  private _data?: Row<string | number>[];
-  private _dataT?: Array<(string | number)[]>;
-  private _name2column: {[k: string]: IColumn};
-  private _index: number[];
+export type tablePointer = (row: number, col: number) => (number | string);
 
-  static validateData(data: (string | number)[][], columnSpecs: ColumnSpec[], transposed: boolean=false): Row<string | number>[] {
-    const featureTypes = columnSpecs.map(spec => spec.type);
-    if (transposed) {
-      data.forEach((c, i) => {
-        c.forEach((e, j) => {
-          c[j] = validate(e, featureTypes[i]);
-        })
-      });
-    } else {
-      data.forEach(r => {
-        r.forEach((e, i) => {
-          r[i] = validate(e, featureTypes[i]);
-        })
-      });
-    }
-    return data;
-  }
+export default class DataFrame implements IDataFrame {
+  private _data: Readonly<Row<string | number>[]>;
+
+  protected _columns: IColumn[];
+  protected _name2column: { [k: string]: IColumn };
+  protected _index: number[];
+  protected _validSet: number[];
+  protected _validIndex: number[];
 
   static fromColumns(columns: IColumn[], index?: number[]) {
     // console.debug(columns);
     const dataT = columns.map(c => c.series.toArray());
-    const newDF = new DataFrame({dataT, columns, index}, false);
-    newDF._columns = columns;
+    const newDF = new DataFrame({ dataT, columns, index }, false);
+    // newDF._columns = columns;
     return newDF;
   }
 
-  constructor (input: DataFrameInput, validate: boolean = true) {
-    const {data, dataT, columns} = input;
-    // console.log(data?.slice(0, 2));
-    // console.log(dataT?.slice(0, 2));
+  static col2filter(columns: (IColumn | ColumnSpec)[]): Filter[] {
+    const filters: (Filter | undefined)[] = columns.map(col => {
+      if ("filter" in col && col.filter) {
+        if (isColumnNumerical(col)) {
+          return { name: col.name, extent: col.filter }
+        }
+        else {
+          return { name: col.name, categories: col.filter }
+        }
+      }
+    })
+    return filters.filter(notEmpty);
+  }
+
+  static initData(input: DataFrameInput): Readonly<Row<number | string>[]> {
+    const { data, dataT, columns } = input;
+    let _data = data;
     if (data) {
-      this._data = validate ? DataFrame.validateData(data, columns) : data;
+      _data = data;
     } else if (dataT) {
-      this._dataT = validate ? DataFrame.validateData(dataT, columns, true) : dataT;
+      const _dataT = dataT;
+      _data = _dataT[0].map((_, r) => _dataT!.map(col => col[r]));
     } else {
       throw "Should have either data or dataT in the input!";
     }
-    this.at = this.at.bind(this);
-    this._columnSpecs = columns;
-    this._name2column = _.keyBy(this.columns, c => c.name);
-    this._index = input.index ? input.index : _.range(0, this.length);
+    return _data;
   }
+
+  constructor(input: DataFrameInput, validate: boolean = true) {
+    const { columns } = input;
+
+    this.at = this.at.bind(this);
+    this.sortBy = this.sortBy.bind(this);
+    this.filterBy = this.filterBy.bind(this);
+    this.filter = this.filter.bind(this);
+    this.copy = this.copy.bind(this);
+
+    this._initColumn = this._initColumn.bind(this);
+
+    this._data = DataFrame.initData(input);
+    // this._index = input.index ? input.index : _.range(0, this.length);
+    this._index = _.range(0, this._data.length);
+    this._validSet = this.filterBy(DataFrame.col2filter(columns));
+    this._validIndex = this._index.filter(id => this._validSet.includes(id));
+    // this._validData = this.updateValidData(this._validIndex);
+    const at = (row: number, col: number) => this.at(this._validIndex[row], col);
+    this._columns = this._initColumn(columns, at);
+    this._name2column = _.keyBy(this._columns, c => c.name);
+    // this._filters = this._columns.map(() => undefined);
+  }
+
+  protected _initColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
+    const _columns = columns.map((c, i) => {
+      const column = {
+        description: "",
+        ...c,
+        series: new Series(this.length, j => at(j, i)),
+      } as IColumn;
+      if (isColumnNumerical(column)) {
+        if (!column.extent)
+          column.extent = d3.extent(column.series.toArray()) as [number, number];
+        // column.onFilter = (filter: [number, number] | undefined) => {
+        //   column.filter = filter;
+        //   this.filter();
+        // }
+      } else {
+        if (!column.categories) {
+          const counter = _.countBy(column.series.toArray());
+          column.categories = _.keys(counter).sort();
+        }
+        // column.onFilter = (filter: string[] | undefined) => {
+        //   column.filter = filter;
+        //   this.filter();
+        // }
+      }
+      // column.onSort = this.sortBy.bind(this, c.name);
+      return column;
+    });
+    return _columns;
+  }
+
+  protected _updateColumn() {
+    this._validIndex = this._index.filter(id => this._validSet.includes(id));
+    const at = (row: number, col: number) => this.at(this._validIndex[row], col);
+    if (this._columns === undefined) {
+      this._initColumn(this._columns, at);
+    }
+    this._columns = this._columns.map((col, i) => {
+      const newSeries = new Series(this.length, j => at(j, i)) as ISeries<number> | ISeries<string>;
+      return { ...col, series: newSeries } as IColumn;
+    })
+    this._name2column = _.keyBy(this._columns, c => c.name);
+  }
+
+  // protected _updateFilter(colName: string, filter: Filter | undefined) {
+  //   const colIndex = this._columns.findIndex(d => d.name === colName);
+  //   this._filters[colIndex] = filter;
+  // }
 
   public get index() {
     return this._index;
   }
 
   public get columns() {
-    if (!this._columns) {
-      const at = this.at;
-      this._columns = this._columnSpecs.map((c, i) => {
-        const column = {
-          description: "",
-          ...c,
-          series: new Series(this.length, j => at(j, i))
-        } as IColumn;
-        if (isColumnNumerical(column)) {
-          if (!column.extent) column.extent = d3.extent(column.series.toArray()) as [number, number];
-        } else {
-          if (!column.categories) {
-            const counter = _.countBy(column.series.toArray());
-            column.categories = _.keys(counter).sort();
-          }
-        }
-        return column;
-      });
-    }
     return this._columns;
   }
+
   public get data() {
-    if (!this._data) {
-      if (!this._dataT) throw "Should not happen";
-      this._data = this._dataT[0].map((_, r) => this._dataT!.map(col => col[r]));
-    }
     return this._data;
   }
+
+  // public get filters() {
+  //   return this._filters;
+  // }
   // Note that row is the loc in the array rather than the this.index which could be discontinued.
   public at = (row: number, col: number) => {
-    if (this._data)
-      return this._data[row][col];
-    return this._dataT![col][row];
+    return this._data[row][col];
   }
 
+  // public _at = (row: number, col: number) => {
+  //   return this.at(this._validIndex[row], col);
+  // }
+
   public get length() {
-    if (this._data)
-      return this._data.length;
-    return this._dataT![0].length;
+    return this._validIndex.length;
   }
   public get shape(): [number, number] {
     return [this.length, this.columns.length];
@@ -149,18 +216,20 @@ export default class DataFrame implements IDataFrame {
     const columns = columnNames.map((n, index) => {
       const c = this.getColumnByName(n);
       if (!c) throw `Column name ${n} not exists in the DataFrame`;
-      return {...c};
+      return { ...c };
     });
     return DataFrame.fromColumns(columns);
   }
 
-  public sortBy(columnName: string, order: 'descend' | 'ascend'): DataFrame {
+  protected sortBy(columnName: string, order: 'descend' | 'ascend', update: boolean = false): number[] {
     const columnIndex = this.columns.findIndex(c => c.name === columnName);
     if (columnIndex < 0) throw "No column named " + columnName;
     const column = this.columns[columnIndex];
+    column.sorted = order;
     let comp: (a: number, b: number) => number;
     if (isColumnNumerical(column)) {
-      const at = column.series.at;
+      // const at = column.series.at;
+      const at = (row: number) => this._data[row][columnIndex] as number;
       comp = (a: number, b: number) => {
         const va = at(a), vb = at(b);
         if (va === undefined) return -1;
@@ -168,105 +237,82 @@ export default class DataFrame implements IDataFrame {
         else return va - vb
       };
     } else {
-      const at = column.series.at;
+      // const at = column.series.at;
+      const at = (row: number) => this._data[row][columnIndex] as string;
       comp = (a: number, b: number) => {
         const xa = at(a), xb = at(b);
         if (xa === undefined) return -1;
         else if (xb === undefined) return 1;
         else
-        return xa == xb ? 0 : (xa < xb ? -1 : 1);
+          return xa == xb ? 0 : (xa < xb ? -1 : 1);
       };
     }
-   
-    let sortedIndex = _.range(0, this.length).sort(comp);
+
+    // let sortedIndex = _.range(0, this.length).sort(comp);
+    let sortedIndex = this.index.sort(comp);
     if (order === 'descend') sortedIndex = sortedIndex.reverse();
 
-    const data = sortedIndex.map(idx => this.data[idx]);
-    const index = sortedIndex.map(i => this._index[i]);
-    const columns = this.columns.map(c => {
-      const {series, ...rest} = c;
-      return rest;
-    })
-    return new DataFrame({data, index, columns}, false);
+    if (update) {
+      this._index = sortedIndex;
+      this._updateColumn();
+    }
+    return sortedIndex;
   }
 
-  // public filterBy(filters: {columnName: string; filter: string[] | [number, number]}[]): DataFrame {
 
-  //   let filteredLocs: number[] = _.range(0, this.length);
-  //   filters.forEach(({columnName, filter}) => {
-  //     const columnIndex = this.columns.findIndex(c => c.name === columnName);
-  //     if (columnIndex < 0) throw "No column named " + columnName;
-  //     const column = this.columns[columnIndex];
-
-  //     if (!isColumnNumerical(column)) {
-  //       if (filter.length > 0 && typeof filter[0] !== 'string') 
-  //         throw `Column type ${column.type} does not match filter ${filter}`;
-  //       const at = column.series.at;
-  //       const kept = new Set(filter as string[]);
-  //       filteredLocs = filteredLocs.filter(i => kept.has(at(i)));
-  //     } else {
-  //       if (filter.length !== 2) throw `Column type ${column.type} does not match filter: ${filter}`;
-  //       const at = column.series.at;
-  //       filteredLocs = filteredLocs.filter(i => filter[0] <= at(i) && at(i) < filter[1]);
-  //     }
-
-  //   });
-    
-  //   return this.filterByLoc(filteredLocs);
-  // }
-  public filterBy(filters: Filter[]): DataFrame {
-    let filteredLocs: number[] = _.range(0, this.length);
+  public filterBy(filters: Filter[], update: boolean = false): number[] {
+    let filteredLocs: number[] = _.range(0, this.index.length);
     filters.forEach((filter: Filter) => {
       const columnName = filter.name;
       const columnIndex = this.columns.findIndex(c => c.name === columnName);
-          if (columnIndex < 0) throw "No column named " + columnName;
-          const column = this.columns[columnIndex];
+      if (columnIndex < 0) throw "No column named " + columnName;
+      const column = this.columns[columnIndex];
       if (!isColumnNumerical(column)) {
         // const _filter = filter as CatFilter;
-        const at = column.series.at;
+        // const at = column.series.at;
+        const at = (row: number) => this._data[row][columnIndex] as string;
         const kept = new Set(filter.categories as string[]);
-        filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && kept.has(at(i)!)));
+        filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && kept.has(at(i))));
       }
       else {
         // const _filter = filter as NumFilter;
-        const at = column.series.at;
+        // const at = column.series.at;
+        const at = (row: number) => this._data[row][columnIndex] as number;
         const min = filter.extent && filter.extent[0];
         const max = filter.extent && filter.extent[1];
         if (min)
-          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (min <= at(i)!)));
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (min <= at(i))));
         if (max)
-          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i)!)));
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i))));
       }
     })
-    return this.filterByLoc(filteredLocs);
+    if (update) {
+      this._validSet = filteredLocs;
+      this._updateColumn();
+    }
+    return filteredLocs;
   }
 
-  public filterByLoc(locs: number[]) {
-    const index = locs.map(i => this.index[i]);
-    const data = locs.map(i => this.data[i]);
-    const columns = this.columns.map(c => {
-      const {series, ...rest} = c;
-      return rest;
-    })
-    return new DataFrame({data, index, columns}, false);
+  public filter() {
+    this.filterBy(DataFrame.col2filter(this._columns), true);
   }
 
-  // public filterByIndex(index: number[]) {
-  //   const validSet = new Set(index);
-  //   const newIndex = this.index.filter((idx => validSet.has(idx)));
-  //   const data = index.map(idx => this.data[idx]);
-  //   const columns = this.columns.map(c => {
-  //     const {series, ...rest} = c;
-  //     return rest;
-  //   })
-  //   return new DataFrame({data, index, columns}, false);
-  // }
+  public onChangeFilter(columnName: string, filter?: string[] | [number, number]) {
+    const index = this.columns.findIndex(c => c.name === columnName);
+    this._columns[index].filter = filter;
+    this.filter();
+  }
+
+  public copy() {
+    // return new DataFrame({data: this.data, columns: this._columns});
+    return DataFrame.fromColumns(this.columns);
+  }
 }
 
-export function buildDataFrame (dataMeta: DataMeta, data: (string | number)[][]) : DataFrame {
+export function buildDataFrame(dataMeta: DataMeta, data: (string | number)[][]): DataFrame {
   const columnNames = data[0] as string[];
   data = data.slice(1);
-  
+
   const columns = columnNames.map((name, i) => {
     const columnDisc = dataMeta.getColumnDisc(name);
     return {
@@ -280,5 +326,5 @@ export function buildDataFrame (dataMeta: DataMeta, data: (string | number)[][])
   const index = data.map((row, i) =>
     dataMeta.index ? Number(row[dataMeta.index.index]) : i
   );
-  return new DataFrame({ data, columns, index });
+  return new DataFrame({ data: validateData(data, columns), columns, index });
 }

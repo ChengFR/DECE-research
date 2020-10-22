@@ -15,7 +15,8 @@ export interface BarOption extends ChartOptions {
     selectedBars?: string[];
     xScale?: d3.ScaleBand<string>;
     innerPadding?: number;
-    selected?: boolean[]
+    selected?: boolean[];
+    onClick?: (id: number) => void;
 }
 
 export function drawSimpleBarchart(
@@ -23,12 +24,12 @@ export function drawSimpleBarchart(
     sliderOption: BarOption,
     data: ArrayLike<string>) {
     const options = { ...sliderOption };
-    const { width, height, xScale, innerPadding, selected } = options;
+    const { width, height, xScale, innerPadding, selected, onClick } = options;
     const margin = getMargin(options.margin);
 
     const xRange = [0, width - margin.right - margin.left] as [number, number];
     const yRange = [0, height - margin.top - margin.bottom] as [number, number];
-    const x = xScale ? xScale : getScaleBand(data, ...xRange);
+    const x = xScale ? xScale : getScaleBand(xRange[0], xRange[1], data);
     const categoryData = countCategories(data, x.domain())
     const y = d3.scaleLinear()
         .range(yRange)
@@ -51,6 +52,7 @@ export function drawSimpleBarchart(
         .attr("width", d => {
             return x.bandwidth();
         })
+        .on("click", (d, i) => onClick && onClick(i))
         .classed("selected", (d, i) => selected?selected[i]:true)
         .attr("height", d => {
             return y(d.count) - yRange[0] + 0.01;

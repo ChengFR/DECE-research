@@ -84,7 +84,7 @@ export function drawHistogram(
   const yRange = [height - margin.top - margin.bottom, 0];
   // console.debug("Rendering histogram", xRange, yRange);
 
-  const x = xScale ? xScale : getScaleLinear(allData || data, ...xRange);
+  const x = xScale ? xScale : getScaleLinear(xRange[0], xRange[1], allData || data);
 
   const root = d3.select(svg);
 
@@ -303,7 +303,7 @@ export class Histogram extends React.PureComponent<
       const { data, allData, dmcData, className, style, svgStyle, height, drawRange, ...rest } = this.props;
       const xScale = rest.xScale || this.getXScale();
       const chartHeight = drawRange ? (height - 24) : (height - 4);
-      drawGroupedHistogram(svg, data, allData, dmcData, {
+      drawGroupedHistogram({root: svg, data, allData, dmcData, options: {
         height: chartHeight,
         ...rest,
         xScale,
@@ -311,7 +311,7 @@ export class Histogram extends React.PureComponent<
         onRectMouseLeave: this.onMouseLeaveBins,
         onHoverRange: this.onHoverRange,
         innerPadding: 0,
-      });
+      }});
 
       this.shouldPaint = false;
     }
@@ -348,7 +348,7 @@ export class Histogram extends React.PureComponent<
   getXScale = () => {
     const { data, width } = this.props;
     const margin = getMargin(this.props.margin);
-    return this.memoizedXScaler(isArrays(data) ? _.flatten(data) : data, 0, width - margin.left - margin.right);
+    return this.memoizedXScaler(0, width - margin.left - margin.right, isArrays(data) ? _.flatten(data) : data);
   };
 
   public render() {
@@ -443,13 +443,14 @@ export type IGHistogramOptions = Omit<IHistogramOptions, "onRectMouseOver" | "on
   twisty?: number,
 }
 
-export function drawGroupedHistogram(
+export function drawGroupedHistogram(param: {
   root: SVGElement | SVGGElement,
   data: number[] | number[][],
   allData?: number[] | number[][],
   dmcData?: number[] | number[][],
-  options?: Partial<IGHistogramOptions>
+  options?: Partial<IGHistogramOptions>}
 ) {
+  const {root, data, allData, dmcData, options} = param;
   const opts: Partial<IGHistogramOptions> & Pick<IGHistogramOptions, keyof typeof defaultOptions> = { ...defaultOptions, ...options };
   const {
     width,
@@ -836,7 +837,7 @@ export class HistogramLayout {
   }
 
   private getXScale(xScale?: d3.ScaleLinear<number, number>): d3.ScaleLinear<number, number> {
-    return xScale ? xScale : getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
+    return xScale ? xScale : getScaleLinear(this.xRange[0], this.xRange[1], _.flatten(this._dmcData));
     // return getScaleLinear(_.flatten(this._dmcData), ...this.xRange);
   }
 

@@ -4,7 +4,7 @@ import { Grid, GridCellProps, ScrollParams } from "react-virtualized";
 import memoize from "fast-memoize";
 
 import ColResizer from "./ColResizer";
-import { getFixedGridWidth, columnMargin, TableColumn } from './common';
+import { getFixedGridWidth, columnMargin, TableColumn, VColumn } from './common';
 import { assert } from '../../common/utils';
 import { isColumnNumerical } from '../../data/column';
 import { CellRenderer, CellProps } from './TableGrid';
@@ -117,30 +117,6 @@ export default class Header extends React.PureComponent<
     //   p.index === 0 ? titleHeight : chartHeight;
 
     const leftGridWidth = getFixedGridWidth(fixedColumns, columns);
-    // const leftGrid = fixedColumns ? (
-    //   <div
-    //     className="left-grid-wrapper"
-    //     style={{
-    //       ...this._leftGridStyle(styleLeftGrid),
-    //       width: leftGridWidth,
-    //       height: height
-    //     }}
-    //   >
-    //     <Grid
-    //       cellRenderer={this.renderCellLeft}
-    //       className={`invisible-scrollbar`}
-    //       columnCount={fixedColumns}
-    //       columnWidth={({ index }: { index: number }) => columns[index].width}
-    //       height={height}
-    //       rowHeight={rowHeight}
-    //       ref={this.rightGridRef}
-    //       rowCount={rowCount}
-    //       tabIndex={null}
-    //       width={leftGridWidth}
-    //       style={styleLeftGrid}
-    //     />
-    //   </div>
-    // ) : null;
 
     const leftGrid = fixedColumns ?
       <PureGrid
@@ -158,37 +134,7 @@ export default class Header extends React.PureComponent<
         columnWidth={({ index }: { index: number }) => columns[index].width}
       /> : null;
 
-    const rightGridWidth = width - leftGridWidth - (operatorWidth?operatorWidth: 0);
-    // const grid = (
-    //   <div
-    //     className="right-grid-wrapper"
-    //     style={{
-    //       ...this._rightGridStyle(leftGridWidth, styleRightGrid),
-    //       width: rightGridWidth,
-    //       height: height
-    //     }}
-    //   >
-    //     <Grid
-    //       cellRenderer={this.renderCellRight}
-    //       className={`invisible-scrollbar`}
-    //       columnCount={columns.length - fixedColumns}
-    //       columnWidth={({ index }: { index: number }) =>
-    //         columns[index + fixedColumns].width
-    //       }
-    //       height={height}
-    //       rowHeight={rowHeight}
-    //       onScroll={onScroll}
-    //       ref={this.leftGridRef}
-    //       rowCount={rowCount}
-    //       scrollLeft={scrollLeft}
-    //       tabIndex={null}
-    //       width={rightGridWidth}
-    //       style={styleRightGrid}
-    //       // isScrollingOptOut={true}
-    //       overscanColumnCount={3}
-    //     />
-    //   </div>
-    // );
+    const rightGridWidth = width - leftGridWidth - (operatorWidth ? operatorWidth : 0);
     const grid = (
       <PureGrid
         cellRenderer={this.renderCellRight}
@@ -265,60 +211,18 @@ export default class Header extends React.PureComponent<
   defaultCellRenderer(cellProps: CellProps) {
     const { columnIndex, height } = cellProps;
     const { columns } = this.props;
-
-    return (
-      <ColumnTitle
-        style={{
-          lineHeight: height && `${height}px`
-        }}
-        column={columns[columnIndex]}
-      />
-    );
+    const column = columns[columnIndex];
+    if ("name" in column) {
+      return (
+        <ColumnTitle
+          style={{
+            lineHeight: height && `${height}px`
+          }}
+          column={column}
+        />
+      );
+    }
   }
-
-  // _getRowLabels = memoize((labelColumn: CategoricalColumn): [number[], number[]] => {
-  //   const cat2idx: Map<string, number> = new Map();
-  //   labelColumn.categories?.map((c, i) => cat2idx.set(c, i));
-  //   const labels = labelColumn.series.toArray().map(v => {
-  //     if (!(cat2idx.has(v))) cat2idx.set(v, cat2idx.size);
-  //     return cat2idx.get(v) as number;
-  //   });
-  //   const uniqLabels: number[] = [];
-  //   cat2idx.forEach((v, k) => uniqLabels.push(v));
-  //   return [labels, uniqLabels];
-  // })
-
-  // _groupByArgs(): undefined | [number[], number[]] {
-  //   const {distGroupBy, columns} = this.props;
-  //   const labelColumn = distGroupBy === undefined ? undefined : columns[distGroupBy];
-  //   assert(labelColumn === undefined || !isColumnNumerical(labelColumn));
-  //   return labelColumn && this._getRowLabels(labelColumn);
-  // }
-
-  // _chartCellRenderer(cellProps: GridCellProps) {
-  //   const { columnIndex, key, style } = cellProps;
-  //   const { chartHeight, columns } = this.props;
-  //   const column = columns[columnIndex];
-  //   const {width } = column;
-  //   const groupByArgs = this._groupByArgs();
-  //   console.debug("render chart cell");
-  //   return (
-  //     <div
-  //       className={`cell row-chart col-${columnIndex}`}
-  //       key={key}
-  //       style={style}
-  //     >
-  //       <HeaderChart
-  //         column={column}
-  //         groupByArgs={groupByArgs}
-  //         width={width}
-  //         height={chartHeight}
-  //         margin={columnMargin}
-  //       />
-
-  //     </div>
-  //   );
-  // }
 
   _leftGridStyle = memoize(
     (leftGridStyle?: React.CSSProperties): React.CSSProperties => {
@@ -363,6 +267,7 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
   const { column, style } = props;
   const { width, onChangeColumnWidth } = column;
   const { onSort, sorted, name } = column;
+
   return (
     <div className="row-title" style={style}>
       <div
@@ -373,10 +278,10 @@ const ColumnTitle: React.FunctionComponent<IColumnTitleProps> = (
       </div>
       {onSort && (
         <Icon
-          type="arrow-up"
+          type="arrow-down"
           // style={{ position: "absolute", right: 3 }}
           className={(sorted ? `arrow sorted ${sorted}` : "arrow")}
-          onClick={() => onSort(column.sorted === "descend" ? "ascend" : "descend")}
+          onClick={() => onSort(column.sorted === "ascend" ? "descend" : "ascend")}
         />
       )}
       {onChangeColumnWidth && (

@@ -80,16 +80,27 @@ export function getChildOrAppend<
 }
 
 export function getScaleLinear(
-  data: ArrayLike<number>,
   x0: number,
   x1: number,
+  data?: ArrayLike<number>,
   extent?: [number, number]
 ): d3.ScaleLinear<number, number> {
+
+  let _extent = extent
+  if (_extent === undefined) {
+    if (data != undefined) {
+      _extent = (d3.extent(data) as [number, number]);
+    }
+    else {
+      throw "Column data and extent should not be both invalid."
+    }
+  }
   return d3
     .scaleLinear()
-    .domain(extent || (d3.extent(data) as [number, number]))
+    .domain(_extent)
     .nice()
     .range([x0, x1]);
+
 }
 
 export function countCategories(data: ArrayLike<string | number>, categories?: string[]) {
@@ -117,20 +128,29 @@ function getOuterPadding(
 }
 
 export function getScaleBand(
-  data: ArrayLike<string>,
   x0: number,
   x1: number,
+  data?: ArrayLike<string>,
   categories?: Readonly<string[]>,
   innerPadding: number = 0.25,
   maxStep = 35
 ): d3.ScaleBand<string> {
-  let domain = categories || countCategories(data).map(d => d.name);
+  let domain = categories;
+  if (domain === undefined) {
+    if (data != undefined) {
+      domain = countCategories(data).map(d => d.name);
+    }
+    else {
+      throw "Column data and extent should not be both invalid."
+    }
+  }
   const outerPadding = getOuterPadding(
     x1 - x0,
     domain.length,
     innerPadding,
     maxStep
   );
+
   return d3
     .scaleBand()
     .domain(domain)
