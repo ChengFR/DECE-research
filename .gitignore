@@ -1,7 +1,7 @@
 cf_ml/output
 output/
 sample_data/
-data/processed
+data/
 notebooks/
 
 # Byte-compiled / optimized / DLL files
