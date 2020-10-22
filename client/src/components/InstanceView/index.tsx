@@ -116,8 +116,8 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             >
                 {this.labelPanel()}
                 <Divider />
-                {/* {this.setting()}
-                <Divider /> */}
+                {this.setting()}
+                <Divider />
                 <div className="instance-vis-container">
                     {/* <div className="instance-body-container"> */}
                     {/* <div className="hist-svg-container"> */}

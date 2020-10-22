@@ -37,11 +37,9 @@ import CompactCFColumn from "components/visualization/CompactCFColumn";
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
 import { CatTableColumn, isNumericalVColumn, VColumn, VCatColumn, NumTableColumn, infuseCol, createVColumn } from '../Table/common';
-// import { filterByColumnStates, SubsetCFTable, CFCatColumn, CFTableColumn, SubsetTableGroup, isNumericalCFColumn, CFNumColumn, getValidData, getValidCfData } from './common';
 import "./index.scss";
 import { NumHeaderFeatCol, NumSubsetFeatCol } from "./NumFeatCol"
 import { CatHeaderFeatCol, CatSubsetFeatCol } from "./CatFeatCol"
-// import SubsetCFBar from "./SubsetCFBar";
 import LabelColumn from "./LabelColumn";
 import { defaultCategoricalColor } from "components/visualization/common";
 
@@ -164,7 +162,6 @@ export default class CFTableView extends React.Component<
       predCol,
       hovered: null,
       showCF: true,
-      // groupByColumn: 1,
       drawYAxis: false,
       rows: initRowStates(focusedDF.length),
     }
@@ -856,7 +853,7 @@ export default class CFTableView extends React.Component<
     const { defaultSubset } = this.props;
     const filters = subsets.map(subset => subset.filters);
     const index = defaultSubset.dataMeta.features[0].name;
-    localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
+    // localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
   }
 
   async _loadSubsetCache() {

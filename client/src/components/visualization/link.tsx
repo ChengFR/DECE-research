@@ -4,7 +4,7 @@ import * as _ from "lodash";
 import memoizeOne from "memoize-one";
 
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight, ChartOptions } from '../visualization/common';
-import { SankeyBins } from 'components/CompactTable/SubsetCFHist';
+import { SankeyBins } from 'components/CompactTable/common';
 
 export interface LinkOptions<T> extends ChartOptions{
     histogramType: 'side-by-side'|'stacked';

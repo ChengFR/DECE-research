@@ -4,15 +4,8 @@ import {
   CatTableColumn,
   NumTableColumn
 } from "../Table/common";
-import DataFrame from "../../data/data_table";
-import { assert } from "../../common/utils";
-import { isColumnNumerical, Series } from '../../data/column';
-import { isNumericalVColumn } from '../Table/common';
 
 import { isArray } from "util";
-import memoize from 'fast-memoize';
-import { DataMeta, FeatureDisc } from "data";
-import { Filter } from "api";
 import { IMargin } from "components/visualization/common";
 
 export function isArrays<T>(a: T[] | T[][]): a is T[][] {
@@ -81,13 +74,5 @@ export interface SankeyBins<T> {
   catTopTotalCount?: number,
   catBottomTotalCount?: number,
   value?: T[]
-}
-
-export interface CatHeaderFeatColProps extends FeatureColumnProps {
-
-}
-
-export interface CatSubsetFeatColProps extends FeatureColumnProps {
-
 }
 
