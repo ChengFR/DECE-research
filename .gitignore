@@ -1,6 +1,8 @@
 cf_ml/output
 output/
 sample_data/
+data/processed
+notebook/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
