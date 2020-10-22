@@ -1,57 +1,71 @@
-import numpy as np 
-import pandas as pd 
 import os
-
+import pandas as pd
 
 class CounterfactualExample:
-    """A class to store counterfactual examples to an instance"""
-    def __init__(self):
-        pass
+    """A class to store counterfactual examples"""
+
+    def __init__(self, data_meta, cfs=None):
+        # _original_target = data_meta["target"]
+        self._target = data_meta["target"]
+        self._prediction = data_meta["prediction"]
+        self._features = data_meta["features"]
+
+        self._cfs = pd.DataFrame(cfs, columns=self._features+[self._target, self._prediction])
+        # self._cfs[self._target] = self._cfs.pop(_original_target)
+    @property
+    def all(self):
+        return self._cfs
+
+    @all.setter
+    def all(self, cfs):
+        self._cfs = pd.DataFrame(cfs, columns=self._features+[self._target, self._prediction])
+        self._cfs["{}_target".format(self._target)] = self._cfs.pop(self._prediction)
+    @property
+    def valid(self):
+        return self._cfs[self._cfs[self._target] == self._cfs[self._prediction]]
+
+    @property
+    def invalid(self):
+        return self._cfs[self._cfs[self._target] != self._cfs[self._prediction]]
+    
+
+    def query(self, index):
+        return self._cfs.loc[index, :]
+
 
 class CounterfactualExampleBySubset:
-    """A class to store counterfactual examples to a subset"""
+    """A class to store counterfactual examples to a subset of instances"""
 
-    def __init__(self, dataset, cf_num):
-        self.dataset = dataset
-        self.cf_num = cf_num
-        origin_columns = self.dataset.get_columns(preprocess=False)
-        target_name = self.dataset.get_target_names(preprocess=False)
-        self.cf_column = origin_columns+['{}_pred'.format(target_name), 'Score', 'OriginIndex']
-        self.instance_column = origin_columns+['{}_pred'.format(target_name), 'Score']
-        self.cf_df = pd.DataFrame(columns=self.cf_column)
-        self.instance_df = pd.DataFrame(columns=self.instance_column)
+    def __init__(self, data_meta, range, original_instances=None):
+        self._data_meta = data_meta
+        self._target = data_meta["target"]
+        self._prediction = data_meta["prediction"]
+        self._features = data_meta["features"]
 
-    def append_cfs(self, cf_df, instance_df):
-        cf_df = cf_df.copy()
-        instance_df = instance_df.copy()
-        self.cf_df = pd.concat([self.cf_df, self._add_index_col(cf_df, instance_df)[self.cf_column]])
-        self.instance_df = pd.concat([self.instance_df, instance_df[self.instance_column]])
+        self._range = range
+        self._original_instances = original_instances
+        self._subsets = {}
 
-    def _add_index_col(self, cf_df, instance_df):
-        cf_df['OriginIndex'] = [instance_df.index.values.astype(int)[i//self.cf_num] for i in range(len(cf_df))]
-        return cf_df
+    @property
+    def original_instances(self):
+        return self._original_instances
 
-    def get_cf(self):
-        """read only"""
-        return self.cf_df.copy()
-    
-    def get_instance(self):
-        """read only"""
-        return self.instance_df.copy()
+    @original_instances.setter
+    def original_instances(self, original_instances):
+        self._original_instances = original_instances
 
-    def get_cf_by_origin_index(self, index):
-        if type(index) == int:
-            index = [index]
-        return self.cf_df[self.cf_df['OriginIndex'].isin(index)]
+    def append_counterfactuals(self, feature, cfs):
+        if isinstance(cfs, pd.DataFrame):
+            cfs = CounterfactualExample(self._data_meta, cfs)
+        elif isinstance(cfs, CounterfactualExample):
+            pass
+        else:
+            raise TypeError("Counterfactuals should be either a DataFrame or a CounterFactualExample.")
 
-    def to_csv(self, header, dirpath):
-        self.cf_df.to_csv(os.path.join(dirpath, '{}_cf.csv'.format(header)))
-        self.instance_df.to_csv(os.path.join(dirpath, '{}_data.csv'.format(header)))
+        self._subsets[feature] = cfs
 
-    def from_csv(self, header, dirpath):
-        self.cf_df = pd.read_csv(os.path.join(dirpath, '{}_cf.csv'.format(header)))[self.cf_column]
-        self.instance_df = pd.read_csv(os.path.join(dirpath, '{}_data.csv'.format(header)))[self.instance_column]
-
-    
+    @property
+    def subsets(self):
+        return self._subsets
 
     

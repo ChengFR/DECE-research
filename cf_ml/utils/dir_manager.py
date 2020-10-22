@@ -7,90 +7,72 @@ import torch
 import pandas as pd
 import numpy as np
 
-from cf_engine.counterfactual import CounterfactualExampleBySubset
+from cf_ml.utils.feature_range import tokenize
 
-OUTPUT_ROOT = os.path.join(os.path.dirname(__file__), 'output')
-
+OUTPUT_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output')
 
 class DirectoryManager:
     """A class to manage the path of the model files and output files"""
 
-    def __init__(self, dataset, model_manager, root=OUTPUT_ROOT, auto_save=True):
-        self.root = root
-        self.createifnotexist(self.root)
-        self.dir = None
-        self._init = False
-        self.dataset = dataset
-        self.model_manager = model_manager
-        self.desc = self.dataset.get_description()
-        self.data_meta = {}
-        self.model_meta = {}
-        self.cf_setting = []
-        self.cache_capacity = 100
-        self.auto_save = auto_save
+    def __init__(self, dataset, model_name, root=OUTPUT_ROOT, cache_capacity=100):
+        self._root = root
+        self.ensure_dir(self._root)
 
-    def load_meta_from_path(self, dirpath):
-        if not os.path.isdir(dirpath):
-            raise FileNotFoundError('{} doesn\'t exists.'.format(dirpath))
-        meta_path = os.path.join(dirpath, 'meta.json')
-        with open(meta_path) as f:
-            meta_info = json.load(f)
-        self.data_meta = meta_info['data_meta']
-        self.model_meta = meta_info['model_meta']
-        self.cf_setting = meta_info['cf_setting']
-        self.dir = dirpath
-        self._init = True
+        self._dataset = dataset
+        self._model_name = model_name
+
+        self._dir = os.path.join(self._root, self.dataset_name, self.model_name)
+        self.ensure_dir(self._dir)
+
+        self._data_meta = {'name': self.dataset_name,
+                          'description': self._dataset.description,
+                          'features': self._dataset.features,
+                          'target': self._dataset.target,
+                          'prediction': self._dataset.prediction}
+        self._model_meta = {'name': self._model_name,
+                           'train_accuracy': None,
+                           'test_accuracy': None}
+        self._universal_range = self._dataset.get_universal_range()
+        self._cf_setting = []
+        self._cache_capacity = cache_capacity
+    
+    @property
+    def model_name(self):
+        return self._model_name
+    
+    @property
+    def dataset_name(self):
+        return self._dataset.name
 
     def load_meta(self):
-        dataset_name = self.dataset.get_name()
-        model_name = self.model_manager.get_name()
-        self.load_meta_from_path(os.path.join(
-            self.root, dataset_name, model_name))
+        meta_path = os.path.join(self._dir, 'meta.json')
+        with open(meta_path) as f:
+            meta_info = json.load(f)
+        self._data_meta = meta_info['data_meta']
+        self._model_meta = meta_info['model_meta']
+        self._cf_setting = meta_info['cf_setting']
 
-    def init(self):
-        dataset_name = self.dataset.get_name()
-        model_name = self.model_manager.get_name()
-        # self.createifnotexist(os.path.join(self.root, dataset_name))
-        self.dir = os.path.join(self.root, dataset_name, model_name)
-        self.ensure_dir()
-
-        self.update_dataset_meta()
-        self.update_model_meta()
-
-        self._init = True
-
-    def update_dataset_meta(self):
-        self.data_meta = {'name': self.dataset.get_name(),
-                          'description': self.desc,
-                          'target_name': self.dataset.get_target_names(preprocess=False)}
-
-    def update_model_meta(self):
-        self.model_meta = {'name': self.model_manager.get_name(),
-                           'train_accuracy': self.model_manager.get_train_accuracy(),
-                           'test_accuracy': self.model_manager.get_test_accuracy()}
+    def update_model_meta(self, **kwargs):
+        self._model_meta = {'name': self._model_name, **kwargs}
 
     def save_meta(self):
-        if self._init is False:
-            raise ValueError('DirectoryManager save before init.')
-        with open(os.path.join(self.dir, 'meta.json'), 'w') as f:
-            f.write(json.dumps({'data_meta': self.data_meta,
-                                'model_meta': self.model_meta, 'cf_setting': self.cf_setting}))
+        with open(os.path.join(self._dir, 'meta.json'), 'w') as f:
+            f.write(json.dumps({'data_meta': self._data_meta,
+                                'model_meta': self._model_meta, 'cf_setting': self._cf_setting}))
 
     def _get_model_path(self):
-        return os.path.join(self.dir, '{}_test_accuracy_{:.3f}'.format(self.model_meta['name'], self.model_meta['test_accuracy']))
+        return os.path.join(self._dir, '{}'.format(self._model_meta['name']))
 
     def save_pytorch_model_state(self, model_state):
-        if self.model_meta['test_accuracy'] is not None:
+        if self._model_meta['test_accuracy'] is not None:
             old_model_path = self._get_model_path()
             if os.path.exists(old_model_path):
                 os.remove(old_model_path)
-        self.update_model_meta()
 
         new_path = self._get_model_path()
         torch.save(model_state, new_path)
 
-        if self.auto_save:
-            self.save_meta()
+        self.save_meta()
 
     def load_pytorch_model_state(self):
         model_path = self._get_model_path()
@@ -100,122 +82,68 @@ class DirectoryManager:
         """ a tmp implementation
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
-        data_df.to_csv(os.path.join(self.dir, dataset_name+'.csv'))
+        data_df.to_csv(os.path.join(self._dir, dataset_name+'.csv'))
 
-    def load_prediction(self, dataset_name='dataset', only_valid=False):
+    def load_prediction(self, dataset_name='dataset'):
         """ a tmp implementation
         :param dataset_name: str, in ['dataset', 'train_dataset', 'test_dataset']
         """
-        data_df = pd.read_csv(os.path.join(self.dir, dataset_name+'.csv'))
-        if only_valid:
-            for col in self.dataset.get_feature_names(preprocess=False):
-                if self.desc[col]['type'] == 'numerical':
-                    data_df = data_df[data_df[col] >= self.desc[col]['min']]
-                    data_df = data_df[data_df[col] <= self.desc[col]['max']]
-                else:
-                    data_df = data_df[data_df[col].isin(
-                        self.desc[col]['category'])]
+        data_df = pd.read_csv(os.path.join(self._dir, dataset_name+'.csv'), index_col=0)
         return data_df
 
-    def equal_setting(self, s1, s2):
-        return self.equal_attributes(s1.get('changeable_attribute', []), s2.get('changeable_attribute', [])) \
-            and s1.get('index', 'all') == s2.get('index', 'all') \
-            and s1.get('k', -1) == s2.get('k', -1) \
-            and s1.get('cf_num', 1) == s2.get('cf_num', 1) \
-            and self.equal_ranges(s1.get('cf_range', {}), s2.get('cf_range', {})) \
-            and self.equal_ranges(s1.get('data_range', {}), s2.get('data_range', {})) \
-            and s1.get('desired_class', 'opposite') == s2.get('desired_class', 'opposite')
-
-    def contain_setting(self, s1, s2):
-        pass
-
-    def equal_attributes(self, a1, a2):
-        if isinstance(a1, str) and isinstance(a2, str):
-            return a1 == a2
-        elif isinstance(a1, list) and isinstance(a2, list):
-            return len(sorted(a1)) == len(sorted(a2)) and '_'.join(sorted(a1)) == '_'.join(sorted(a2))
-        else:
-            return False
-
-    def equal_ranges(self, r1, r2):
-        return self.contain_ranges(r1, r2) and self.contain_ranges(r2, r1)
-
-    def contain_ranges(self, r1, r2):
-        flag = True
-        r1 = self.simplify_ranges(r1)
-        r2 = self.simplify_ranges(r2)
-        for col, info in self.desc.items():
-            if col in r2:
-                if col in r1:
-                    if info['type'] == 'categorical':
-                        if not np.array([cat in r1[col]['category'] for cat in r2[col]['category']]).all():
-                            flag = False
-                            break
-                    else:
-                        if r2[col]['min'] < r1[col]['min'] or r2[col]['max'] > r1[col]['max']:
-                            flag = False
-                            break
-                else:
-                    flag = False
-                    break
-        return flag
-
-    def simplify_ranges(self, r):
-        new_range = {}
-        for col, info in r.items():
-            if self.desc[col]['type'] == 'categorical':
-                if not np.array([cat in info['category'] for cat in self.desc[col]['category']]).all():
-                    new_range[col] = info
-            if self.desc[col]['type'] == 'numerical':
-                if info['min'] > (self.desc[col]['min']+1e-4) or info['max'] < (self.desc[col]['max']+1e-4):
-                    new_range[col] = info
-        return new_range
-
-    def save_cf_with_setting(self, subset_cf, setting):
-        index = self.indexof_setting(setting)
-        if index < 0:
-            index = len(self.cf_setting)
-            self.cf_setting.append(setting)
-        subset_cf.to_csv('{}'.format(index), self.dir)
-        if self.auto_save:
-            self.save_meta()
-
-    def load_cf_with_setting(self, setting, verbose=False):
-        index = self.indexof_setting(setting)
-        subset_cf = CounterfactualExampleBySubset(self.dataset, setting.get('cf_num', 1))
-        subset_cf.from_csv('{}'.format(index), self.dir)
-        if verbose:
-            print("load subset cf No.{} from file.".format(index))
-        return subset_cf
-
-    def indexof_setting(self, setting):
+    def include_setting(self, data_range, feature_range):
+        return self.find_setting(data_range, feature_range) > -1
+    
+    def find_setting(self, data_range, feature_range):
         index = -1
-        for i, s in enumerate(self.cf_setting):
-            if self.equal_setting(s, setting):
+        for i, (d, f) in enumerate(self._cf_setting):
+            if tokenize(d, f, self._universal_range) == \
+                    tokenize(data_range, feature_range, self._universal_range):
                 index = i
-                break
         return index
 
-    def init_dir(self):
-        if os.path.exists(self.dir):
-            shutil.rmtree(self.dir)
-        os.makedirs(self.dir)
-        if self.auto_save:
-            self.save_meta()
+    def load_subset_cf(self, data_range, feature_range):
+        index = self.find_setting(data_range, feature_range)
+        if index == -1:
+            raise KeyError("Subset does not exist.")
+        cf_path = os.path.join(self._dir, "subset_{}.csv".format(index))
+        return pd.read_csv(cf_path)
 
-    def ensure_dir(self):
-        if not os.path.exists(self.dir):
-            os.makedirs(self.dir)
+    def save_subset_cf(self, data_range, feature_range, subset_report):
+        index = self.find_setting(data_range, feature_range)
+        if index == -1:
+            index = len(self._cf_setting)
+            self._cf_setting.append((data_range, feature_range))
+        else:
+            print("Overwrite")
+        cf_path = os.path.join(self._dir, "subset_{}.csv".format(index))
+        subset_report.to_csv(cf_path)
+        self.save_meta()
 
-    def alterifexist(self, path):
-        pass
+    def clean_subset_cache(self):
+        for index in range(len(self._cf_setting)):
+            cf_path = os.path.join(self._dir, "subset_{}.csv".format(index))
+            os.remove(cf_path)
+        self._cf_setting = []
+        self.save_meta()
 
-    def createifnotexist(self, dirpath):
-        if not os.path.exists(dirpath):
-            os.mkdir(dirpath)
+    def ensure_dir(self, dir_path=None):
+        if dir_path is None:
+            dir_path = self._dir
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
 
-    def get_dataset_meta(self):
-        return self.data_meta
+    def init_dir(self, dir_path=None):
+        if dir_path is None:
+            dir_path = self._dir
+        if os.path.exists(dir_path):
+            shutil.rmtree(dir_path)
+        self.ensure_dir(dir_path)
 
-    def get_model_meta(self):
-        return self.model_meta
+    @property
+    def dataset_meta(self):
+        return self._data_meta
+
+    @property
+    def model_meta(self):
+        return self._model_meta
