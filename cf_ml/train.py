@@ -1,5 +1,5 @@
-from load_dataset import load_HELOC_dataset
-from model_manager import PytorchModelManager
+from cf_ml.dataset import load_HELOC_dataset
+from cf_ml.model import PytorchModelManager
 import argparse
 
 parser = argparse.ArgumentParser()
