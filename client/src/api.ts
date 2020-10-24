@@ -143,7 +143,7 @@ export async function getCFs(params: {
 export async function GetInstanceCF(
   params: QueryParams
 ): Promise<CounterFactual[]> {
-  const url = `${API}/cf_instance`;
+  const url = `${API}/counterfactuals`;
   const response = await axios.post(url, params);
   const data = checkResponse(response, []);
   return data;
