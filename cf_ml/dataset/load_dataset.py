@@ -1,38 +1,15 @@
 import os
+
 import pandas as pd
 
 from cf_ml.dataset import Dataset
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-
-
-def load_HELOC_dataset():
-    data_df = pd.read_csv(os.path.join(DATA_DIR, 'HELOC/heloc_dataset_v1.csv'))
-    description = pd.read_csv(os.path.join(DATA_DIR, 'HELOC/description.csv'), index_col='name').to_dict('index')
-    for _, info in description.items():
-        if type(info['category']) is str:
-            info['category'] = info['category'].split(' ')
-    return Dataset('HELOC', data_df, description, 'RiskPerformance')
-
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'sample_data')
 
 def load_german_credit_dataset():
-    description = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/description.csv'), index_col='name')
-    cols = description.index
-    description = description.to_dict('index')
-    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/GermanData.csv'), names=cols)
-    for _, info in description.items():
-        if type(info['category']) is str:
-            try:
-                info['category'] = [int(cat) for cat in info['category'].split(' ')]
-            except:
-                info['category'] = info['category'].split(' ')
-    return Dataset('german-credit', data_df, description, 'Output')
-
-
-def load_simplified_german_credit_dataset():
-    description = pd.read_csv(os.path.join(DATA_DIR, 'german-credit-simplified/description.csv'),
+    description = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/description.csv'),
                               index_col='name').to_dict('index')
-    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit-simplified/refined.csv'))
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/refined.csv'))
     description['Job']['category'] = [0, 1, 2, 3]
     description['Housing']['category'] = ['free', 'rent', 'own']
     description['Saving accounts']['category'] = ['unknown', 'little', 'moderate', 'rich', 'quite rich']
@@ -59,7 +36,3 @@ def load_admission_dataset():
             else:
                 info['category'] = [int(cat) for cat in info['category'].split(' ')]
     return Dataset('admission', data_df[list(description.keys())], description, 'Admit')
-
-
-if __name__ == '__main__':
-    dataset = load_HELOC_dataset()

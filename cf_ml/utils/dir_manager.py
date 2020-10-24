@@ -12,7 +12,7 @@ from cf_ml.utils.feature_range import tokenize
 OUTPUT_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output')
 
 class DirectoryManager:
-    """A class to manage the path of the model files and output files"""
+    """A class to save and load output files."""
 
     def __init__(self, dataset, model_name, root=OUTPUT_ROOT, cache_capacity=100):
         self._root = root

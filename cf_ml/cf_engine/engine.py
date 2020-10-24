@@ -32,25 +32,29 @@ DEFAULT_CONFIG = {
     'post_steps': 10,
     'batch_size': 1024,
     'loss_diff': 1e-5,
-    'metric': ['Validity_Rate', 'Avg_Distance'],
     "refine_with_topk": -1
 }
 
-class Softmax(nn.Module):
-
-    def __init__(self, dummy_indexes):
-        super(Softmax, self).__init__()
-
-        self._dummy_indexes = dummy_indexes
-
-    def forward(self, x):
-        y = torch.tensor(x)
-        for dummies in self._index_of_dummy_cat_features:
-                y[:, dummies] = torch.softmax(x[:, dummies], dim=1)
-        return y
-
 class CFEnginePytorch:
-    """A class to generate counterfactual examples."""
+    """A class to generate counterfactual examples.
+
+    Args:
+        dataset: dataset.Dataset, target dataset.
+        model_manager: model.PytorchModelManager, target model.
+        config: dict,
+            feature_weights: 'mads' or 'unit', feature weighting algorithm name in distance calculating;
+            validity_weight: number, weight of the validity term in the loss function;
+            proximity_weight: number, weight of the proximity term in the loss function;
+            diversity_weight: number, weight of the diversity term in the loss function;
+            lr: number, learning rate in the optimization procedure;
+            min_iter: number, number of the minimal iterations processed in the optimization procedure;
+            max_iter: number, number of the maximal iterations processed in the optimization procedure;
+            project_frequency: number, the number of iteractions for applying tensor clipping and reloading in the optimization procedure;
+            post_steps: number, the number of maximal iterations in the refinement procedure;
+            batch_size: number, the size of the mini-batch;
+            loss_diff: number, the minimal loss difference for an early stop of the optimization procedure;
+            refine_with_topk: number, the number of features to update in one iteration in the refinement procedure.
+    """
 
     def __init__(self, dataset, model_manager, config=DEFAULT_CONFIG):
         self._dataset = dataset
@@ -74,7 +78,17 @@ class CFEnginePytorch:
         self._config = {**self._config, **new_config}
 
     def generate_r_counterfactuals(self, subset_range=None, use_cache=True, cache=True, verbose=True):
-        """
+        """Generate r-counterfactuals (subgroup counterfactuals).
+
+        Args:
+            subset_range: dict, keys are feature names and values are the min/max/(allowed) categories of 
+                the counterfactual examples' feature values.
+            use_cache: boolean, whether to use the cached the r-counterfactuals if exists.
+            cache: boolean, whether to restore the r-counterfactuals.
+            verbose: boolean, whether to log information.
+
+        Returns:
+            A cf_engine.CounterfactualExampleBySubset object storing r-counterfactuals.
         """
         subset_range = subset_range if subset_range is not None else {}
         cf_range = copy.deepcopy(subset_range)
@@ -97,30 +111,26 @@ class CFEnginePytorch:
         return r_counterfactuals
 
     def generate_cfs_from_setting(self, X, setting=DEFAULT_SETTING, verbose=True):
-        """Generate cfs to an instance or a dataset in the form of pandas.DataFrame. mini_batch is applied if batch_size > 1
+        """Generate counterfactual explanations to the given preprocessed data.
 
-        :param data: pandas.DataFrame, raw target dataset in the form of pandas.DataFrame
-        :param cf_num: int, number of the generated counterfactual examples
-        :param desired_class: 'opposite' or pandas.DataFrame
-        :param proximity_weight: float, weight of proximity loss part
-        :param diversity_weight: float, weight of diversity loss part (not implementated)
-        :param lr: float, learning rate in the optimization process
-        :param clip_frequency: int, frquency of clip operation to norm values to [0, 1]
-        :param changeable_attr: str of list of str, attribute names that are allowed to change, 'all' means that all attributes are allowed to be change
-        :param k: int, number of changeable attribute, if k > 0 and k < len(changeable_attr), for each cf, 
-            a post-hoc process will be made to ensure only k attributes finally changed.
-        :param cf_range: dict, range of attribute
-        :param init_cat: 'rand' or 'avg', initialization of dummy attribute values
-        :param max_iter: int, maximum iteration
-        :param min_iter: int, minimun iteraction
-        :param loss_diff: float, an early stop happends when the difference of loss is below loss_diff
-        :param batch_size: int, number of instance in a batch
-        :param verbose: boolean, whether to print out the log information
+        Args:
+            X: np.array, the preprocessed attribute data of the original instances
+            setting: dict,
+                k: number, maximal number of changed attributes in each counterfactual example;
+                num: number, number of counterfactual examples generated for each instance;
+                cf_range: dict, variation ranges for attributes;
+                changeable_attr: list or 'all', the name of changeable attributes. 'All' means that all features are changeable;
+                desired_class: list, np.array, or 'oppsite', target classes of the counterfactual examples. 'Opposite' means that
+                    the target classes are the opposite ones to the predictions from the original instances in a bi-classification 
+                    problem.
+            verbose: boolean, whether to log information.
+
+        Returns:
+            A cf_engine.CounterfactualExample object storing counterfactual examples.
         """
         batch_size = self._config["batch_size"]
+        n = setting.get('num', DEFAULT_SETTING['num'])
 
-        # init timer
-        start_time = timeit.default_timer()
         data_num = len(X)
         mask = self._gradient_mask_by_setting(setting)
         if_sparse = self._if_sparse(setting)
@@ -137,7 +147,6 @@ class CFEnginePytorch:
 
             # init counterfactual values and targets
             original_X = self._expand_array(X.iloc[start_id: end_id].values, setting)
-            # _y = self._expand_array(y.iloc[start_id: end_id].values, setting)
             targets = self._target_array(original_X, setting)
             inited_cfs = self._init_cfs(original_X, setting)
 
@@ -152,7 +161,7 @@ class CFEnginePytorch:
             cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, weights, min_values, max_values)
 
             # STEP-2: refine counterfactual examples
-            cfs = self._refine(cfs, original_X, targets, mask, weights, min_values, max_values, verbose=verbose > 1)
+            cfs = self._refine(cfs, original_X, targets, mask, n, weights, min_values, max_values)
             
             # generate report (features, target, predictions) for counterfactual examples
             report = self._mm.report(x=cfs, y=targets, preprocess=False)
@@ -166,7 +175,7 @@ class CFEnginePytorch:
         return CounterfactualExample(self._data_meta, pd.concat(reports))
 
     def _gradient_mask(self, changeable_attr):
-        """"""
+        """Generate boolean mask array from a list of changeable attributes."""
         if isinstance(changeable_attr, str) and changeable_attr == 'all':
             mask = pd.DataFrame(np.ones((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
         else:
@@ -176,7 +185,7 @@ class CFEnginePytorch:
         return mask.values.squeeze()
 
     def _gradient_mask_by_setting(self, setting):
-        """"""
+        """Generate boolean mask array from setting."""
         cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
         changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
 
@@ -192,6 +201,7 @@ class CFEnginePytorch:
 
     
     def _if_sparse(self, setting):
+        """Check whether a feature selection procedure should be processed to fulfill the sparsity requirements."""
         k = setting.get('k', DEFAULT_SETTING['k'])
         changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
         if isinstance(changeable_attr, str) and changeable_attr == 'all':
@@ -200,6 +210,7 @@ class CFEnginePytorch:
         return sparse
 
     def _generate_max_array(self, setting):
+        """Generate an array of the maximal values of all attributes."""
         max_array = pd.DataFrame(np.ones((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
         cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
 
@@ -216,6 +227,7 @@ class CFEnginePytorch:
         return max_array.values.squeeze()
 
     def _generate_min_array(self, setting):
+        """Generate an array of the minimal values of all attributes."""
         min_array = pd.DataFrame(np.zeros((1, len(self._dataset.dummy_features))), columns=self._dataset.dummy_features)
 
         cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
@@ -228,7 +240,7 @@ class CFEnginePytorch:
         return min_array.values.squeeze()
 
     def _feature_weights(self, dummy=True):
-        """"""
+        """Generate weights to all attributes."""
         if self._config['feature_weights'] == 'mads':
             mads = self._dataset.get_mads()
             if dummy:
@@ -245,6 +257,7 @@ class CFEnginePytorch:
         return weights
 
     def _target_array(self, original_X, setting):
+        """Generate the target array of counterfactual examples."""
         target = setting.get('desired_class', DEFAULT_SETTING['desired_class'])
 
         if isinstance(target, str) and target == 'opposite':
@@ -259,6 +272,7 @@ class CFEnginePytorch:
         return target
 
     def _init_cfs(self, X, setting, mask=None):
+        """Initialize counterfactual examples with random pertubation."""
         if mask is None:
             mask = self._gradient_mask_by_setting(setting)
 
@@ -273,17 +287,19 @@ class CFEnginePytorch:
         return cfs.values
 
     def _expand_array(self, array, setting):
-        k = setting.get('num', DEFAULT_SETTING['num'])
-        return np.repeat(array, k, axis=0)
+        """Expand an array n times. n is the number of the counterfactual examples for each instance."""
+        n = setting.get('num', DEFAULT_SETTING['num'])
+        return np.repeat(array, n, axis=0)
 
     def _topk_features(self, cfs, original_X):
+        """Get the name of top-k features according to normalized difference from their original values"""
         feature_weights = self._feature_weights(dummy=False)
         difference = self._dataset.inverse_preprocess_X(cfs) - self._dataset.inverse_preprocess_X(original_X)
         topk_features_index = abs(feature_weights * difference.values).argsort(dim=1, descending=True)[:, :k]
         return [self._dataset.features[i] for i in topk_features_index]
 
-    def _optimize(self, cfs, original_X, target, mask, weights=None, min_values=None, max_values=None):
-
+    def _optimize(self, cfs, original_X, target, mask, num, weights=None, min_values=None, max_values=None):
+        """Optimize the counterfactual examples according a mixed loss function through a gradient-based optimizer."""
         cfs = torch.from_numpy(cfs).float()
         cfs.requires_grad = True
         original_X = torch.from_numpy(original_X).float()
@@ -313,7 +329,7 @@ class CFEnginePytorch:
             optimizer.zero_grad()
             pred = self._mm.forward(cfs)
 
-            loss = self._loss(cfs, original_X, pred, target, criterion, weights, min_values, max_values)
+            loss = self._loss(cfs, original_X, pred, target, criterion, num, weights, min_values, max_values)
             loss.backward()
             optimizer.step()
 
@@ -329,7 +345,8 @@ class CFEnginePytorch:
         cfs.data = self._clip_tensor(cfs.data, min_values, max_values)
         return cfs.detach().numpy(), pred.detach().numpy(), loss.detach().numpy(), iter
 
-    def _loss(self, cfs, original_X, pred, target, criterion, weights=None, min_values=None, max_values=None):
+    def _loss(self, cfs, original_X, pred, target, criterion, num, weights=None, min_values=None, max_values=None):
+        """A mixed loss function"""
         # prediction loss
         loss = self._config["validity_weight"] * criterion(pred, torch.ones(pred.shape) * 0.5, target)
 
@@ -337,29 +354,32 @@ class CFEnginePytorch:
         loss += self._config["proximity_weight"] * self._proximity_loss(cfs, original_X, weights, 'L1')
 
         # diversity loss
-        if self._config["diversity_weight"] > 0 and self.cf_num > 1:
-            loss += self._config["diversity_weight"] * self._diversity_loss(cfs, weights, 'avg')
+        if self._config["diversity_weight"] > 0 and num > 1:
+            loss += self._config["diversity_weight"] * self._diversity_loss(cfs, num, weights, 'L1')
 
         return loss
 
     def _proximity_loss(self, cfs, original_X, weights=None, metric='L1'):
+        """Proximity term in the loss function"""
         proximity_loss = torch.sum(self._distance_quick(
             cfs, original_X, weights, metric))
         return proximity_loss
 
-    def _diversity_loss(self, cfs, weights=None, metric='avg'):
+    def _diversity_loss(self, cfs, num, weights=None, metric='L1', diversity='sum'):
+        """Diversity term in the loss function"""
         diversity_loss = torch.tensor(0).float()
-        if metric == 'avg':
-            for i in range(len(cfs) // self.cf_num):
-                for j in range(self.cf_num):
-                    start = i * self.cf_num
-                    end = (i + 1) * self.cf_num
-                    diversity_loss += (1 - self._distance_quick(cfs[start: end], cfs[start + j]).mean(), weights)
+        if diversity == 'sum':
+            for i in range(len(cfs) // num):
+                for j in range(num):
+                    start = i * num
+                    end = (i + 1) * num
+                    diversity_loss += (1 - self._distance_quick(cfs[start: end], cfs[start + j]).mean(), weights, metric)
         else:
             raise NotImplementedError
         return diversity_loss
 
     def _distance(self, cf, origin, weights=None, metric='L1'):
+        """Get the distance between the counterfactual examples and the original instances."""
         diff = torch.abs(cf - origin)
         if weights is not None:
             diff = diff * weights
@@ -371,6 +391,7 @@ class CFEnginePytorch:
         return dist
 
     def _distance_quick(self, cfs, origins, weights=None, metric='L1'):
+        """Get the distance between a batch of counterfactual examples and the original instances."""
         if origins.dim == 1:
             origins = origins.unsqueeze(0).repeat(len(cfs), 1)
 
@@ -386,6 +407,7 @@ class CFEnginePytorch:
         return dist
 
     def _clip_tensor(self, data, min_tensor=None, max_tensor=None):
+        """Clip the tensor with the minimal values and the maximal values."""
         if min_tensor is not None:
             data = torch.max(data, min_tensor)
         if max_tensor is not None:
@@ -393,14 +415,17 @@ class CFEnginePytorch:
         return data
 
     def _reload_tensor(self, data):
+        """Re-do the preprocessing to the data aftering an inverse-preprocessing"""
         return torch.from_numpy(self._dataset.preprocess_X(self._dataset.inverse_preprocess_X(data)).values).float()
 
     def _check_valid(self, pred, target):
+        """Check whether all counterfactual examples are valid."""
         pred_class = pred.argmax(axis=1).numpy()
         target_class = target.argmax(axis=1).numpy()
         return np.equal(pred_class, target_class).all()
 
     def _stopable(self, iter, pred, target, loss_diff):
+        """Check whether the optimization can stop."""
         if iter < self._config["min_iter"]:
             return False
         elif iter <= self._config["project_frequency"]:
@@ -413,7 +438,7 @@ class CFEnginePytorch:
             return False
 
     def _get_gradient(self, cfs, original_X, target, criterion, weight):
-
+        """Get the gradients to the counterfactual examples according the mixed loss function."""
         pred = self._mm.forward(cfs)
         loss = self._loss(cfs, original_X, pred, target, criterion, weight)
 
@@ -422,7 +447,7 @@ class CFEnginePytorch:
         return gradient, pred
 
     def _refine(self, cfs, original_X, targets, mask, weights=None, min_values=None, max_values=None, verbose=True):
-
+        """Refine the counterfactual examples."""
         numerical_feature_mask = self._gradient_mask(self._dataset.numerical_features)
         if weights is not None:
             weights = torch.from_numpy(weights).float()
@@ -434,7 +459,7 @@ class CFEnginePytorch:
         
         criterion = nn.MarginRankingLoss(reduction='sum')
 
-        for iter in range(self._config["post_steps"]):
+        for _ in range(self._config["post_steps"]):
             cfs.data = torch.from_numpy(self._dataset.preprocess_X(inv_cfs).values).float()
 
             grad, pred = self._get_gradient(cfs, original_X, targets, criterion, weights)
@@ -482,8 +507,3 @@ class CFEnginePytorch:
         all_diff = pd.DataFrame(columns=self._dataset.features)
         all_diff[self._dataset.numerical_features] = num_diff
         return all_diff.fillna(0).values
-
-    def _scales(self):
-        scale = pd.DataFrame(self._data_meta["description"]).T['scale'].fillna(0)
-        scales = np.array([scale[col] if col in scale else 0 for col in self._dataset.features])
-        return scales

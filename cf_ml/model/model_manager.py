@@ -64,12 +64,16 @@ class LR(nn.Module):
 
 
 class PytorchModelManager(ModelManager):
-    """Model manager of a pytorch model"""
+    """A class to store, train, evaluate, and apply a pytorch model.
+
+    Args:
+        dataset: dataset.Dataset, the target dataset.
+        model_name: str, name of the model.
+        root_dir: str, the path of the directory to store the model and relative information.
+        model: a torch model or None, if model is none, a new MLP (#f, 60, 30, #c) will be created.
+    """
 
     def __init__(self, dataset, model_name='MLP', root_dir=OUTPUT_ROOT, model=None):
-        """
-        """
-        # ModelManager.__init__(self)
         self._dataset = dataset
         self._name = model_name
         self._dir_manager = DirectoryManager(self._dataset, model_name, root=root_dir)
@@ -100,15 +104,18 @@ class PytorchModelManager(ModelManager):
         self._test_accuracy = None
 
     def load_model(self):
+        """Load model states."""
         self._dir_manager.load_meta()
         self._model.load_state_dict(self._dir_manager.load_pytorch_model_state())
 
     def forward(self, x):
+        """Get the forward results to the given data."""
         self._model.eval()
         return self._model(x)
 
     def report(self, x, y=None, preprocess=True):
-
+        """Generate the report from the feature values and target values (optional). 
+        The report includes (features, target, prediction)."""
         if preprocess:
             x = self._dataset.preprocess_X(x)
             if y is not None:
@@ -129,19 +136,15 @@ class PytorchModelManager(ModelManager):
         return report_df
 
     def report_on_instance(self, index):
+        """Generate the report to an instance in the dataset. 
+        The report includes (features, target, prediction)."""
         instances = self._dataset.get_subset(index=index, preprocess=True)
         report_df = self.report(instances[self._features], instances[self._target], preprocess=False)
         return report_df.set_index(instances.index)
 
-    # def _get_options(self, options):
-    #     batch_size = options.get('batch_size', 32)
-    #     epoch = options.get('epoch', 40)
-    #     lr = options.get('lr', 0.002)
-    #     return batch_size, epoch, lr
-
+    # TODO: remove this function.
     def train(self, batch_size=32, epoch=40, lr=0.002, verbose=True, save_result=True):
-        """
-        """
+        """Train the model with an RMS optimizer."""
         dataset = self.train_dataset
         data_loader = DataLoader(
             dataset=dataset, batch_size=batch_size, shuffle=True)
@@ -169,6 +172,7 @@ class PytorchModelManager(ModelManager):
             self._dir_manager.update_model_meta(train_accuracy=self._train_accuracy, test_accuracy=self._test_accuracy)
 
     def evaluate(self, dataset='test', metric='accuracy', batch_size=128):
+        """Evaluate the model from either the training dataset or testing dataset with the given metrics."""
         if dataset == 'test':
             data_loader = DataLoader(
                 dataset=self.test_dataset, batch_size=batch_size, shuffle=True)
@@ -196,6 +200,7 @@ class PytorchModelManager(ModelManager):
             raise NotImplementedError
 
     def save_model(self):
+        """Save the model states."""
         self._dir_manager.init_dir()
         self._dir_manager.save_pytorch_model_state(self._model.state_dict())
 
