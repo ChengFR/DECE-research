@@ -74,8 +74,12 @@ def get_data():
 def get_cf_subset():
     request_params = request.get_json()
     filters = request_params["filters"]
-    filters = {f["name"]: {**f, "min": f.get("extent", [0, 0])[0], 
-        "max": f.get("extent", [0, 0])[1]} for f in filters}
+    num_filters = {f["name"]: {"min": f.get("extent", [0, 0])[0], 
+        "max": f.get("extent", [0, 0])[1]} for f in filters if current_app.dataset.is_num(f["name"])}
+    cat_filters = {f["name"]: {"categories": [str(cat) for cat in f['categories']] if f['categories'] is not None else 'all'} for f in filters 
+        if not current_app.dataset.is_num(f["name"])}
+    filters = {**num_filters, **cat_filters}
+    print(filters)
     index = current_app.dataset.get_subset(filters=filters).index.tolist()
     r_counterfactuals = current_app.cf_engine.generate_r_counterfactuals(filters, True, True, verbose=True)
     r_counterfactuals_data = [r_counterfactuals.subsets[f].all.values.tolist() for f in current_app.dataset.features]
@@ -85,7 +89,9 @@ def get_cf_subset():
 def predict_instance():
     request_params = request.get_json()
     query_instance = request_params['queryInstance']
-    return current_app.model.report(x=query_instance)[current_app.dataset.prediction]
+    print(query_instance)
+    pred = current_app.model.report(x=query_instance)[current_app.dataset.prediction]
+    return str(pred.values[0])
 
 @api.route('/counterfactuals', methods=['GET', 'POST'])
 def get_cf_instance():
@@ -109,5 +115,7 @@ def get_cf_instance():
 
     print(X, setting)
     
-    cfs = current_app.cf_engine.generate_cfs_from_setting(X, setting)
+    cfs = current_app.cf_engine.generate_cfs_from_setting(X, setting).all[current_app.dataset.features + [current_app.dataset.prediction]]
+
+    print(jsonify(cfs.values.tolist()))
     return jsonify(cfs.values.tolist())
