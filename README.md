@@ -1,45 +1,67 @@
-# counterfactuals
+# DECE: decision explorer with counterfactual explanations for machine learning models
+
+![teaser](./doc/teaser.png)
+
+
+
+---
+
+# Installation
 
 ## Development
+**STEP-0: Clone the repository.**
 
-### Model
+    git clone https://github.com/ChengFR/DECE.git
 
-Install dependencies:
+**STEP-1: Prepare for the environment.**
 
-```bash
-pip install -r requirements.txt
-```
+Prepare for the python enviroment:
 
-Add PYTHONPATH:
-```
-export PYTHONPATH=`pwd`/cf_ml:$PYTHONPATH
-```
+    virtualenv $(python3.7) venv/
+    source venv/bin/activate
+    pip install -r requirements.txt
 
-Train model:
+Prepare for the node.js enviroment:
 
-```
-python cf_ml/train.py HELOC MLP
-```
+    cd client/
+    npm install
+
+**STEP-2: Add the current path to PYTHONPATH.**
+
+    export PYTHONPATH=`pwd`:$PYTHONPATH
+
+# Usage
+
+## Generate counterfactual explanations 
+
+Please check the tutorial notebooks
+
+## Visualization
 
 ### Server
 
 Start server:
 ```bash
-python -m server.cli --debug
+python -m server.cli
 ```
 
 ### Client
 
-Setup:
-
-```bash
-cd client
-yarn install
-```
-
 Start client development server:
 ```
-yarn start
+cd client/
+npm start
 ```
 
-Visit `localhost:3000/HELOC/linear` for testing.
+Visit `localhost:3000/` for testing.
+
+# Cite this work
+    @ARTICLE{cheng20dece,
+    author={F. {Cheng} and Y. {Ming} and H. {Qu}},
+    journal={IEEE Transactions on Visualization and Computer Graphics}, 
+    title={DECE: Decision Explorer with Counterfactual Explanations for Machine Learning Models}, 
+    year={2020},
+    volume={},
+    number={},
+    pages={1-1},
+    doi={10.1109/TVCG.2020.3030342}}
