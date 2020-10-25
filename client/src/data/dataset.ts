@@ -61,9 +61,9 @@ export class DataMeta {
   // add index attribute
   public index?: FeatureDisc;
   constructor(input: DataMetaInput) {
-    this.features = input.features;
+    this.features = input.features.map(f => validateFeatureDisc(f));
     this.target = input.target?validateFeatureDisc(input.target):undefined;
-    this.prediction = input.prediction;
+    this.prediction = input.prediction?validateFeatureDisc(input.prediction):undefined;;
     this.index = input.index;
     this.name2feature = _.keyBy(this.features, (f) => f.name);
   }

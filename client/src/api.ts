@@ -53,25 +53,8 @@ export async function getDataset(params: {
   return new Dataset(dataFrame, dataMeta);
 }
 
-// export interface CounterFactual {
-//   features: (string | number)[];
-//   prediction: number
-// }
-
 export type CounterFactual = (string | number)[];
 
-// export type NumFilter = {
-//   id: number,
-//   min?: number,
-//   max?: number,
-// }
-
-// export type CatFilter = {
-//   id: number,
-//   categories?: string[],
-// }
-
-// export type Filter = NumFilter | CatFilter;
 export type Filter = {
   name: string,
   extent?: [number, number],
@@ -117,28 +100,6 @@ export async function getSubsetCF(params: {filters: Filter[]
   console.log(data)
   return data;
 }
-
-export async function getCFs(params: {
-  dataId: string;
-  modelId: string;
-  startIndex?: number;
-  stopIndex?: number;
-  index?: number[];
-}): Promise<CFResponse[]> {
-  const { index, ...rest } = params;
-  const url = `${API}/cf`;
-  const response = await axios.post(
-    url,
-    { index },
-    {
-      params: rest,
-      headers: { "content-type": "application/json" }
-    }
-  );
-  const data = checkResponse(response, []);
-  return data;
-}
-
 
 export async function GetInstanceCF(
   params: QueryParams

@@ -2,13 +2,7 @@ import * as React from "react";
 import { Switch, Icon, Spin } from "antd";
 import _ from "lodash";
 import memoizeOne from "memoize-one";
-import {
-  InfiniteLoader,
-  SectionRenderedParams,
-  Index,
-  IndexRange,
-  InfiniteLoaderChildProps
-} from "react-virtualized";
+import {Index, IndexRange} from "react-virtualized";
 import { CFResponse, SubsetCFResponse, Filter, getSubsetCF, CounterFactual } from "api";
 import { Dataset, DataMeta, DataFrame, IColumn, CFSubset, CFDataFrame } from "data";
 import Panel from "components/Panel";
@@ -24,15 +18,12 @@ import {
   expandRows,
   collapseRows
 } from "./table_state";
-import StackedFeature from "../visualization/stackedFeature";
-import FeatureCF from "components/visualization/counterfactuals";
 import {
   TableColumn,
   changeColumnWidth,
-  createColumn,
   ITableProps
 } from "../Table";
-import { number2string, notEmpty } from "common/utils";
+import { number2string } from "common/utils";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
@@ -58,12 +49,6 @@ const headerRowHeights = [30, headerChartHeight];
 
 const headerRowHeight = (params: { index: number }) => {
   return headerRowHeights[params.index];
-}
-
-interface ILoadableTableProps extends ITableProps {
-  isRowLoaded: (params: Index) => boolean;
-  loadMoreRows: (params: IndexRange) => Promise<any>;
-  tableRef?: (instance: Table | null) => void;
 }
 
 export interface ICompactTableProps {
@@ -113,8 +98,6 @@ export default class CFTableView extends React.Component<
   private targetName: string;
   constructor(props: ICompactTableProps) {
     super(props);
-    // this.isRowLoaded = this.isRowLoaded.bind(this);
-    // this.loadMoreRows = this.loadMoreRows.bind(this);
     this.renderCell = this.renderCell.bind(this);
     this.renderHeaderCell = this.renderHeaderCell.bind(this);
     this.rowHeight = this.rowHeight.bind(this);
@@ -129,8 +112,6 @@ export default class CFTableView extends React.Component<
     this.onCollapseRow = this.onCollapseRow.bind(this);
     this.onSelectColumn = this.onSelectColumn.bind(this);
     this.onUpdateFilter = this.onUpdateFilter.bind(this);
-    // this.registerTableRef = this.registerTableRef.bind(this);
-    // this.loadCF = this.loadCF.bind(this);
     this.onSwitchCF = this.onSwitchCF.bind(this);
     this.onSwichAxis = this.onSwichAxis.bind(this);
     this.onSubsetFocusOnClass = this.onSubsetFocusOnClass.bind(this);
@@ -154,6 +135,7 @@ export default class CFTableView extends React.Component<
     featCols.forEach((col, i) => col.onChangeColumnWidth = this.onChangeColumnWidth.bind(this, this.featNames[i]));
     const predCol = createVColumn(predDisc) as CatTableColumn;
     predCol.onChangeColumnWidth = this.onChangeColumnWidth.bind(this, this.predName);
+
     this.state = {
       subsets: [this.props.defaultSubset],
       focusedDFProto: focusedDF,
@@ -219,12 +201,6 @@ export default class CFTableView extends React.Component<
   });
 
   public componentDidUpdate(prevProps: ICompactTableProps, prevState: ICompactTableState) {
-    // if (prevProps.dataset !== this.props.dataset) {
-    //   // const newState = this.changeDataFrame(
-    //   //   this.props.dataset.reorderedDataFrame
-    //   // );
-    //   // this.setState(newState);
-    // }
     this._cacheSubsets();
   }
 
@@ -308,10 +284,8 @@ export default class CFTableView extends React.Component<
 
   onChangeColumnWidth(columnName: string, width: number) {
     const { predCol, featCols } = this.state;
-    // const columns = [predCol, ...featCols];
     const colNames = [this.predName, ...this.featNames];
     const index = colNames.findIndex(c => c === columnName);
-    // columns.splice(index, 1, changeColumnWidth(columns[index], width));
     if (index === -1) {
       throw "Cannot find the correponding column in updating column width.";
     }
@@ -800,26 +774,6 @@ export default class CFTableView extends React.Component<
     this.setState({ focusedClass: newClass });
   }
 
-  // async loadMoreRows(params: IndexRange) {
-  //   // return;
-  //   const startRow = this.state.rows[params.startIndex];
-  //   const endRow = this.state.rows[params.stopIndex];
-  //   console.debug(this.state.dataFrame.index);
-
-  //   let index = this.state.dataFrame.index.slice(
-  //     isExpandedRow(startRow) ? startRow.dataIndex : startRow.startIndex,
-  //     isExpandedRow(endRow) ? endRow.dataIndex : endRow.endIndex
-  //   );
-  //   console.debug(index);
-  //   const filteredIndex = index.filter(i => !this.loadedCFs[i]);
-  //   console.debug(filteredIndex);
-  //   const cfs = await this.props.getCFs({index: filteredIndex});
-  //   cfs.forEach(cf => {
-  //     this.loadedCFs[cf.index] = cf;
-  //   });
-  //   return cfs;
-  // }
-
   featureIdx2CFIdx = memoizeOne((dataFrame: DataFrame, cfMeta: DataMeta) => {
     return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
   });
@@ -888,6 +842,3 @@ const CornerInfo: React.FunctionComponent<ICornerInfoProps> = props => {
     </div>
   );
 };
-
-
-type CFSeries = (string | undefined)[] | (number | undefined)[];

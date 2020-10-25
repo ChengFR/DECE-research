@@ -6,19 +6,13 @@ import {
   useParams
 } from "react-router-dom";
 
-// import { Responsive, WidthProvider } from "react-grid-layout";
-
-import { Layout } from "antd"
-
-import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance, getDataMeta, Filter } from './api';
+import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, predictInstance, getDataMeta, Filter } from './api';
 import { Dataset, DataMeta, CFSubset, buildDataFrame, CFDataFrame, DataFrame, validateData } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CompactTable from "./components/CompactTable";
 import InstanceView from "./components/InstanceView"
 import { assert } from "common/utils";
-
-const { Header, Content, Sider } = Layout;
 
 export interface IAppProps {
   dataId: string;
@@ -70,9 +64,6 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   public async updateData() {
-
-    // this.loadQueryInstance();
-    // this.loadQueryResults();
   }
 
   public async getSubset(params: { filters: Filter[] }) {
@@ -85,7 +76,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       const cfDataFrames = CFMeta.features.map((feat, i) => {
         const columns = [CFMeta.prediction!, ...CFMeta.features].sort((a, b) => a.index - b.index);
         const cfDf = new DataFrame({ data: validateData(cfData[i], columns), columns: columns });
-        console.log(df.length, cfDf.length)
+        console.log(params.filters, df.length, cfDf.length)
         assert(df.length === cfDf.length);
 
         const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);
