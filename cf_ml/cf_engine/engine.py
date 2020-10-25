@@ -24,7 +24,7 @@ DEFAULT_CONFIG = {
     'feature_weights': 'mads',
     'validity_weight': 1,
     'proximity_weight': 0.01,
-    'diversity_weight': 0,
+    'diversity_weight': 0.01,
     'lr': 0.01,
     'min_iter': 500,
     'max_iter': 2000,
@@ -133,6 +133,7 @@ class CFEnginePytorch:
 
         data_num = len(X)
         mask = self._gradient_mask_by_setting(setting)
+        print(mask)
         if_sparse = self._if_sparse(setting)
         weights = self._feature_weights()
         min_values = self._generate_min_array(setting)
@@ -152,13 +153,13 @@ class CFEnginePytorch:
 
             # STEP-0: select top-k important features and update the mask if sparsity is required
             if if_sparse:
-                cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, weights, min_values, max_values)
+                cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, n, weights, min_values, max_values)
                 top_k_features = self._topk_features(cfs, original_X)
                 # update the mask with the top-k important feaures
                 mask = self._gradient_mask(top_k_features)
             
             # STEP-1: optimize the counterfactual examples
-            cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, weights, min_values, max_values)
+            cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, n, weights, min_values, max_values)
 
             # STEP-2: refine counterfactual examples
             cfs = self._refine(cfs, original_X, targets, mask, n, weights, min_values, max_values)
@@ -194,8 +195,9 @@ class CFEnginePytorch:
 
         # set the mask of banned categories to 0
         for feature, range in cf_range.items():
-            if 'categories' in range:
-                mask[self._dataset.get_dummy_columns(feature, range['categories'])] = 0
+            if not self._dataset.is_num(feature) and 'categories' in range:
+                mask[self._dataset.get_dummy_columns(feature)] = 0
+                mask[self._dataset.get_dummy_columns(feature, range['categories'])] = 1
 
         return mask.values.squeeze()
 
@@ -216,13 +218,15 @@ class CFEnginePytorch:
 
         # set the max value of numerical features according to cf_range
         for feature, range in cf_range.items():
-            if 'max' in range:
+            if self._dataset.is_num(feature) and 'max' in range:
                 max_array[feature] = self._dataset.normalize_feature(feature, range['max'])
         
         # set the max value of banned categories to 0
         for feature, range in cf_range.items():
-            if 'categories' in range:
-                max_array[self._dataset.get_dummy_columns(feature, range['categories'])] = 0
+            if not self._dataset.is_num(feature) and 'categories' in range:
+                max_array[self._dataset.get_dummy_columns(feature)] = 0
+                max_array[self._dataset.get_dummy_columns(feature, range['categories'])] = 1
+            
 
         return max_array.values.squeeze()
 
@@ -234,7 +238,7 @@ class CFEnginePytorch:
 
         # set the min value of numerical features according to cf_range
         for feature, range in cf_range.items():
-            if 'min' in range:
+            if self._dataset.is_num(feature) and 'min' in range:
                 min_array[feature] = self._dataset.normalize_feature(feature, range['min'])
 
         return min_array.values.squeeze()
@@ -276,13 +280,20 @@ class CFEnginePytorch:
         if mask is None:
             mask = self._gradient_mask_by_setting(setting)
 
+        cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
+        changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
+        if isinstance(changeable_attr, str) and changeable_attr == 'all':
+            changeable_attr = self._dataset.features
+
         cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
         cfs += mask * np.random.rand(*cfs.shape) * 0.1
 
         for feature in self._dataset.categorical_features:
-            dummy_features = self._dataset.get_dummy_columns(feature)
-            # cfs[dummy_features] = softmax(np.random.rand(cfs.shape[0], len(dummy_features)), axis=1)
-            cfs[dummy_features] = np.ones((cfs.shape[0], len(dummy_features))) * 0.5
+            if feature in changeable_attr:
+                categories = cf_range[feature]["categories"] if feature in cf_range else None
+                dummy_features = self._dataset.get_dummy_columns(feature, categories=categories)
+                # cfs[dummy_features] = softmax(np.random.rand(cfs.shape[0], len(dummy_features)), axis=1)
+                cfs[dummy_features] = np.ones((cfs.shape[0], len(dummy_features))) * 0.5
 
         return cfs.values
 
@@ -373,7 +384,7 @@ class CFEnginePytorch:
                 for j in range(num):
                     start = i * num
                     end = (i + 1) * num
-                    diversity_loss += (1 - self._distance_quick(cfs[start: end], cfs[start + j]).mean(), weights, metric)
+                    diversity_loss += 1 - self._distance_quick(cfs[start: end], cfs[start + j], weights, metric).mean()
         else:
             raise NotImplementedError
         return diversity_loss
@@ -437,16 +448,16 @@ class CFEnginePytorch:
         else:
             return False
 
-    def _get_gradient(self, cfs, original_X, target, criterion, weight):
+    def _get_gradient(self, cfs, original_X, target, criterion, num, weight):
         """Get the gradients to the counterfactual examples according the mixed loss function."""
         pred = self._mm.forward(cfs)
-        loss = self._loss(cfs, original_X, pred, target, criterion, weight)
+        loss = self._loss(cfs, original_X, pred, target, criterion, num, weight)
 
         loss.backward()
         gradient = cfs.grad
         return gradient, pred
 
-    def _refine(self, cfs, original_X, targets, mask, weights=None, min_values=None, max_values=None, verbose=True):
+    def _refine(self, cfs, original_X, targets, mask, num, weights=None, min_values=None, max_values=None, verbose=True):
         """Refine the counterfactual examples."""
         numerical_feature_mask = self._gradient_mask(self._dataset.numerical_features)
         if weights is not None:
@@ -462,7 +473,7 @@ class CFEnginePytorch:
         for _ in range(self._config["post_steps"]):
             cfs.data = torch.from_numpy(self._dataset.preprocess_X(inv_cfs).values).float()
 
-            grad, pred = self._get_gradient(cfs, original_X, targets, criterion, weights)
+            grad, pred = self._get_gradient(cfs, original_X, targets, criterion, num, weights)
 
             if self._check_valid(pred, targets):
                 break
