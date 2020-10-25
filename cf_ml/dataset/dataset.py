@@ -29,6 +29,8 @@ class Dataset:
         self._numerical_features = list(filter(self.is_num, self._features))
         self._categorical_features = list(filter(lambda x: not self.is_num(x), self._features))
 
+        self._check_dataframe()
+
         self._feature_scaler = MinMaxScaler()
         self._fit_normalizer()
         self._fit_one_hot_encoder()
@@ -64,6 +66,13 @@ class Dataset:
                 clean_description[col]['categories'] = info.get('category', self._data[col].unique().tolist())
 
         return clean_description
+
+    def _check_dataframe(self):
+        """Check the stringify the categorical data in the dataframe."""
+        for col in self.columns:
+            if not self.is_num(col):
+                self._data[col] = self._data[col].apply(lambda x: str(x))  
+                self._description[col]['categories'] = [str(cat) for cat in self._description[col]['categories']]
 
     def is_num(self, column_name):
         """Check whether the type of the column is numerical."""
@@ -144,7 +153,12 @@ class Dataset:
         return category_value
     
     def _any2df(self, data, columns):
+        if isinstance(data, dict):
+            return pd.DataFrame.from_dict(data, columns=columns)
+        elif isinstance(data, list):
+            data = [data]
         return pd.DataFrame(data, columns=columns)
+
 
     def preprocess(self, data):
         """Pre-process data, including both feature values and target values."""

@@ -10,7 +10,7 @@ def load_german_credit_dataset():
     description = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/description.csv'),
                               index_col='name').to_dict('index')
     data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/refined.csv'))
-    description['Job']['category'] = [0, 1, 2, 3]
+    description['Job']['category'] = ['0', '1', '2', '3']
     description['Housing']['category'] = ['free', 'rent', 'own']
     description['Saving accounts']['category'] = ['unknown', 'little', 'moderate', 'rich', 'quite rich']
     return Dataset('german-credit-simplified', data_df, description, 'Risk')
@@ -34,5 +34,5 @@ def load_admission_dataset():
             if name == 'Admit':
                 info['category'] = info['category'].split(' ')
             else:
-                info['category'] = [int(cat) for cat in info['category'].split(' ')]
+                info['category'] = [cat for cat in info['category'].split(' ')]
     return Dataset('admission', data_df[list(description.keys())], description, 'Admit')
