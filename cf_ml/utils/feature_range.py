@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 
 def unique_range(range, universal_range):
     unique_range = copy.deepcopy(universal_range)
@@ -8,10 +9,10 @@ def unique_range(range, universal_range):
         concrete_v = {}
         if 'min' in v:
             scale = 0.1**unique_range[k]['decile']
-            concrete_v['min'] = max(int(v['min']/scale), unique_range[k]['min'])
+            concrete_v['min'] = max(math.ceil(v['min']/scale), unique_range[k]['min'])
         if 'max' in v:
             scale = 0.1**unique_range[k]['decile']
-            concrete_v['max'] = min(int(v['max']/scale), unique_range[k]['max'])
+            concrete_v['max'] = min(math.ceil(v['max']/scale), unique_range[k]['max'])
         if 'categories' in v:
             concrete_v['categories'] = v['categories']
         unique_range[k] = {**unique_range[k], **concrete_v}

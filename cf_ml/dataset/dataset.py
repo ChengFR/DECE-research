@@ -1,4 +1,6 @@
 import json
+import math
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -115,7 +117,7 @@ class Dataset:
         data[self.numerical_features] = self._feature_scaler.inverse_transform(data[self.numerical_features])
         # Refine the numerical feauture values with valid precisions.
         for f in self.numerical_features:
-            data[f] = (data[f] / self.description[f]['scale']).astype(int) * self.description[f]['scale']
+            data[f] = np.ceil(data[f] / self.description[f]['scale']) * self.description[f]['scale']
         return data
 
     def _to_dummy(self, data):

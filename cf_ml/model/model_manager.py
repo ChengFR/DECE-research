@@ -138,8 +138,10 @@ class PytorchModelManager(ModelManager):
     def report_on_instance(self, index):
         """Generate the report to an instance in the dataset. 
         The report includes (features, target, prediction)."""
-        instances = self._dataset.get_subset(index=index, preprocess=True)
-        report_df = self.report(instances[self._features], instances[self._target], preprocess=False)
+        instances = self._dataset.get_subset(index=index, preprocess=False)
+        report_df = self.report(instances[self._dataset.features], instances[self._dataset.target])
+        report_df[self._dataset.features] = instances[self._dataset.features]
+        report_df[self._dataset.target] = instances[self._dataset.target]
         return report_df.set_index(instances.index)
 
     # TODO: remove this function.
