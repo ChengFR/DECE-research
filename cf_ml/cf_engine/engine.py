@@ -101,6 +101,9 @@ class CFEnginePytorch:
             if use_cache and self._dir_manager.include_setting(subset_range, by_feature_cf_range):
                 subset_cf = CounterfactualExample(self._data_meta, 
                     self._dir_manager.load_subset_cf(subset_range, by_feature_cf_range))
+                if verbose:
+                    print("Load from cache... #instance: {}, validation rate: {:.3f}".format(len(subset_cf.all), 
+                        len(subset_cf.valid)/len(subset_cf.all)))
             else:
                 subset_cf = self.generate_cfs_from_setting(X, setting={'cf_range': by_feature_cf_range}, verbose=verbose)
 
@@ -132,8 +135,6 @@ class CFEnginePytorch:
         n = setting.get('num', DEFAULT_SETTING['num'])
 
         data_num = len(X)
-        mask = self._gradient_mask_by_setting(setting)
-        print(mask)
         if_sparse = self._if_sparse(setting)
         weights = self._feature_weights()
         min_values = self._generate_min_array(setting)
@@ -145,20 +146,25 @@ class CFEnginePytorch:
             checkpoint = timeit.default_timer()
             start_id = batch_num * batch_size
             end_id = min(batch_num * batch_size + batch_size, len(X))
+            
+            # generate the gradient mask according the setting
+            mask = self._gradient_mask_by_setting(setting)
+            print(mask)
 
             # init counterfactual values and targets
             original_X = self._expand_array(X.iloc[start_id: end_id].values, setting)
             targets = self._target_array(original_X, setting)
-            inited_cfs = self._init_cfs(original_X, setting)
 
             # STEP-0: select top-k important features and update the mask if sparsity is required
             if if_sparse:
+                inited_cfs = self._init_cfs(original_X, setting, mask)
                 cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, n, weights, min_values, max_values)
                 top_k_features = self._topk_features(cfs, original_X)
                 # update the mask with the top-k important feaures
-                mask = self._gradient_mask(top_k_features)
+                mask = self._gradient_mask_by_setting(setting, top_k_features)
             
             # STEP-1: optimize the counterfactual examples
+            inited_cfs = self._init_cfs(original_X, setting, mask)
             cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, n, weights, min_values, max_values)
 
             # STEP-2: refine counterfactual examples
@@ -185,10 +191,12 @@ class CFEnginePytorch:
                 mask[self._dataset.get_dummy_columns(feature)] = 1
         return mask.values.squeeze()
 
-    def _gradient_mask_by_setting(self, setting):
+    def _gradient_mask_by_setting(self, setting, changeable_attr=None):
         """Generate boolean mask array from setting."""
+
         cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
-        changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
+        if changeable_attr is None:
+            changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
 
         # set the mask of the unchangeable feature to 0
         mask = pd.DataFrame([self._gradient_mask(changeable_attr)], columns=self._dataset.dummy_features)
@@ -285,15 +293,19 @@ class CFEnginePytorch:
         if isinstance(changeable_attr, str) and changeable_attr == 'all':
             changeable_attr = self._dataset.features
 
+        # add random pertubations to features
         cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
         cfs += mask * np.random.rand(*cfs.shape) * 0.1
 
+        # assign random values to categorical dummy features
+        changeable_dummy_cat_attr = []
         for feature in self._dataset.categorical_features:
             if feature in changeable_attr:
                 categories = cf_range[feature]["categories"] if feature in cf_range else None
-                dummy_features = self._dataset.get_dummy_columns(feature, categories=categories)
-                # cfs[dummy_features] = softmax(np.random.rand(cfs.shape[0], len(dummy_features)), axis=1)
-                cfs[dummy_features] = np.ones((cfs.shape[0], len(dummy_features))) * 0.5
+                changeable_dummy_cat_attr.extend(self._dataset.get_dummy_columns(feature, categories=categories))
+        changeable_dummy_cat_attr = [attr for attr in changeable_dummy_cat_attr if mask[self._dataset.dummy_features.index(attr)]]
+
+        cfs[changeable_dummy_cat_attr] = np.ones((cfs.shape[0], len(changeable_dummy_cat_attr))) * 0.5
 
         return cfs.values
 
