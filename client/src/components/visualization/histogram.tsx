@@ -334,14 +334,7 @@ export class Histogram extends React.PureComponent<
       };
       window.setTimeout(delayedPaint, 100);
     }
-
-    // }
   }
-
-  // public shouldRePaint(prevProps: IHistogramProps, prevState: IHistogramState) {
-  //   const excludedProperties = new Set(["style", "svgStyle", "className"]);
-  //   !shallowCompare(this.props, prevProps, excludedProperties);
-  // }
 
   memoizedXScaler = memoizeOne(getScaleLinear);
 
@@ -742,34 +735,6 @@ export function drawGroupedHistogram(param: {
 
     selectorSheet.call(selector)
   }
-
-  // if (drawBand && bandValueFn) {
-  //   const svgDefs = getChildOrAppend(_root, 'defs', 'color-defs');
-  //   const colorGradient = getChildOrAppend(svgDefs, 'linearGradient', 'color-gradient')
-  //       .attr('id', `gini-gradient-${key}`)
-  //       // .attr("gradientUnits", "userSpaceOnUse")	
-  //       // .attr("x1", xRange[0]).attr("y1", xRange[0])			
-  //       // .attr("x2", xRange[1]).attr("y2", xRange[1])		;
-
-  //   colorGradient.selectAll("stop")
-  //     .data(layout.ticks)
-  //     .join<SVGStopElement>(enter => {
-  //       return enter.append("stop")
-  //       .attr("class", "color-stops")
-  //     })
-  //     .attr("offset", d => (d - layout.x.domain()[0]) / (layout.x.domain()[1] - layout.x.domain()[0] + 0.000001))
-  //     .attr("stop-color", d => d3.interpolateGreens(1 - bandValueFn(d) * 2))
-
-  //   const bandBase = getChildOrAppend(_root, "g", "color-band-base")
-  //     .attr(
-  //       "transform",
-  //       `translate(${margin.left}, ${yRange[1]})`
-  //     );
-  //   const band = getChildOrAppend(bandBase, "rect", "color-band")
-  //       .attr("x", xRange[0])
-  //       .attr("width", xRange[1] - xRange[0])
-  //       .style("fill", `url(#gini-gradient-${key})`);
-  // }
 
   if (rectStyle) {
     Object.keys(rectStyle).forEach(key => {

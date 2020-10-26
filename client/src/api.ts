@@ -97,7 +97,6 @@ export async function getSubsetCF(params: {filters: Filter[]
   const url = `${API}/r_counterfactuals`;
   const response = await axios.post(url, { ...params });
   const data = checkResponse(response, []);
-  console.log(data)
   return data;
 }
 

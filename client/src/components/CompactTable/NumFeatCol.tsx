@@ -511,8 +511,10 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     get impurity() {
         const { selectedRange: range } = this.state;
         if (this.originData && this.cfData && range) {
-            const posNum = this.originData[0] ? this.originData[0].length : 0 + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
-            const negNum = this.originData[1] ? this.originData[1].length : 0 + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const posNum = (this.originData[0] ? this.originData[0].length : 0) 
+                + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const negNum = (this.originData[1] ? this.originData[1].length : 0) 
+                + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
             const totalCount = posNum + negNum;
             return 1 - (posNum / totalCount) ** 2 - (negNum / totalCount) ** 2;
         }
@@ -543,7 +545,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
         // const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const node = this.svgRef.current;
         const color = this.props.color || defaultCategoricalColor;
-        if (!node || this.dataEmpty()) {
+        if (!node) {
             this.shouldPaint = false;
             return;
         }
@@ -721,11 +723,11 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     }
 
     private getGini(x: number) {
-        const { labelColumn: groupByColumn, column, CFColumn } = this.props;
+        const { labelColumn, column, CFColumn } = this.props;
         const data = column.series.toArray();
         const cf = CFColumn.series.toArray();
         const validArray: boolean[] = _.range(data.length).map((d) => data[d] !== cf[d]);
-        const groupArgs = groupByColumn && getRowLabels(groupByColumn);
+        const groupArgs = labelColumn && getRowLabels(labelColumn);
         // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
         // const geqValidFilter = validFilter && ((idx: number) => idx >= x && validFilter(idx));

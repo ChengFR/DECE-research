@@ -20,8 +20,8 @@ div.instance-body-container {
 
 div.instance-vis-container {
     position: absolute;
-    /* height: calc(100% - 250px); */
-    height: calc(100% - 120px);
+    height: calc(100% - 250px);
+    /* height: calc(100% - 120px); */
     overflow: scroll;
 }
 

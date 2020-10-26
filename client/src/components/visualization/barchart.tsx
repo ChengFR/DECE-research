@@ -24,20 +24,14 @@ type Category = {
 export interface IBarChartOptions extends ChartOptions {
   innerPadding: number;
   barWidth?: number;
-  // maxStep: number;
   rectStyle?: CSSPropertiesFn<SVGRectElement, Category>;
   selectedCategories?: string[];
   onSelectCategories?: (cat?: string[]) => any;
-  // onRectMouseOver?: d3.ValueFn<any, Category, void>;
-  // onRectMouseMove?: d3.ValueFn<any, Category, void>;
-  // onRectMouseLeave?: d3.ValueFn<any, Category, void>;
-  // allData?: Category[];
   xScale?: d3.ScaleBand<string>,
   color: (x: number) => string,
   direction: 'up' | 'down',
   renderShades?: boolean,
   drawAxis?: boolean,
-  // shadeColor?: boolean,
   twisty? :(idx: number) => number;
 }
 
@@ -229,6 +223,7 @@ export function drawBarChart(params: {
     })
     .on("click",function (data, idx) {
       const selectedCat = layout.x.domain()[idx];
+      console.log(selectedCat);
       if (_selectedCategories) {
         const indexOfCat = _selectedCategories.indexOf(selectedCat);
         if (indexOfCat > -1) {
@@ -242,6 +237,11 @@ export function drawBarChart(params: {
           rerenderShades();
           onSelectCategories && onSelectCategories(_selectedCategories);
         }
+      }
+      else {
+        _selectedCategories = [selectedCat];
+        rerenderShades();
+        onSelectCategories && onSelectCategories(_selectedCategories);
       }
     })
 

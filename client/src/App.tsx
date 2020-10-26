@@ -74,9 +74,8 @@ export class App extends React.Component<IAppProps, IAppState> {
       const cfResponse = await getSubsetCF(params);
       const cfData = cfResponse.counterfactuals;
       const cfDataFrames = CFMeta.features.map((feat, i) => {
-        const columns = [CFMeta.prediction!, ...CFMeta.features].sort((a, b) => a.index - b.index);
+        const columns = [CFMeta.prediction!, CFMeta.target!, ...CFMeta.features].sort((a, b) => a.index - b.index);
         const cfDf = new DataFrame({ data: validateData(cfData[i], columns), columns: columns });
-        console.log(params.filters, df.length, cfDf.length)
         assert(df.length === cfDf.length);
 
         const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);

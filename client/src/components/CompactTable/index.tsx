@@ -318,7 +318,6 @@ export default class CFTableView extends React.Component<
     focusedDF.onChangeFilter(columnName, filter);
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
-    console.log(focusedDF.columns);
     this.setState({ focusedDF, rows: newRows });
   }
 
@@ -328,7 +327,6 @@ export default class CFTableView extends React.Component<
     focusedDF.onChangeCFFilter(columnName, filter);
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
-    console.log(focusedDF.columns);
     this.setState({ focusedDF, rows: newRows });
   }
 
@@ -353,6 +351,7 @@ export default class CFTableView extends React.Component<
   onCollapseRow(row: number) {
     const { rows, focusedDF } = this.state;
     const state = rows[row];
+    console.log(row);
     if (isExpandedRow(state)) {
       const newRows = collapseRows(rows, state.index, state.index + 1);
       console.debug("Collapse row", row, focusedDF.index[state.index], newRows);
@@ -649,7 +648,7 @@ export default class CFTableView extends React.Component<
       const cfVal = cfData[row.index];
       const originStr = typeof (originVal) === 'string' ? originVal : originVal.toFixed(column.precision);
       if (originVal === cfVal) {
-        return <div className="cell-content">
+        return <div className="cell-content" onClick={this.onCollapseRow.bind(this, rowIndex)}>
           <span>{`${originStr}`}</span>
         </div>
       }
@@ -658,7 +657,7 @@ export default class CFTableView extends React.Component<
         if (typeof (originVal) === 'number' && typeof (cfVal) === 'number') {
           color = originVal > cfVal ? "#c06f5b" : "#9dbd78";
         }
-        return <div className="cell-content">
+        return <div className="cell-content" onClick={this.onCollapseRow.bind(this, rowIndex)}>
           <div className="cell-content-container">
             <span>{`${originStr}`}</span>
             <svg viewBox="0 0 200 200" height="60%" className="cell-triangle">
@@ -743,16 +742,6 @@ export default class CFTableView extends React.Component<
     return labelColumn && this._getRowLabels(labelColumn);
   }
 
-  // isRowLoaded({ index }: Index): boolean {
-  //   // return ;
-  //   // if (this.state.showCF) {
-  //   //   // index is the indx of the cell (rowState)
-  //   //   const rowState = this.state.rows[index];
-  //   //   return Boolean(rowState.cfLoaded);
-  //   // }
-  //   return true;
-  // }
-
   onSwitchCF(showCF: boolean) {
     this.setState({ showCF });
     // this.loaderRef?.resetLoadMoreRowsCache(true);
@@ -807,7 +796,7 @@ export default class CFTableView extends React.Component<
     const { defaultSubset } = this.props;
     const filters = subsets.map(subset => subset.filters);
     const index = defaultSubset.dataMeta.features[0].name;
-    // localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
+    localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
   }
 
   async _loadSubsetCache() {

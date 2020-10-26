@@ -81,7 +81,6 @@ export function infuseCol(vcol: VColumn, icol: IColumn): TableColumn {
 export function changeColumnWidth(column: VColumn, width: number) {
   if (width === column.width) return column;
   const chartWidth = width - columnMargin.left - columnMargin.right;
-  console.log(column);
   if (isNumericalVColumn(column)) {
     return {
       ...column,
