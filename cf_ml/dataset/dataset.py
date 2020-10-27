@@ -117,7 +117,7 @@ class Dataset:
         data[self.numerical_features] = self._feature_scaler.inverse_transform(data[self.numerical_features])
         # Refine the numerical feauture values with valid precisions.
         for f in self.numerical_features:
-            data[f] = np.ceil(data[f] / self.description[f]['scale']) * self.description[f]['scale']
+            data[f] = np.ceil(data[f].astype(float) / self.description[f]['scale']) * self.description[f]['scale']
         return data
 
     def _to_dummy(self, data):
