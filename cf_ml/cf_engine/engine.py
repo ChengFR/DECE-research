@@ -28,11 +28,12 @@ DEFAULT_CONFIG = {
     'lr': 0.01,
     'min_iter': 500,
     'max_iter': 2000,
-    'project_frequency': 100,
+    'project_frequency': 250,
     'post_steps': 10,
     'batch_size': 1024,
     'loss_diff': 1e-5,
-    "refine_with_topk": -1
+    "refine_with_topk": -1,
+    'perturbation': 'unit'
 }
 
 class CFEnginePytorch:
@@ -54,6 +55,7 @@ class CFEnginePytorch:
             batch_size: number, the size of the mini-batch;
             loss_diff: number, the minimal loss difference for an early stop of the optimization procedure;
             refine_with_topk: number, the number of features to update in one iteration in the refinement procedure.
+            perturbation: 'unit', 'random' or 'none', the method used to perturb the dummy features. 
     """
 
     def __init__(self, dataset, model_manager, config=DEFAULT_CONFIG):
@@ -149,7 +151,6 @@ class CFEnginePytorch:
             
             # generate the gradient mask according the setting
             mask = self._gradient_mask_by_setting(setting)
-            print(mask)
 
             # init counterfactual values and targets
             original_X = self._expand_array(X.iloc[start_id: end_id].values, setting)
@@ -284,7 +285,7 @@ class CFEnginePytorch:
         return target
 
     def _init_cfs(self, X, setting, mask=None):
-        """Initialize counterfactual examples with random pertubation."""
+        """Initialize counterfactual examples with random perturbation."""
         if mask is None:
             mask = self._gradient_mask_by_setting(setting)
 
@@ -293,7 +294,7 @@ class CFEnginePytorch:
         if isinstance(changeable_attr, str) and changeable_attr == 'all':
             changeable_attr = self._dataset.features
 
-        # add random pertubations to features
+        # add random perturbations to features
         cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
         cfs += mask * np.random.rand(*cfs.shape) * 0.1
 
@@ -305,7 +306,14 @@ class CFEnginePytorch:
                 changeable_dummy_cat_attr.extend(self._dataset.get_dummy_columns(feature, categories=categories))
         changeable_dummy_cat_attr = [attr for attr in changeable_dummy_cat_attr if mask[self._dataset.dummy_features.index(attr)]]
 
-        cfs[changeable_dummy_cat_attr] = np.ones((cfs.shape[0], len(changeable_dummy_cat_attr))) * 0.5
+        if self._config["perturbation"] == 'unit':
+            cfs[changeable_dummy_cat_attr] = np.ones((cfs.shape[0], len(changeable_dummy_cat_attr))) * 0.5
+        elif self._config["perturbation"] == 'random':
+            cfs[changeable_dummy_cat_attr] = softmax(np.random.rand(*cfs[changeable_dummy_cat_attr].shape), axis=1)
+        elif self._config["perturbation"] == 'none':
+            pass
+        else:
+            raise NotImplementedError
 
         return cfs.values
 
