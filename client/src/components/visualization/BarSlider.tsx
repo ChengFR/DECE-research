@@ -51,9 +51,6 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
         const {className, height, width, svgStyle, style} = this.props;
 
         return <div className={(className || "") + " histslides"} style={{ ...style, width: width + 250 }}>
-        {/* <div style={{width: 40, height: height, float: "left"}}>
-            <span></span>
-        </div> */}
         <div style={{ width: width, float: "left" }}>
             <svg
                 style={svgStyle}

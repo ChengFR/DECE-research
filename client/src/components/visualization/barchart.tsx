@@ -284,8 +284,6 @@ export class BarChart extends React.PureComponent<
 
     this.state = { hoveredCategory: null };
     this.paint = this.paint.bind(this);
-    // this.onMouseOverBar = this.onMouseOverBar.bind(this);
-    // this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
   }
 
   count = memoizeOne(countCategories);
@@ -295,16 +293,11 @@ export class BarChart extends React.PureComponent<
     if (svg) {
       console.debug("rendering bar chart");
       const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
-      // const barData = this.count(data, xScale.domain());
-      // const allBars = allData && this.countAll(allData, xScale.domain());
       drawBarChart(
         {svg, data, allData, dmcData: data, options: {
         ...rest,
-        // height: height - 20,
         xScale,
         height: height,
-        // onRectMouseOver: this.onMouseOverBar,
-        // onRectMouseLeave: this.onMouseLeaveBar,
       }});
       this.shouldPaint = false;
     }
@@ -346,22 +339,9 @@ export class BarChart extends React.PureComponent<
           width={width}
           height={height}
         />
-        {/* <div className="info">
-          {hoveredCategory
-            ? `${hoveredCategory}`
-            : `${barData.length} Categories`}
-        </div> */}
       </div>
     );
   }
-
-  // onMouseOverBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = data => {
-  //   this.setState({ hoveredCategory: data.name });
-  // };
-
-  // onMouseLeaveBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = () => {
-  //   this.setState({ hoveredCategory: null });
-  // };
 }
 
 export default BarChart;

@@ -404,17 +404,11 @@ export default class CFTableView extends React.Component<
   }
 
   renderHeaderCell(props: CellProps) {
-    const { rowIndex } = props;
-    if (rowIndex === 0) return undefined;
-    return this._chartCellRenderer(props);
-  }
-
-  _chartCellRenderer(cellProps: CellProps) {
     // const { columnIndex } = cellProps;
-    const columnIndex = cellProps.columnIndex;
+    const { columnIndex, rowIndex } = props;
     const { featCols, predCol, focusedClass, focusedDF, focusedDFProto } = this.state;
-    // const column = columns[columnIndex];
-    // const { width } = column;
+    
+    if (rowIndex === 0) return undefined;
     console.debug("render chart cell");
     if (columnIndex === 0) {
       return <LabelColumn
@@ -550,6 +544,9 @@ export default class CFTableView extends React.Component<
       const protoCol = this.props.defaultSubset.getFeatures(featIndex)[featIndex];
 
       if (isNumericalVColumn(column) && isNumericalVColumn(CFColumn)) {
+        if (column.name === 'Age') {
+          console.log(Math.min.apply(null, CFColumn.series.toArray()))
+        }
         return <NumSubsetFeatCol
           className={`subset-chart`}
           width={column.width}

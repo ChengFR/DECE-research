@@ -504,7 +504,7 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
         const { handleAnn, sankeyHeight } = CatSubsetFeatCol.layout;
         const node = this.svgRef.current;
         const color = this.props.color || defaultCategoricalColor;
-        if (!node || this.dataEmpty()) {
+        if (!node) {
             this.shouldPaint = false;
             return;
         }
