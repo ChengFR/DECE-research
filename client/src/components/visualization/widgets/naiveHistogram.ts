@@ -1,3 +1,5 @@
+// TODO: remove this component and use histogram.tsx instead.
+
 import * as d3 from "d3";
 import * as _ from "lodash";
 import {
@@ -6,8 +8,8 @@ import {
     ChartOptions,
     getChildOrAppend,
     getScaleLinear
-} from "./common";
-import './_histogram.scss'
+} from "../common";
+import './naiveHistogram.scss'
 
 export interface HistOption extends ChartOptions {
     range?: [number, number];

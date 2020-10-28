@@ -1,6 +1,7 @@
+// TODO: remove this component and use barchart.tsx instead.
+
 import * as d3 from "d3";
 import * as _ from "lodash";
-// import {SwapRightOutlined} from '@ant-design/icons';
 import {
     getMargin,
     CSSPropertiesFn,
@@ -8,8 +9,8 @@ import {
     getChildOrAppend,
     countCategories,
     getScaleBand
-} from "./common";
-import './_barchart.scss'
+} from "../common";
+import './naiveBarchart.scss'
 
 export interface BarOption extends ChartOptions {
     selectedBars?: string[];

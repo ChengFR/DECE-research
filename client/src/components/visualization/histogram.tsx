@@ -16,7 +16,7 @@ import { transMax, argMin } from '../../common/math'
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 import { defaultCategoricalColor } from './common';
-import "./histogram.scss";
+import "./Histogram.scss";
 
 function isArrays<T>(a: T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
@@ -826,12 +826,10 @@ export class HistogramLayout {
   }
 
   public get xRange(): [number, number] {
-    // return [this._margin.left, this._width - this._margin.right];
     return [0, this._width - this._margin.left - this._margin.right]
   }
 
   public get yRange(): [number, number] {
-    // return [this._margin.top, this._height - this._margin.bottom];
     return [0, this._height - this._margin.bottom - this._margin.top];
   }
 
@@ -851,9 +849,6 @@ export class HistogramLayout {
     return this._data.map(d => histogram(d));
   }
 
-  // public get flattenData() {
-  //   return this._data.
-  // }
   public xScale(newx: d3.ScaleLinear<number, number>) {
     this._xScale = newx;
     return this;

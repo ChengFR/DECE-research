@@ -1,9 +1,7 @@
 import * as d3 from 'd3';
-import * as React from 'react';
 import * as _ from "lodash";
-import memoizeOne from "memoize-one";
 
-import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight, ChartOptions } from '../visualization/common';
+import { IMargin, defaultCategoricalColor, getChildOrAppend, ChartOptions } from '../visualization/common';
 import { SankeyBins } from 'components/CompactTable/common';
 
 export interface LinkOptions<T> extends ChartOptions{

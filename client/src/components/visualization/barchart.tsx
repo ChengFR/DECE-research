@@ -11,7 +11,7 @@ import {
 } from "./common";
 import memoizeOne from "memoize-one";
 import { countCategories, defaultCategoricalColor } from './common';
-import "./barchart.scss";
+import "./Barchart.scss";
 import { isArrays } from "components/CompactTable/common";
 import _ from "lodash";
 import { transMax } from "common/math";
@@ -434,9 +434,6 @@ export class BarChartLayout {
 
   private count = memoizeOne(countCategories);
 
-  // public get flattenData() {
-  //   return this._data.
-  // }
   public xScale(newx: d3.ScaleBand<string>) {
     this._xScale = newx;
     return this;
