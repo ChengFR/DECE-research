@@ -8,7 +8,7 @@ import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { drawLink } from '../visualization/link'
 import { CatTableColumn } from 'components/Table';
-import { drawBarChart } from 'components/visualization/barchart';
+import { drawBarChart } from 'components/visualization/Barchart';
 
 export interface CatFeatColProps extends FeatureColumnProps {
     column: CatTableColumn;

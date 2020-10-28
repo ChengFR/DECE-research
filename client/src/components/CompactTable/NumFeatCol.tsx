@@ -5,7 +5,7 @@ import memoizeOne from "memoize-one";
 
 
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight } from '../visualization/common';
-import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
+import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/Histogram';
 import { getRowLabels, FeatureColumnProps, SankeyBins } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
