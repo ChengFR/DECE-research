@@ -135,6 +135,7 @@ class CFEnginePytorch:
         """
         batch_size = self._config["batch_size"]
         n = setting.get('num', DEFAULT_SETTING['num'])
+        k = setting.get('k', DEFAULT_SETTING['k'])
 
         data_num = len(X)
         if_sparse = self._if_sparse(setting)
@@ -160,9 +161,9 @@ class CFEnginePytorch:
             if if_sparse:
                 inited_cfs = self._init_cfs(original_X, setting, mask)
                 cfs, _, loss, iter = self._optimize(inited_cfs, original_X, targets, mask, n, weights, min_values, max_values)
-                top_k_features = self._topk_features(cfs, original_X)
+                top_k_features = self._topk_features(cfs, original_X, k)
                 # update the mask with the top-k important feaures
-                mask = self._gradient_mask_by_setting(setting, top_k_features)
+                mask = np.array([self._gradient_mask_by_setting(setting, top_k) for top_k in top_k_features])
             
             # STEP-1: optimize the counterfactual examples
             inited_cfs = self._init_cfs(original_X, setting, mask)
@@ -205,8 +206,9 @@ class CFEnginePytorch:
         # set the mask of banned categories to 0
         for feature, range in cf_range.items():
             if not self._dataset.is_num(feature) and 'categories' in range:
+                cached_mask = mask[self._dataset.get_dummy_columns(feature, range['categories'])]
                 mask[self._dataset.get_dummy_columns(feature)] = 0
-                mask[self._dataset.get_dummy_columns(feature, range['categories'])] = 1
+                mask[self._dataset.get_dummy_columns(feature, range['categories'])] = cached_mask
 
         return mask.values.squeeze()
 
@@ -256,15 +258,9 @@ class CFEnginePytorch:
         """Generate weights to all attributes."""
         if self._config['feature_weights'] == 'mads':
             mads = self._dataset.get_mads()
-            if dummy:
-                weights = np.array([round(1 / (1 + mads.get(f, 1)), 3) for f in self._dataset.dummy_features])
-            else:
-                weights = np.array([round(1 / (1 + mads[f]), 3) for f in self._dataset.features])
+            weights = np.array([round(1 / (1 + mads.get(f, 1)), 3) for f in self._dataset.dummy_features])
         elif self._config['feature_weights'] == 'unit':
-            if dummy:
-                weights = np.ones(len(self._dataset.dummy_features))
-            else:
-                weights = np.ones(len(self._dataset.features))
+            weights = np.ones(len(self._dataset.dummy_features))
         else:
             raise NotImplementedError
         return weights
@@ -289,6 +285,9 @@ class CFEnginePytorch:
         if mask is None:
             mask = self._gradient_mask_by_setting(setting)
 
+        num_mask = self._gradient_mask(self._dataset.numerical_features) * mask
+        cat_mask = self._gradient_mask(self._dataset.categorical_features) * mask
+
         cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
         changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
         if isinstance(changeable_attr, str) and changeable_attr == 'all':
@@ -296,20 +295,15 @@ class CFEnginePytorch:
 
         # add random perturbations to features
         cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
-        cfs += mask * np.random.rand(*cfs.shape) * 0.1
+        cfs += num_mask * np.random.rand(*cfs.shape) * 0.1
 
         # assign random values to categorical dummy features
-        changeable_dummy_cat_attr = []
-        for feature in self._dataset.categorical_features:
-            if feature in changeable_attr:
-                categories = cf_range[feature]["categories"] if feature in cf_range else None
-                changeable_dummy_cat_attr.extend(self._dataset.get_dummy_columns(feature, categories=categories))
-        changeable_dummy_cat_attr = [attr for attr in changeable_dummy_cat_attr if mask[self._dataset.dummy_features.index(attr)]]
-
         if self._config["perturbation"] == 'unit':
-            cfs[changeable_dummy_cat_attr] = np.ones((cfs.shape[0], len(changeable_dummy_cat_attr))) * 0.5
+            cfs -= cat_mask * cfs
+            cfs += cat_mask * np.ones((cfs.shape[0], cat_mask.shape[-1])) * 0.5
         elif self._config["perturbation"] == 'random':
-            cfs[changeable_dummy_cat_attr] = softmax(np.random.rand(*cfs[changeable_dummy_cat_attr].shape), axis=1)
+            cfs -= cat_mask * cfs
+            cfs += softmax(np.random.rand(cfs.shape[0], cat_mask.shape[-1]), axis=1)
         elif self._config["perturbation"] == 'none':
             pass
         else:
@@ -322,12 +316,20 @@ class CFEnginePytorch:
         n = setting.get('num', DEFAULT_SETTING['num'])
         return np.repeat(array, n, axis=0)
 
-    def _topk_features(self, cfs, original_X):
+    def _topk_features(self, cfs, original_X, k):
         """Get the name of top-k features according to normalized difference from their original values"""
-        feature_weights = self._feature_weights(dummy=False)
-        difference = self._dataset.inverse_preprocess_X(cfs) - self._dataset.inverse_preprocess_X(original_X)
-        topk_features_index = abs(feature_weights * difference.values).argsort(dim=1, descending=True)[:, :k]
-        return [self._dataset.features[i] for i in topk_features_index]
+        feature_weights = self._feature_weights()
+        cfs = self._dataset.preprocess_X(self._dataset.inverse_preprocess_X(cfs))
+        original_X = self._dataset.preprocess_X(self._dataset.inverse_preprocess_X(original_X))
+        diff = pd.DataFrame(abs(cfs - original_X) * feature_weights, columns=self._dataset.dummy_features)
+        aggr_diff = pd.DataFrame(columns=self._dataset.features)
+        aggr_diff[self._dataset.numerical_features] = diff[self._dataset.numerical_features]
+        for feature in self._dataset.categorical_features:
+            dummies = self._dataset.get_dummy_columns(feature)
+            # if a categorical feature value is changed, then the difference is 1, else 0
+            aggr_diff[feature] = diff[dummies].max(axis=1)
+        index_mat = aggr_diff.values.argsort(axis=1)[:, -k:]
+        return np.array(self._dataset.features)[index_mat]
 
     def _optimize(self, cfs, original_X, target, mask, num, weights=None, min_values=None, max_values=None):
         """Optimize the counterfactual examples according a mixed loss function through a gradient-based optimizer."""
