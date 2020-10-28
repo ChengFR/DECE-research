@@ -121,19 +121,6 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
   }
 
-  loadQueryInstance() {
-    // const { CFMeta } = this.state;
-    // if (CFMeta) {
-    //   const index = CFMeta.features[0].name;
-    //   const resultString = localStorage.getItem(`${index}-queryInstance`);
-    //   if (resultString) {
-    //     const queryInstance: CounterFactual = JSON.parse(resultString);
-    //     this.setState({ queryInstance });
-    //     console.log("queryInstance loaded");
-    //   }
-    // }
-  }
-
   cacheQueryResults() {
     const { CFMeta, queryResults } = this.state;
     if (CFMeta && queryResults) {
@@ -143,26 +130,11 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
   }
 
-  loadQueryResults() {
-    // const { CFMeta } = this.state;
-    // if (CFMeta) {
-    //   const index = CFMeta.features[0].name;
-    //   const resultString = localStorage.getItem(`${index}-queryResults`);
-    //   if (resultString) {
-    //     const queryResults: CounterFactual[] = JSON.parse(resultString);
-    //     this.setState({ queryResults });
-    //     console.log("queryResults loaded");
-    //   }
-    // }
-  }
-
   public render() {
-    const { dataId, modelId } = this.props;
     const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, defaultSubsetCF } = this.state;
     return (
       <div className="App">
-        {dataset &&
-          (modelId && CFMeta && defaultSubsetCF ? (
+        { dataset && CFMeta && defaultSubsetCF && 
             <div className="main-container">
               {/* <div className="instance-view-container"> */}
               <InstanceView
@@ -173,26 +145,12 @@ export class App extends React.Component<IAppProps, IAppState> {
                 queryResults={queryResults}
                 queryInstanceClass={queryInstanceClass}
               />
-              {/* </div> */}
-              {/* <div className="table-view-container"> */}
               <CompactTable
-                // dataset={dataset}
-                // CFMeta={CFMeta}
-                // cfs={cfs}
-                // getCFs={(params) =>
-                //   getCFs({ dataId, modelId, ...params })
-                // }
-                // getCF={(index) => getCF({ dataId, modelId, index })}
                 getSubsetCF={this.getSubset}
                 defaultSubset={defaultSubsetCF}
-              // updateQueryInstance={this.updateQueryInstance}
               />
-              {/* </div> */}
             </div>
-          ) : (
-              // <TableView dataset={dataset} />
-              <div />
-            ))}
+          }
       </div>
     );
   }
@@ -203,7 +161,7 @@ function RoutedApp() {
     <Router>
       <Switch>
         <Route exact path="/">
-          <div>Use '/:dataId' to view the data.</div>
+          <Child />
         </Route>
         <Route path="/:dataId/:modelId?">
           <Child />
