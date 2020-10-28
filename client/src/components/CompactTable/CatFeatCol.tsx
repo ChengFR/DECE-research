@@ -367,6 +367,15 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
         this.shouldPaint = false;
     }
 
+    public componentWillReceiveProps(nextProps: CatSubsetFeatColProps){
+        // new props
+        if (nextProps != this.props) {
+            const { selectedCategories } = nextProps;
+            this.setState({ drawSankey: false, drawTooltip: false, selectedCategories: [...selectedCategories] });
+            this.updateParams(this.props);
+        }
+    }
+
     protected updateParams(props: CatSubsetFeatColProps) {
         const { column, CFColumn, labelColumn, focusedCategory, validFilter } = props;
 

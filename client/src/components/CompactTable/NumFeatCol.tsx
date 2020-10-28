@@ -410,6 +410,15 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
         this.shouldPaint = false;
     }
 
+    public componentWillReceiveProps(nextProps: NumSubsetFeatColProps){
+        // new props
+        if (nextProps != this.props) {
+            const { selectedRange } = nextProps;
+            this.setState({ drawSankey: false, drawTooltip: false, selectedRange });
+            this.updateParams(this.props);
+        }
+    }
+
     protected updateParams(props: NumSubsetFeatColProps) {
         const { column, CFColumn, labelColumn, focusedCategory, validFilter } = props;
 

@@ -544,9 +544,8 @@ export default class CFTableView extends React.Component<
       const protoCol = this.props.defaultSubset.getFeatures(featIndex)[featIndex];
 
       if (isNumericalVColumn(column) && isNumericalVColumn(CFColumn)) {
-        if (column.name === 'Age') {
-          console.log(Math.min.apply(null, CFColumn.series.toArray()))
-        }
+        if (groupIndex == 1) 
+          console.log(subset.filters[featIndex].extent || column.extent);
         return <NumSubsetFeatCol
           className={`subset-chart`}
           width={column.width}
