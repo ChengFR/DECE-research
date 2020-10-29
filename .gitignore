@@ -1,9 +1,3 @@
-cf_ml/output
-output/
-sample_data/
-data/
-notebooks/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -143,3 +137,7 @@ dmypy.json
 # cached file
 .cached_file
 
+# customized
+output/
+sample_data/
+notebooks/
