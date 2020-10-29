@@ -331,7 +331,6 @@ export default class CFTableView extends React.Component<
   }
 
   onHover(row: number | null, column: number | null) {
-    // console.log(`hovering ${row} ${column}`);
     const { hovered } = this.state;
     if (hovered && row === hovered[0] && column === hovered[1]) return;
     if (row === null || column === null) this.setState({ hovered: null });
@@ -341,17 +340,13 @@ export default class CFTableView extends React.Component<
   onExpandRow(row: number) {
     const { rows, focusedDF } = this.state;
     const newRows = expandRows(rows, row, row + 1, [focusedDF.index[row]]);
-    console.log(row);
     console.debug("Expand row", row, focusedDF.index[row], newRows);
-    // this.loadCF(dataFrame.index[row]).then(() =>
     this.setState({ rows: newRows })
-    // );
   }
 
   onCollapseRow(row: number) {
     const { rows, focusedDF } = this.state;
     const state = rows[row];
-    console.log(row);
     if (isExpandedRow(state)) {
       const newRows = collapseRows(rows, state.index, state.index + 1);
       console.debug("Collapse row", row, focusedDF.index[state.index], newRows);
@@ -382,8 +377,6 @@ export default class CFTableView extends React.Component<
     const { subsets } = this.state;
     const focusedDFProto = this.initFocusedDF(subsets[groupIndex].CFDataFrames[columnIndex - 1].copy());
     const focusedDF = focusedDFProto.copy();
-    // const columns = table.columns.map(d => ({ ...d }));
-    // const dataFrame = DataFrame.fromColumns(columns);
     this.setState({ focusedDFProto, focusedDF, groupIndex, columnIndex });
   }
 
@@ -544,8 +537,6 @@ export default class CFTableView extends React.Component<
       const protoCol = this.props.defaultSubset.getFeatures(featIndex)[featIndex];
 
       if (isNumericalVColumn(column) && isNumericalVColumn(CFColumn)) {
-        if (groupIndex == 1) 
-          console.log(subset.filters[featIndex].extent || column.extent);
         return <NumSubsetFeatCol
           className={`subset-chart`}
           width={column.width}
@@ -714,8 +705,6 @@ export default class CFTableView extends React.Component<
   }
 
   onClickRow(idx: number) {
-    // const { updateQueryInstance } = this.props;
-    console.log(idx);
     this.onExpandRow(idx);
   }
 
@@ -777,7 +766,6 @@ export default class CFTableView extends React.Component<
   public copySubset(index: number) {
     const { subsets } = this.state;
     subsets.splice(index + 1, 0, subsets[index].copy());
-    console.log(subsets);
     this.setState({ subsets });
   }
 

@@ -256,7 +256,6 @@ export default class Table extends React.PureComponent<
     const { columns } = this.state;
     const newCol = infuseCol(changeColumnWidth(columns[index], width), columns[index])
     columns.splice(index, 1, newCol);
-    // console.log(`change column ${index} width to ${width}`);
 
     this.setState({ columns: [...columns] });
   }

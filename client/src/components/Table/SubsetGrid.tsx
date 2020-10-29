@@ -162,7 +162,6 @@ export default class SubsetGrid extends React.PureComponent<ISubsetGridProps, {}
     };
     const { cellRenderer } = this.props;
     let result: React.ReactNode;
-    // console.log(`Render ${rowIndex} ${cellProps.columnIndex}`);
     if (cellRenderer) {
       result = cellRenderer(props);
     }

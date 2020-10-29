@@ -177,7 +177,6 @@ export default class Header extends React.PureComponent<
     };
     const { cellRenderer } = this.props;
     let result: React.ReactNode;
-    // console.log(`Render ${rowIndex} ${cellProps.columnIndex}`);
     if (cellRenderer) {
       result = cellRenderer(props);
     }
@@ -191,9 +190,6 @@ export default class Header extends React.PureComponent<
         {result}
       </div>
     );
-    // if (rowIndex === 0) return this.defaultCellRenderer(cellProps);
-    // else if (this.props.hasChart && rowIndex === 1)
-    //   return this._chartCellRenderer(cellProps);
   }
 
   renderCellLeft(cellProps: GridCellProps) {

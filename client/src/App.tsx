@@ -99,35 +99,13 @@ export class App extends React.Component<IAppProps, IAppState> {
   public async instanceQuery(params: QueryParams) {
     this.setState({ queryInstance: params.queryInstance })
     const queryInstanceClass = await predictInstance({ queryInstance: params.queryInstance });
-    console.log(`Query Instance Label: ${queryInstanceClass}`);
     this.setState({ queryInstanceClass })
-    this.cacheQueryInstance();
     const cfs = await GetInstanceCF(params);
-    console.log(`Query Results: ${cfs}`);
     this.setState({ queryResults: cfs });
-    this.cacheQueryResults();
   }
 
   updateQueryInstance(queryInstance: CounterFactual) {
     this.setState({ queryInstance });
-  }
-
-  cacheQueryInstance() {
-    const { CFMeta, queryInstance } = this.state;
-    if (CFMeta && queryInstance) {
-      const index = CFMeta.features[0].name;
-      localStorage.setItem(`${index}-queryInstance`, JSON.stringify(queryInstance));
-      console.log("queryInstance cached");
-    }
-  }
-
-  cacheQueryResults() {
-    const { CFMeta, queryResults } = this.state;
-    if (CFMeta && queryResults) {
-      const index = CFMeta.features[0].name;
-      localStorage.setItem(`${index}-queryResults`, JSON.stringify(queryResults));
-      console.log("queryResults cached");
-    }
   }
 
   public render() {

@@ -223,7 +223,6 @@ export function drawBarChart(params: {
     })
     .on("click",function (data, idx) {
       const selectedCat = layout.x.domain()[idx];
-      console.log(selectedCat);
       if (_selectedCategories) {
         const indexOfCat = _selectedCategories.indexOf(selectedCat);
         if (indexOfCat > -1) {

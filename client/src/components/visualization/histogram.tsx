@@ -391,7 +391,6 @@ export class Histogram extends React.PureComponent<
     data,
     index
   ) => {
-    // console.log(data);
     const { x0, x1 } = data[0];
     const hoveredBin: [number, number] = [
       x0 === undefined ? -Infinity : x0,

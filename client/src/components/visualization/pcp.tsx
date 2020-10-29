@@ -54,7 +54,6 @@ export function drawPcp(node: SVGGElement | SVGGElement,
         [typeof d === 'string' ? (x[i] as d3.ScaleBand<string>)(d)!
             : (x[i] as d3.ScaleLinear<number, number>)(d), y(i)])))
         .on("mouseover", (d, i, n) => {
-            console.log(i);
             d3.select(n[i]).classed("selected", true);
             drawTicks(i);
         })

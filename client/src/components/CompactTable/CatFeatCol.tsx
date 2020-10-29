@@ -324,7 +324,6 @@ export class CatHeaderFeatCol extends CatFeatCol<CatHeaderFeatColProps, CatHeade
     }
 
     onSelectCategories(categories?: string[]) {
-        console.log(categories);
         const { onUpdateFilter } = this.props;
         onUpdateFilter && onUpdateFilter(categories);
         this.setState({ selectedCategories: categories && [...categories] });
