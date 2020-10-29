@@ -69,8 +69,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             return createColumn(rawColumn);
         })
 
-        // console.log(this.columns.map(col => col.series.toArray()));
-
         this.updateNumAttributeRange = this.updateNumAttributeRange.bind(this);
         this.updateAttributeValue = this.updateAttributeValue.bind(this);
         this.updateCatAttributeRange = this.updateCatAttributeRange.bind(this);
@@ -137,6 +135,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                     onRangeChange={newRange => this.updateNumAttributeRange(d, newRange)}
                                     drawRange={true}
                                     drawTick={true}
+                                    precision={column.precision}
                                 /> :
                                 <BarSlider
                                     column={column}

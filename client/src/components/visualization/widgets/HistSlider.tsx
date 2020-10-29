@@ -82,7 +82,8 @@ export class HistSlider extends React.Component<HistSliderProps, HistSliderState
                     onValueChange: this.onInstanceValueChange,
                     ticks, width, height, margin, xScale,
                     drawRange: true,
-                    drawTick: true
+                    drawTick: true,
+                    precision: column.precision
                 },
                 column.series.toArray())
         }
@@ -176,6 +177,7 @@ export interface LinearSliderOptions extends ChartOptions {
     ticks: number;
     drawRange: boolean;
     drawTick: boolean;
+    precision: number;
 }
 
 export function drawLinearSlider(
@@ -184,7 +186,7 @@ export function drawLinearSlider(
     data: ArrayLike<number>
 ) {
     const options = { ...sliderOption };
-    const { width, height, xScale, ticks, defaultValue, onValueChange, onRangeOneSideChange, drawRange, drawTick } = options;
+    const { width, height, xScale, ticks, defaultValue, onValueChange, onRangeOneSideChange, drawRange, drawTick, precision } = options;
     const margin = getMargin(options.margin);
     const _width = width - margin.left - margin.right;
     const _height = height - margin.top - margin.bottom;
@@ -241,12 +243,13 @@ export function drawLinearSlider(
                 getChildOrAppend(base, "line", "track-selected")
                     .attr(`x${i + 1}`, newxPos);
                 const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
-                const xValue = x.invert(xPos);
+                const xValue = Math.round(x.invert(xPos) / 10**(-precision)) * 10**(-precision);
                 onRangeOneSideChange && onRangeOneSideChange(i, xValue);
             })
             .on("end", (d, i, n) => {
                 const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
-                const xValue = x.invert(xPos);
+                // const xValue = x.invert(xPos);
+                const xValue = Math.round(x.invert(xPos) / 10**(-precision)) * 10**(-precision);
                 let newxPos = xPos;
                 if ((xticks[1] - xticks[0]) <= 0.5) {
                     newxPos = Math.round(xPos*10)/10;
@@ -278,19 +281,14 @@ export function drawLinearSlider(
         .on("drag", (d, i, n) => {
             d3.select(n[i]).attr("transform", `translate(${Math.min(xRange[1], Math.max(d3.event.x, xRange[0]))}, ${0})`)
             const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
-            const xValue = x.invert(xPos);
-            if ((xticks[1] - xticks[0]) >= 5)
-                onValueChange && onValueChange(Math.round(xValue))
-            else if ((xticks[1] - xticks[0]) >= 0.5)
-                onValueChange && onValueChange(Math.round(xValue*10)/10);
+            const xValue = Math.round(x.invert(xPos) / 10**(-precision)) * 10**(-precision);
+            onValueChange && onValueChange(xValue);
         })
         .on("end", (d, i, n) => {
-            const xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
-            const xValue = x.invert(xPos);
-            if ((xticks[1] - xticks[0]) >= 5)
-                onValueChange && onValueChange(Math.round(xValue))
-            else if ((xticks[1] - xticks[0]) >= 0.5)
-                onValueChange && onValueChange(Math.round(xValue*10)/10);
+            let xPos = Math.min(xRange[1], Math.max(d3.event.x, xRange[0]));
+            const xValue = Math.round(x.invert(xPos) / 10**(-precision)) * 10**(-precision);
+            xPos = x.invert(xValue);
+            onValueChange && onValueChange(xValue);
         });
 
     const handleBase = getChildOrAppend<SVGGElement, SVGGElement>(base, "g", "handle-base")
@@ -305,5 +303,5 @@ export function drawLinearSlider(
         .attr("fill", "white")
     getChildOrAppend<SVGCircleElement, SVGGElement>(handleBase, "text", "handle-text")
         .attr("dy", 20)
-        .text(defaultValue ? defaultValue : 0);
+        .text(defaultValue ? defaultValue.toFixed(precision) : 0);
 }

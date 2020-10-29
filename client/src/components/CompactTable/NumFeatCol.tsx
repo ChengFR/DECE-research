@@ -666,7 +666,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     }
 
     drawHandle(root: SVGSVGElement) {
-        const { margin, histHeight } = this.props;
+        const { margin, histHeight, column } = this.props;
         const { selectedRange } = this.state;
         const { handleAnn } = NumSubsetFeatCol.layout;
         const _root = d3.select(root);
@@ -702,7 +702,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
                 .attr("transform", `translate(0, ${handleAnn - 5})`);;
 
             getChildOrAppend(rightHandleBase, 'text', 'handle-text')
-                .text(selectedRange[1])
+                .text(selectedRange[1].toFixed(column.precision))
                 .attr("dy", 10)
                 .attr("dx", -5);
         }

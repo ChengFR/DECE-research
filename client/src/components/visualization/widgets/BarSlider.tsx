@@ -103,7 +103,6 @@ export class BarSlider extends React.Component<BarSliderProps, BarSliderState>{
     onBarSelected(index: number){
         const {onUpdateCats, column} = this.props;
         const {barActivation} = this.state;
-        console.log(index);
         barActivation[index] = !barActivation[index];
         this.setState({barActivation});
         onUpdateCats && onUpdateCats(column.categories.filter((d, i) => barActivation[i]));
