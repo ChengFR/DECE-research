@@ -6,7 +6,7 @@ from flask_cors import CORS, cross_origin
 from .api import api
 from .page import page
 
-from cf_ml.dataset import load_diabetes_dataset, load_german_credit_dataset, load_admission_dataset
+from cf_ml.dataset import load_diabetes_dataset, load_german_credit_dataset
 from cf_ml.model import PytorchModelManager
 from cf_ml.cf_engine.engine import CFEnginePytorch
 
@@ -29,8 +29,6 @@ def create_app(config=None):
         app.dataset = load_diabetes_dataset()
     elif app.config['DATASET'] == 'german-credit':
         app.dataset = load_german_credit_dataset()
-    elif app.config['DATASET'] == 'admission':
-        app.dataset = load_admission_dataset()
     else:
         raise NotImplementedError
     
@@ -45,7 +43,7 @@ def create_app(config=None):
         app.model.save_model()
 
     app.model.save_reports()
-    # app.dir_manager.clean_subset_cache()
+    app.dir_manager.clean_subset_cache()
 
     # init engine
     app.cf_engine = CFEnginePytorch(app.dataset, app.model)

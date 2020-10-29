@@ -79,7 +79,6 @@ def get_cf_subset():
     cat_filters = {f["name"]: {"categories": [str(cat) for cat in f['categories']] if f['categories'] is not None else 'all'} for f in filters 
         if not current_app.dataset.is_num(f["name"])}
     filters = {**num_filters, **cat_filters}
-    print(filters)
     index = current_app.dataset.get_subset(filters=filters).index.tolist()
     r_counterfactuals = current_app.cf_engine.generate_r_counterfactuals(filters, True, True, verbose=True)
     r_counterfactuals_data = [r_counterfactuals.subsets[f].all.values.tolist() for f in current_app.dataset.features]
@@ -89,14 +88,13 @@ def get_cf_subset():
 def predict_instance():
     request_params = request.get_json()
     query_instance = request_params['queryInstance']
-    print(query_instance)
-    pred = current_app.model.report(x=query_instance)[current_app.dataset.prediction]
+    pred = current_app.model.report(x=[query_instance])[current_app.dataset.prediction]
     return str(pred.values[0])
 
 @api.route('/counterfactuals', methods=['GET', 'POST'])
 def get_cf_instance():
     request_params = request.get_json()
-    X = current_app.dataset.preprocess_X(request_params['queryInstance'])
+    X = request_params['queryInstance']
     k = request_params.get('k', -1)
     num = request_params.get('cfNum', 1)
     attr_mask = request_params.get('attrFlex', None)
@@ -112,10 +110,6 @@ def get_cf_instance():
 
     setting = {'changeable_attr': changeable_attr, 'cf_range': cf_range, 
         'num': num, 'k': k}
-
-    print(X, setting)
     
-    cfs = current_app.cf_engine.generate_cfs_from_setting(X, setting).all[current_app.dataset.features + [current_app.dataset.prediction]]
-
-    print(jsonify(cfs.values.tolist()))
+    cfs = current_app.cf_engine.generate_counterfactual_examples([X], setting).all[current_app.dataset.features + [current_app.dataset.prediction]]
     return jsonify(cfs.values.tolist())
