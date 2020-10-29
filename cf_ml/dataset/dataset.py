@@ -117,7 +117,7 @@ class Dataset:
         data[self.numerical_features] = self._feature_scaler.inverse_transform(data[self.numerical_features])
         # Refine the numerical feauture values with valid precisions.
         for f in self.numerical_features:
-            data[f] = np.ceil(data[f].astype(float) / self.description[f]['scale']) * self.description[f]['scale']
+            data[f] = np.round(data[f].astype(float) / self.description[f]['scale']) * self.description[f]['scale']
         return data
 
     def _to_dummy(self, data):
@@ -156,8 +156,6 @@ class Dataset:
     
     def _any2df(self, data, columns):
         if isinstance(data, dict):
-            return pd.DataFrame.from_dict(data, columns=columns)
-        elif isinstance(data, list):
             data = [data]
         return pd.DataFrame(data, columns=columns)
 
@@ -269,7 +267,6 @@ class Dataset:
 
     @property
     def dummy_target(self):
-        # return self._target
         return self._get_all_columns([self.target])
 
     @property

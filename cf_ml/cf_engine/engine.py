@@ -94,8 +94,8 @@ class CFEnginePytorch:
         """
         subset_range = subset_range if subset_range is not None else {}
         cf_range = copy.deepcopy(subset_range)
-        subset = self._dataset.get_subset(filters=subset_range)
-        X = subset[self._dataset.dummy_features]
+        subset = self._dataset.get_subset(filters=subset_range, preprocess=False)
+        X = subset[self._dataset.features]
 
         r_counterfactuals = CounterfactualExampleBySubset(self._data_meta, subset_range, subset)
         for feature in self._dataset.features:
@@ -107,7 +107,7 @@ class CFEnginePytorch:
                     print("Load from cache... #instance: {}, validation rate: {:.3f}".format(len(subset_cf.all), 
                         len(subset_cf.valid)/len(subset_cf.all)))
             else:
-                subset_cf = self.generate_cfs_from_setting(X, setting={'cf_range': by_feature_cf_range}, verbose=verbose)
+                subset_cf = self.generate_counterfactual_examples(X, setting={'cf_range': by_feature_cf_range}, verbose=verbose)
 
             if cache:
                 self._dir_manager.save_subset_cf(subset_range, by_feature_cf_range, subset_cf.all)
@@ -115,14 +115,15 @@ class CFEnginePytorch:
             r_counterfactuals.append_counterfactuals(feature, subset_cf)
         return r_counterfactuals
 
-    def generate_cfs_from_setting(self, X, setting=DEFAULT_SETTING, verbose=True):
+    def generate_counterfactual_examples(self, X, setting=DEFAULT_SETTING, preprocess=True, verbose=True):
         """Generate counterfactual explanations to the given preprocessed data.
 
         Args:
-            X: np.array, the preprocessed attribute data of the original instances
+            X: pd.DataFrame data-input-like, feature values of the target data
+            preprocess: boolean, whether to preprocess the target data
             setting: dict,
                 k: number, maximal number of changed attributes in each counterfactual example;
-                num: number, number of counterfactual examples generated for each instance;
+                num: number, number of counterfactual examples generated for each data instance;
                 cf_range: dict, variation ranges for attributes;
                 changeable_attr: list or 'all', the name of changeable attributes. 'All' means that all features are changeable;
                 desired_class: list, np.array, or 'oppsite', target classes of the counterfactual examples. 'Opposite' means that
@@ -136,6 +137,9 @@ class CFEnginePytorch:
         batch_size = self._config["batch_size"]
         n = setting.get('num', DEFAULT_SETTING['num'])
         k = setting.get('k', DEFAULT_SETTING['k'])
+
+        if preprocess:
+            X = self._dataset.preprocess_X(X)
 
         data_num = len(X)
         if_sparse = self._if_sparse(setting)
@@ -272,7 +276,7 @@ class CFEnginePytorch:
         if isinstance(target, str) and target == 'opposite':
             original_X = torch.from_numpy(original_X).float()
             pred = self._mm.forward(original_X).detach().numpy()
-            pred = pred > 0.5 - 1e-6
+            pred = pred > (0.5 - 1e-6)
             target = np.logical_not(pred).astype(int)
             
         elif isinstance(target, list):
@@ -288,12 +292,7 @@ class CFEnginePytorch:
         num_mask = self._gradient_mask(self._dataset.numerical_features) * mask
         cat_mask = self._gradient_mask(self._dataset.categorical_features) * mask
 
-        cf_range = setting.get('cf_range', DEFAULT_SETTING['cf_range'])
-        changeable_attr = setting.get('changeable_attr', DEFAULT_SETTING['changeable_attr'])
-        if isinstance(changeable_attr, str) and changeable_attr == 'all':
-            changeable_attr = self._dataset.features
-
-        # add random perturbations to features
+        # add random perturbations to numerical features
         cfs = pd.DataFrame(X, columns=self._dataset.dummy_features)
         cfs += num_mask * np.random.rand(*cfs.shape) * 0.1
 
@@ -348,7 +347,7 @@ class CFEnginePytorch:
 
         def backward_hook(grad):
             out = grad.clone()
-            out = out * mask
+            out = mask * out
             return out
 
         cfs.register_hook(backward_hook)
@@ -361,7 +360,6 @@ class CFEnginePytorch:
 
             optimizer.zero_grad()
             pred = self._mm.forward(cfs)
-
             loss = self._loss(cfs, original_X, pred, target, criterion, num, weights, min_values, max_values)
             loss.backward()
             optimizer.step()
@@ -449,7 +447,8 @@ class CFEnginePytorch:
 
     def _reload_tensor(self, data):
         """Re-do the preprocessing to the data aftering an inverse-preprocessing"""
-        return torch.from_numpy(self._dataset.preprocess_X(self._dataset.inverse_preprocess_X(data)).values).float()
+        inversed_data = self._dataset.inverse_preprocess_X(data)
+        return torch.from_numpy(self._dataset.preprocess_X(inversed_data).values).float()
 
     def _check_valid(self, pred, target):
         """Check whether all counterfactual examples are valid."""

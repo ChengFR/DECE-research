@@ -5,13 +5,11 @@ class CounterfactualExample:
     """A class to store counterfactual examples"""
 
     def __init__(self, data_meta, cfs=None):
-        # _original_target = data_meta["target"]
         self._target = data_meta["target"]
         self._prediction = data_meta["prediction"]
         self._features = data_meta["features"]
 
         self._cfs = pd.DataFrame(cfs, columns=self._features+[self._target, self._prediction])
-        # self._cfs[self._target] = self._cfs.pop(_original_target)
     @property
     def all(self):
         return self._cfs
