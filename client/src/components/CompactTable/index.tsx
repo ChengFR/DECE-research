@@ -76,6 +76,7 @@ export interface ICompactTableState {
   groupIndex?: number;
   columnIndex?: number;
   focusedClass?: number;
+  cache: boolean;
 }
 
 export default class CFTableView extends React.Component<
@@ -90,8 +91,6 @@ export default class CFTableView extends React.Component<
 
   private loadedCFs: (CFResponse | undefined)[] = [];
   private tableRef: Table | null = null;
-  // private loaderRef: LoadableTable | null = null;
-  // private basicColumns: CFTableColumn[];
 
   private featNames: string[];
   private predName: string;
@@ -146,11 +145,13 @@ export default class CFTableView extends React.Component<
       showCF: true,
       drawYAxis: false,
       rows: initRowStates(focusedDF.length),
+      cache: false,
     }
   }
 
   componentDidMount() {
-    this._loadSubsetCache();
+    if (this.state.cache)
+      this._loadSubsetCache();
   }
 
   componentWillUpdate() {
@@ -200,8 +201,9 @@ export default class CFTableView extends React.Component<
     });
   });
 
-  public componentDidUpdate(prevProps: ICompactTableProps, prevState: ICompactTableState) {
-    this._cacheSubsets();
+  public componentDidUpdate() {
+    if (this.state.cache)
+      this._cacheSubsets();
   }
 
   public render() {
@@ -729,7 +731,6 @@ export default class CFTableView extends React.Component<
 
   onSwitchCF(showCF: boolean) {
     this.setState({ showCF });
-    // this.loaderRef?.resetLoadMoreRowsCache(true);
     this.tableRef?.recomputeGridSize();
   }
 
@@ -787,7 +788,6 @@ export default class CFTableView extends React.Component<
     const { defaultSubset, getSubsetCF } = this.props;
     const index = defaultSubset.dataMeta.features[0].name;
     const cacheString = localStorage.getItem(`${index}-cfSubsets`);
-    // const cacheString = localStorage.getItem(`cfSubsets`);
     let filterMat: Filter[][] = cacheString ? JSON.parse(cacheString) : [[]];
     if (filterMat.length > 0) {
       let subsets: CFSubset[] = [];
