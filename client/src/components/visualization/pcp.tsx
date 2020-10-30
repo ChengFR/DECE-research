@@ -1,6 +1,5 @@
 import * as React from "react";
 import * as d3 from "d3";
-import { Dataset, DataMeta, IColumn } from "../../data";
 import { CounterFactual, Filter, QueryParams } from "../../api"
 import {
     getMargin,
@@ -55,7 +54,6 @@ export function drawPcp(node: SVGGElement | SVGGElement,
         [typeof d === 'string' ? (x[i] as d3.ScaleBand<string>)(d)!
             : (x[i] as d3.ScaleLinear<number, number>)(d), y(i)])))
         .on("mouseover", (d, i, n) => {
-            console.log(i);
             d3.select(n[i]).classed("selected", true);
             drawTicks(i);
         })
@@ -66,7 +64,6 @@ export function drawPcp(node: SVGGElement | SVGGElement,
     if (validColor) {
         polylines.style("stroke", validColor);
     }
-
     
 
     if (originInstance) {
@@ -99,13 +96,8 @@ export function drawPcp(node: SVGGElement | SVGGElement,
                 .style("fill", d => typeof d === 'string' ? "none" : "white");
             getChildOrAppend(tickGroup, "text", "tick-text")
                 .text(d => typeof d === 'string' ? "" : d)
-                .attr("dy", 18)
-            // .attr("dx", 10);
+                .attr("dy", 18);
 
         }
     }
 }
-
-// export default class PCP extends React.Component<PcpOptions, {}>{
-
-// }

@@ -23,11 +23,6 @@ export interface ColumnSpec {
   categories?: Readonly<string[]>;
 }
 
-// export interface IColumn<T = any> extends ColumnSpec {
-//   series: ISeries<T>;
-//   type: T extends string ? 'categorical' : (T extends number ? 'numerical' : 'unknown');
-// }
-
 export interface INumColumn extends ColumnSpec {
   series: ISeries<number>;
   type: 'numerical';

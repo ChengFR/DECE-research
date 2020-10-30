@@ -5,23 +5,6 @@ import { Filter, CFResponse, SubsetCFResponse, CounterFactual } from '../api'
 import { Series, IColumn, ColumnSpec, isColumnNumerical, ISeries } from './column'
 import { memoize } from 'lodash'
 import _ from 'lodash'
-import { timeHours } from 'd3'
-import { notEmpty } from 'common/utils'
-
-// export type CounterFactual = (string | number)[];
-
-// export interface CFAttrPolicy {
-//   feature
-//   filter: [number, number]
-// }
-
-// export interface cfCatFeatureDisc extends NumFeatureDisc {
-//   filter: string[]
-// }
-
-// export type cfFeatureDisc = cfNumFeatureDisc | cfCatFeatureDisc;
-
-// export type CFSubsetPolicy = cfFeatureDisc[]
 
 export interface CFSubsetProps {
   dataset: Readonly<Dataset>,

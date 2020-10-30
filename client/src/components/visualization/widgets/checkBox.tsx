@@ -8,7 +8,7 @@ import {
     getChildOrAppend,
     getScaleLinear,
     getScaleBand
-} from "./common";
+} from "../common";
 import './checkBox.scss'
 
 export interface CheckBoxOptions extends ChartOptions {
@@ -57,12 +57,7 @@ export function d3CheckBox(
             .attr("y", y)
             .attr("rx", rx)
             .attr("ry", ry);
-
-        // const coordinates = [
-        //     {x: x+width/8, y: y+height/8},
-        //     {x: x+width/2.2, y: y+height*3/4},
-        //     {x: x+width*7/8, y: y+height/10},
-        // ]
+            
         const coordinates: [number, number][] = [
             [x + width / 8, y + height / 3],
             [x + width / 2.2, y + height * 3 / 4],

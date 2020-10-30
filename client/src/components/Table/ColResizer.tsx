@@ -46,7 +46,6 @@ export default class ColResizer extends React.Component<IColResizerProps, IColRe
     function handleResize(event: MouseEvent): void {
       const delta = event.pageX - dragStartMouseX;
       const newX = Math.round(initialX + Math.round(delta / snap) * snap);
-      // console.log(newX);
       if (newX !== prevX) {
         onChangeX(newX);
         prevX = newX;

@@ -6,19 +6,13 @@ import {
   useParams
 } from "react-router-dom";
 
-// import { Responsive, WidthProvider } from "react-grid-layout";
-
-import { Layout } from "antd"
-
-import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, CFResponse, SubsetCFResponse, predictInstance, getDataMeta, Filter } from './api';
+import { getDataset, getCFMeta, getSubsetCF, GetInstanceCF, CounterFactual, QueryParams, predictInstance, getDataMeta, Filter } from './api';
 import { Dataset, DataMeta, CFSubset, buildDataFrame, CFDataFrame, DataFrame, validateData } from "./data";
 // import logo from "./logo.svg";
 import "./App.css";
 import CompactTable from "./components/CompactTable";
 import InstanceView from "./components/InstanceView"
 import { assert } from "common/utils";
-
-const { Header, Content, Sider } = Layout;
 
 export interface IAppProps {
   dataId: string;
@@ -70,9 +64,6 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   public async updateData() {
-
-    // this.loadQueryInstance();
-    // this.loadQueryResults();
   }
 
   public async getSubset(params: { filters: Filter[] }) {
@@ -83,9 +74,8 @@ export class App extends React.Component<IAppProps, IAppState> {
       const cfResponse = await getSubsetCF(params);
       const cfData = cfResponse.counterfactuals;
       const cfDataFrames = CFMeta.features.map((feat, i) => {
-        const columns = [CFMeta.prediction!, ...CFMeta.features].sort((a, b) => a.index - b.index);
+        const columns = [CFMeta.prediction!, CFMeta.target!, ...CFMeta.features].sort((a, b) => a.index - b.index);
         const cfDf = new DataFrame({ data: validateData(cfData[i], columns), columns: columns });
-        console.log(df.length, cfDf.length)
         assert(df.length === cfDf.length);
 
         const cfDataFrame = CFDataFrame.fromCFColumns(df.columns, cfDf.columns);
@@ -109,70 +99,20 @@ export class App extends React.Component<IAppProps, IAppState> {
   public async instanceQuery(params: QueryParams) {
     this.setState({ queryInstance: params.queryInstance })
     const queryInstanceClass = await predictInstance({ queryInstance: params.queryInstance });
-    console.log(`Query Instance Label: ${queryInstanceClass}`);
     this.setState({ queryInstanceClass })
-    this.cacheQueryInstance();
     const cfs = await GetInstanceCF(params);
-    console.log(`Query Results: ${cfs}`);
     this.setState({ queryResults: cfs });
-    this.cacheQueryResults();
   }
 
   updateQueryInstance(queryInstance: CounterFactual) {
     this.setState({ queryInstance });
   }
 
-  cacheQueryInstance() {
-    const { CFMeta, queryInstance } = this.state;
-    if (CFMeta && queryInstance) {
-      const index = CFMeta.features[0].name;
-      localStorage.setItem(`${index}-queryInstance`, JSON.stringify(queryInstance));
-      console.log("queryInstance cached");
-    }
-  }
-
-  loadQueryInstance() {
-    // const { CFMeta } = this.state;
-    // if (CFMeta) {
-    //   const index = CFMeta.features[0].name;
-    //   const resultString = localStorage.getItem(`${index}-queryInstance`);
-    //   if (resultString) {
-    //     const queryInstance: CounterFactual = JSON.parse(resultString);
-    //     this.setState({ queryInstance });
-    //     console.log("queryInstance loaded");
-    //   }
-    // }
-  }
-
-  cacheQueryResults() {
-    const { CFMeta, queryResults } = this.state;
-    if (CFMeta && queryResults) {
-      const index = CFMeta.features[0].name;
-      localStorage.setItem(`${index}-queryResults`, JSON.stringify(queryResults));
-      console.log("queryResults cached");
-    }
-  }
-
-  loadQueryResults() {
-    // const { CFMeta } = this.state;
-    // if (CFMeta) {
-    //   const index = CFMeta.features[0].name;
-    //   const resultString = localStorage.getItem(`${index}-queryResults`);
-    //   if (resultString) {
-    //     const queryResults: CounterFactual[] = JSON.parse(resultString);
-    //     this.setState({ queryResults });
-    //     console.log("queryResults loaded");
-    //   }
-    // }
-  }
-
   public render() {
-    const { dataId, modelId } = this.props;
     const { dataset, CFMeta, queryInstance, queryResults, queryInstanceClass, defaultSubsetCF } = this.state;
     return (
       <div className="App">
-        {dataset &&
-          (modelId && CFMeta && defaultSubsetCF ? (
+        { dataset && CFMeta && defaultSubsetCF && 
             <div className="main-container">
               {/* <div className="instance-view-container"> */}
               <InstanceView
@@ -183,26 +123,12 @@ export class App extends React.Component<IAppProps, IAppState> {
                 queryResults={queryResults}
                 queryInstanceClass={queryInstanceClass}
               />
-              {/* </div> */}
-              {/* <div className="table-view-container"> */}
               <CompactTable
-                // dataset={dataset}
-                // CFMeta={CFMeta}
-                // cfs={cfs}
-                // getCFs={(params) =>
-                //   getCFs({ dataId, modelId, ...params })
-                // }
-                // getCF={(index) => getCF({ dataId, modelId, index })}
                 getSubsetCF={this.getSubset}
                 defaultSubset={defaultSubsetCF}
-              // updateQueryInstance={this.updateQueryInstance}
               />
-              {/* </div> */}
             </div>
-          ) : (
-              // <TableView dataset={dataset} />
-              <div />
-            ))}
+          }
       </div>
     );
   }
@@ -213,7 +139,7 @@ function RoutedApp() {
     <Router>
       <Switch>
         <Route exact path="/">
-          <div>Use '/:dataId' to view the data.</div>
+          <Child />
         </Route>
         <Route path="/:dataId/:modelId?">
           <Child />

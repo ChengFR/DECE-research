@@ -16,7 +16,7 @@ import { transMax, argMin } from '../../common/math'
 import memoizeOne from "memoize-one";
 import { isArray } from "util";
 import { defaultCategoricalColor } from './common';
-import "./histogram.scss";
+import "./Histogram.scss";
 
 function isArrays<T>(a: T[] | T[][]): a is T[][] {
   return a.length > 0 && isArray(a[0]);
@@ -334,14 +334,7 @@ export class Histogram extends React.PureComponent<
       };
       window.setTimeout(delayedPaint, 100);
     }
-
-    // }
   }
-
-  // public shouldRePaint(prevProps: IHistogramProps, prevState: IHistogramState) {
-  //   const excludedProperties = new Set(["style", "svgStyle", "className"]);
-  //   !shallowCompare(this.props, prevProps, excludedProperties);
-  // }
 
   memoizedXScaler = memoizeOne(getScaleLinear);
 
@@ -398,7 +391,6 @@ export class Histogram extends React.PureComponent<
     data,
     index
   ) => {
-    // console.log(data);
     const { x0, x1 } = data[0];
     const hoveredBin: [number, number] = [
       x0 === undefined ? -Infinity : x0,
@@ -743,34 +735,6 @@ export function drawGroupedHistogram(param: {
     selectorSheet.call(selector)
   }
 
-  // if (drawBand && bandValueFn) {
-  //   const svgDefs = getChildOrAppend(_root, 'defs', 'color-defs');
-  //   const colorGradient = getChildOrAppend(svgDefs, 'linearGradient', 'color-gradient')
-  //       .attr('id', `gini-gradient-${key}`)
-  //       // .attr("gradientUnits", "userSpaceOnUse")	
-  //       // .attr("x1", xRange[0]).attr("y1", xRange[0])			
-  //       // .attr("x2", xRange[1]).attr("y2", xRange[1])		;
-
-  //   colorGradient.selectAll("stop")
-  //     .data(layout.ticks)
-  //     .join<SVGStopElement>(enter => {
-  //       return enter.append("stop")
-  //       .attr("class", "color-stops")
-  //     })
-  //     .attr("offset", d => (d - layout.x.domain()[0]) / (layout.x.domain()[1] - layout.x.domain()[0] + 0.000001))
-  //     .attr("stop-color", d => d3.interpolateGreens(1 - bandValueFn(d) * 2))
-
-  //   const bandBase = getChildOrAppend(_root, "g", "color-band-base")
-  //     .attr(
-  //       "transform",
-  //       `translate(${margin.left}, ${yRange[1]})`
-  //     );
-  //   const band = getChildOrAppend(bandBase, "rect", "color-band")
-  //       .attr("x", xRange[0])
-  //       .attr("width", xRange[1] - xRange[0])
-  //       .style("fill", `url(#gini-gradient-${key})`);
-  // }
-
   if (rectStyle) {
     Object.keys(rectStyle).forEach(key => {
       merged.style(
@@ -861,12 +825,10 @@ export class HistogramLayout {
   }
 
   public get xRange(): [number, number] {
-    // return [this._margin.left, this._width - this._margin.right];
     return [0, this._width - this._margin.left - this._margin.right]
   }
 
   public get yRange(): [number, number] {
-    // return [this._margin.top, this._height - this._margin.bottom];
     return [0, this._height - this._margin.bottom - this._margin.top];
   }
 
@@ -886,9 +848,6 @@ export class HistogramLayout {
     return this._data.map(d => histogram(d));
   }
 
-  // public get flattenData() {
-  //   return this._data.
-  // }
   public xScale(newx: d3.ScaleLinear<number, number>) {
     this._xScale = newx;
     return this;

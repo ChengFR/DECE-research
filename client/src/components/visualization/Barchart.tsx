@@ -11,7 +11,7 @@ import {
 } from "./common";
 import memoizeOne from "memoize-one";
 import { countCategories, defaultCategoricalColor } from './common';
-import "./barchart.scss";
+import "./Barchart.scss";
 import { isArrays } from "components/CompactTable/common";
 import _ from "lodash";
 import { transMax } from "common/math";
@@ -24,20 +24,14 @@ type Category = {
 export interface IBarChartOptions extends ChartOptions {
   innerPadding: number;
   barWidth?: number;
-  // maxStep: number;
   rectStyle?: CSSPropertiesFn<SVGRectElement, Category>;
   selectedCategories?: string[];
   onSelectCategories?: (cat?: string[]) => any;
-  // onRectMouseOver?: d3.ValueFn<any, Category, void>;
-  // onRectMouseMove?: d3.ValueFn<any, Category, void>;
-  // onRectMouseLeave?: d3.ValueFn<any, Category, void>;
-  // allData?: Category[];
   xScale?: d3.ScaleBand<string>,
   color: (x: number) => string,
   direction: 'up' | 'down',
   renderShades?: boolean,
   drawAxis?: boolean,
-  // shadeColor?: boolean,
   twisty? :(idx: number) => number;
 }
 
@@ -243,6 +237,11 @@ export function drawBarChart(params: {
           onSelectCategories && onSelectCategories(_selectedCategories);
         }
       }
+      else {
+        _selectedCategories = [selectedCat];
+        rerenderShades();
+        onSelectCategories && onSelectCategories(_selectedCategories);
+      }
     })
 
   }
@@ -284,8 +283,6 @@ export class BarChart extends React.PureComponent<
 
     this.state = { hoveredCategory: null };
     this.paint = this.paint.bind(this);
-    // this.onMouseOverBar = this.onMouseOverBar.bind(this);
-    // this.onMouseLeaveBar = this.onMouseLeaveBar.bind(this);
   }
 
   count = memoizeOne(countCategories);
@@ -295,16 +292,11 @@ export class BarChart extends React.PureComponent<
     if (svg) {
       console.debug("rendering bar chart");
       const { data, style, svgStyle, className, height, xScale, allData, ...rest } = this.props;
-      // const barData = this.count(data, xScale.domain());
-      // const allBars = allData && this.countAll(allData, xScale.domain());
       drawBarChart(
         {svg, data, allData, dmcData: data, options: {
         ...rest,
-        // height: height - 20,
         xScale,
         height: height,
-        // onRectMouseOver: this.onMouseOverBar,
-        // onRectMouseLeave: this.onMouseLeaveBar,
       }});
       this.shouldPaint = false;
     }
@@ -346,22 +338,9 @@ export class BarChart extends React.PureComponent<
           width={width}
           height={height}
         />
-        {/* <div className="info">
-          {hoveredCategory
-            ? `${hoveredCategory}`
-            : `${barData.length} Categories`}
-        </div> */}
       </div>
     );
   }
-
-  // onMouseOverBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = data => {
-  //   this.setState({ hoveredCategory: data.name });
-  // };
-
-  // onMouseLeaveBar: NonNullable<IBarChartOptions["onRectMouseOver"]> = () => {
-  //   this.setState({ hoveredCategory: null });
-  // };
 }
 
 export default BarChart;
@@ -454,9 +433,6 @@ export class BarChartLayout {
 
   private count = memoizeOne(countCategories);
 
-  // public get flattenData() {
-  //   return this._data.
-  // }
   public xScale(newx: d3.ScaleBand<string>) {
     this._xScale = newx;
     return this;

@@ -1,0 +1,11 @@
+name,type,min
+Age,numerical,19
+Sex,categorical,
+Job,categorical,
+Housing,categorical,
+Saving accounts,categorical,
+Checking account,categorical,
+Credit amount,numerical,250
+Duration,numerical,0
+Purpose,categorical,
+Risk,categorical,

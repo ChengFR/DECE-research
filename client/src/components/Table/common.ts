@@ -81,7 +81,6 @@ export function infuseCol(vcol: VColumn, icol: IColumn): TableColumn {
 export function changeColumnWidth(column: VColumn, width: number) {
   if (width === column.width) return column;
   const chartWidth = width - columnMargin.left - columnMargin.right;
-  console.log(column);
   if (isNumericalVColumn(column)) {
     return {
       ...column,
@@ -90,14 +89,18 @@ export function changeColumnWidth(column: VColumn, width: number) {
     };
   }
   else
-    return { ...column, width, xScale: getScaleBand(0, chartWidth, undefined, column.categories) };
+    return { 
+      ...column, 
+      width, 
+      xScale: getScaleBand(0, chartWidth, undefined, column.categories) 
+    };
 }
 
 export function initColumnWidth(
   column: string,
   padding: number = 10,
   minWidth: number = 40,
-  maxWidth: number = 100
+  maxWidth: number = 120
 ) {
   return Math.min(
     Math.max(minWidth, Math.ceil(getTextWidth(column) + 2 * padding)),
@@ -126,17 +129,18 @@ export function createColumn(column: IColumn | TableColumn): TableColumn {
 
 export function createVColumn(feat: FeatureDisc): VColumn {
   const width = initColumnWidth(feat.name);
+  const chartWidth = width - columnMargin.left - columnMargin.right;
   if (isNumericalFeature(feat)) {
     const col = {
       ...feat, width, type: "numerical",
-      xScale: memoizedScaleLinear(0, width, undefined, feat.extent)
+      xScale: memoizedScaleLinear(0, chartWidth, undefined, feat.extent)
     } as VNumColumn;
     return col;
   }
   else {
     const col = {
       ...feat, width, type: "categorical",
-      xScale: memoizedScaleBand(0, width, undefined, feat.categories)
+      xScale: memoizedScaleBand(0, chartWidth, undefined, feat.categories)
     } as VCatColumn;
     return col;
   }

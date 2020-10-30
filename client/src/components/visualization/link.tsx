@@ -1,9 +1,7 @@
 import * as d3 from 'd3';
-import * as React from 'react';
 import * as _ from "lodash";
-import memoizeOne from "memoize-one";
 
-import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight, ChartOptions } from '../visualization/common';
+import { IMargin, defaultCategoricalColor, getChildOrAppend, ChartOptions } from '../visualization/common';
 import { SankeyBins } from 'components/CompactTable/common';
 
 export interface LinkOptions<T> extends ChartOptions{
@@ -24,9 +22,6 @@ export function drawLink<T>(root: SVGGElement, data: SankeyBins<T>[][][], option
     const color = options.color || defaultCategoricalColor;
 
     if (data && !collapsed) {
-        // const binWidth = histogramType === 'side-by-side' ? groupBinWidth / data.length : groupBinWidth;
-        console.log(binWidth);
-
         _root.selectAll("g.place-holder").remove()
         const linkCatGroup = _root.selectAll("g.link-cat-group")
             .data(data)
@@ -52,7 +47,7 @@ export function drawLink<T>(root: SVGGElement, data: SankeyBins<T>[][][], option
                 return `M${x0},0 C${x0},${10} ${x1},${10} ${x1},20`;
             })
             .style("display", d => d.count > 0 ? "block" : "none")
-            .style("opacity", d => countMax !== undefined ? d.count / countMax : 1)
+            .style("opacity", d => countMax !== undefined ? d.count / countMax : 0.8)
             .style("stroke-width", d => d.topTotalCounts !== undefined ? d.count / d.topTotalCounts * binWidth : 1)
             // .style("stroke-width", d => 1)
             .style("fill", "none");

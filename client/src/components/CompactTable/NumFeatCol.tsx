@@ -5,7 +5,7 @@ import memoizeOne from "memoize-one";
 
 
 import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight } from '../visualization/common';
-import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
+import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/Histogram';
 import { getRowLabels, FeatureColumnProps, SankeyBins } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
@@ -410,6 +410,15 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
         this.shouldPaint = false;
     }
 
+    public componentWillReceiveProps(nextProps: NumSubsetFeatColProps){
+        // new props
+        if (nextProps != this.props) {
+            const { selectedRange } = nextProps;
+            this.setState({ drawSankey: false, drawTooltip: false, selectedRange });
+            this.updateParams(this.props);
+        }
+    }
+
     protected updateParams(props: NumSubsetFeatColProps) {
         const { column, CFColumn, labelColumn, focusedCategory, validFilter } = props;
 
@@ -511,8 +520,10 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     get impurity() {
         const { selectedRange: range } = this.state;
         if (this.originData && this.cfData && range) {
-            const posNum = this.originData[0] ? this.originData[0].length : 0 + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
-            const negNum = this.originData[1] ? this.originData[1].length : 0 + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const posNum = (this.originData[0] ? this.originData[0].length : 0) 
+                + (this.cfData[1] ? this.cfData[1].filter(d => (d >= range[0] && d < range[1])).length : 0);
+            const negNum = (this.originData[1] ? this.originData[1].length : 0) 
+                + (this.cfData[0] ? this.cfData[0].filter(d => (d >= range[0] && d < range[1])).length : 0);
             const totalCount = posNum + negNum;
             return 1 - (posNum / totalCount) ** 2 - (negNum / totalCount) ** 2;
         }
@@ -543,7 +554,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
         // const { rangeNotation, lineChart, marginBottom } = SubsetCFHist.subsetLayout;
         const node = this.svgRef.current;
         const color = this.props.color || defaultCategoricalColor;
-        if (!node || this.dataEmpty()) {
+        if (!node) {
             this.shouldPaint = false;
             return;
         }
@@ -655,7 +666,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     }
 
     drawHandle(root: SVGSVGElement) {
-        const { margin, histHeight } = this.props;
+        const { margin, histHeight, column } = this.props;
         const { selectedRange } = this.state;
         const { handleAnn } = NumSubsetFeatCol.layout;
         const _root = d3.select(root);
@@ -691,7 +702,7 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
                 .attr("transform", `translate(0, ${handleAnn - 5})`);;
 
             getChildOrAppend(rightHandleBase, 'text', 'handle-text')
-                .text(selectedRange[1])
+                .text(selectedRange[1].toFixed(column.precision))
                 .attr("dy", 10)
                 .attr("dx", -5);
         }
@@ -721,11 +732,11 @@ export class NumSubsetFeatCol extends NumFeatCol<NumSubsetFeatColProps, NumSubse
     }
 
     private getGini(x: number) {
-        const { labelColumn: groupByColumn, column, CFColumn } = this.props;
+        const { labelColumn, column, CFColumn } = this.props;
         const data = column.series.toArray();
         const cf = CFColumn.series.toArray();
         const validArray: boolean[] = _.range(data.length).map((d) => data[d] !== cf[d]);
-        const groupArgs = groupByColumn && getRowLabels(groupByColumn);
+        const groupArgs = labelColumn && getRowLabels(labelColumn);
         // const validFilter = column.selectedValid && ((idx: number) => column.selectedValid![idx]);
 
         // const geqValidFilter = validFilter && ((idx: number) => idx >= x && validFilter(idx));

@@ -1,6 +1,7 @@
+// TODO: remove this component and use barchart.tsx instead.
+
 import * as d3 from "d3";
 import * as _ from "lodash";
-// import {SwapRightOutlined} from '@ant-design/icons';
 import {
     getMargin,
     CSSPropertiesFn,
@@ -8,8 +9,8 @@ import {
     getChildOrAppend,
     countCategories,
     getScaleBand
-} from "./common";
-import './_barchart.scss'
+} from "../common";
+import './naiveBarchart.scss'
 
 export interface BarOption extends ChartOptions {
     selectedBars?: string[];
@@ -35,8 +36,6 @@ export function drawSimpleBarchart(
         .range(yRange)
         .domain([0, d3.max(categoryData.map(d => d.count)) as number])
 
-    // const defaultRange = options.range ? options.range : x.domain()
-    // const range = [Math.min(defaultRange[0], defaultRange[1]), Math.max(defaultRange[0], defaultRange[1])];
     const root = d3.select(rootEle);
 
     const barBase = getChildOrAppend<SVGGElement, SVGElement>(root, "g", "barchart-base")
@@ -57,7 +56,4 @@ export function drawSimpleBarchart(
         .attr("height", d => {
             return y(d.count) - yRange[0] + 0.01;
         });
-
-    // histBase.selectAll<SVGRectElement, d3.Bin<number, number>>("rect.bar")
-    //     .classed("selected-bar", d => ((d.x1 as number > range[0]) && (d.x0 as number < range[1])))
 }

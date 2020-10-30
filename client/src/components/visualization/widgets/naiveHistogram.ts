@@ -1,14 +1,15 @@
+// TODO: remove this component and use histogram.tsx instead.
+
 import * as d3 from "d3";
 import * as _ from "lodash";
-// import {SwapRightOutlined} from '@ant-design/icons';
 import {
     getMargin,
     CSSPropertiesFn,
     ChartOptions,
     getChildOrAppend,
     getScaleLinear
-} from "./common";
-import './_histogram.scss'
+} from "../common";
+import './naiveHistogram.scss'
 
 export interface HistOption extends ChartOptions {
     range?: [number, number];

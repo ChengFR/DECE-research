@@ -9,12 +9,12 @@ import numpy as np
 
 from cf_ml.utils.feature_range import tokenize
 
-OUTPUT_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output')
+OUTPUT_ROOT = os.path.join('../../', os.path.dirname(__file__), 'output')
 
 class DirectoryManager:
-    """A class to manage the path of the model files and output files"""
+    """A class to save and load output files."""
 
-    def __init__(self, dataset, model_name, root=OUTPUT_ROOT, cache_capacity=100):
+    def __init__(self, dataset, model_name, root=OUTPUT_ROOT):
         self._root = root
         self.ensure_dir(self._root)
 
@@ -34,7 +34,6 @@ class DirectoryManager:
                            'test_accuracy': None}
         self._universal_range = self._dataset.get_universal_range()
         self._cf_setting = []
-        self._cache_capacity = cache_capacity
     
     @property
     def model_name(self):

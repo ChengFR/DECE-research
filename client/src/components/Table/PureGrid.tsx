@@ -1,9 +1,5 @@
 import * as React from "react";
-import { Icon } from "antd";
 import { Grid, GridCellProps, ScrollParams, GridCellRenderer, GridProps } from "react-virtualized";
-import memoize from "fast-memoize";
-
-import { CellRenderer, CellProps } from './TableGrid';
 
 export interface IPureGridProps extends GridProps {
     cellRenderer: GridCellRenderer;
@@ -78,7 +74,6 @@ export default class PureGrid extends React.PureComponent<IPureGridProps> {
 
         const { cellRenderer } = this.props;
         let result: React.ReactNode;
-        // console.log(`Render ${rowIndex} ${cellProps.columnIndex}`);
         if (cellRenderer) {
             result = cellRenderer(cellProps);
         }

@@ -113,15 +113,12 @@ export default class DataFrame implements IDataFrame {
     this._initColumn = this._initColumn.bind(this);
 
     this._data = DataFrame.initData(input);
-    // this._index = input.index ? input.index : _.range(0, this.length);
     this._index = _.range(0, this._data.length);
     this._validSet = this.filterBy(DataFrame.col2filter(columns));
     this._validIndex = this._index.filter(id => this._validSet.includes(id));
-    // this._validData = this.updateValidData(this._validIndex);
     const at = (row: number, col: number) => this.at(this._validIndex[row], col);
     this._columns = this._initColumn(columns, at);
     this._name2column = _.keyBy(this._columns, c => c.name);
-    // this._filters = this._columns.map(() => undefined);
   }
 
   protected _initColumn(columns: (ColumnSpec | IColumn)[], at: tablePointer): IColumn[] {
@@ -134,21 +131,12 @@ export default class DataFrame implements IDataFrame {
       if (isColumnNumerical(column)) {
         if (!column.extent)
           column.extent = d3.extent(column.series.toArray()) as [number, number];
-        // column.onFilter = (filter: [number, number] | undefined) => {
-        //   column.filter = filter;
-        //   this.filter();
-        // }
       } else {
         if (!column.categories) {
           const counter = _.countBy(column.series.toArray());
           column.categories = _.keys(counter).sort();
         }
-        // column.onFilter = (filter: string[] | undefined) => {
-        //   column.filter = filter;
-        //   this.filter();
-        // }
       }
-      // column.onSort = this.sortBy.bind(this, c.name);
       return column;
     });
     return _columns;
@@ -167,11 +155,6 @@ export default class DataFrame implements IDataFrame {
     this._name2column = _.keyBy(this._columns, c => c.name);
   }
 
-  // protected _updateFilter(colName: string, filter: Filter | undefined) {
-  //   const colIndex = this._columns.findIndex(d => d.name === colName);
-  //   this._filters[colIndex] = filter;
-  // }
-
   public get index() {
     return this._index;
   }
@@ -184,17 +167,9 @@ export default class DataFrame implements IDataFrame {
     return this._data;
   }
 
-  // public get filters() {
-  //   return this._filters;
-  // }
-  // Note that row is the loc in the array rather than the this.index which could be discontinued.
   public at = (row: number, col: number) => {
     return this._data[row][col];
   }
-
-  // public _at = (row: number, col: number) => {
-  //   return this.at(this._validIndex[row], col);
-  // }
 
   public get length() {
     return this._validIndex.length;
@@ -228,7 +203,6 @@ export default class DataFrame implements IDataFrame {
     column.sorted = order;
     let comp: (a: number, b: number) => number;
     if (isColumnNumerical(column)) {
-      // const at = column.series.at;
       const at = (row: number) => this._data[row][columnIndex] as number;
       comp = (a: number, b: number) => {
         const va = at(a), vb = at(b);
@@ -237,7 +211,6 @@ export default class DataFrame implements IDataFrame {
         else return va - vb
       };
     } else {
-      // const at = column.series.at;
       const at = (row: number) => this._data[row][columnIndex] as string;
       comp = (a: number, b: number) => {
         const xa = at(a), xb = at(b);
@@ -248,7 +221,6 @@ export default class DataFrame implements IDataFrame {
       };
     }
 
-    // let sortedIndex = _.range(0, this.length).sort(comp);
     let sortedIndex = this.index.sort(comp);
     if (order === 'descend') sortedIndex = sortedIndex.reverse();
 
@@ -268,22 +240,19 @@ export default class DataFrame implements IDataFrame {
       if (columnIndex < 0) throw "No column named " + columnName;
       const column = this.columns[columnIndex];
       if (!isColumnNumerical(column)) {
-        // const _filter = filter as CatFilter;
-        // const at = column.series.at;
         const at = (row: number) => this._data[row][columnIndex] as string;
         const kept = new Set(filter.categories as string[]);
         filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && kept.has(at(i))));
       }
       else {
-        // const _filter = filter as NumFilter;
-        // const at = column.series.at;
         const at = (row: number) => this._data[row][columnIndex] as number;
         const min = filter.extent && filter.extent[0];
         const max = filter.extent && filter.extent[1];
-        if (min)
-          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (min <= at(i))));
-        if (max)
-          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (max > at(i))));
+        if (min !== undefined)
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (at(i) >= min)));
+        if (max !== undefined){
+          filteredLocs = filteredLocs.filter(i => (at(i) !== undefined && (at(i) < max - 0.0001)));
+        }
       }
     })
     if (update) {
@@ -304,7 +273,6 @@ export default class DataFrame implements IDataFrame {
   }
 
   public copy() {
-    // return new DataFrame({data: this.data, columns: this._columns});
     return DataFrame.fromColumns(this.columns);
   }
 }

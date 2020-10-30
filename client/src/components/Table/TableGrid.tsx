@@ -95,43 +95,6 @@ export default class TableGrid extends React.PureComponent<
       getFixedGridWidth(fixedColumns, columns) +
       (showIndex ? IndexWidth : 0);
     const rightGridWidth = width - leftGridWidth - (operatorWidth?operatorWidth:0);
-    // const leftGrid = fixedColumns ? (
-    //   <div
-    //     className="left-grid-wrapper"
-    //     style={{
-    //       ...this._leftGridStyle(styleLeftGrid),
-    //       width: leftGridWidth,
-    //       height: height
-    //     }}
-    //   >
-    //     <Grid
-    //       cellRenderer={this.renderCellLeft}
-    //       className={`invisible-scrollbar`}
-    //       columnCount={fixedColumns + Number(showIndex)}
-    //       columnWidth={
-    //         showIndex
-    //           ? ({ index }) =>
-    //               index === 0 ? IndexWidth : columns[index - 1].width
-    //           : ({ index }) => columns[index].width
-    //       }
-    //       rowHeight={rowHeight}
-    //       ref={this.leftGridRef}
-    //       rowCount={rowCount}
-    //       tabIndex={null}
-    //       width={leftGridWidth}
-    //       height={height}
-    //       style={styleLeftGrid}
-    //       scrollTop={scrollTop}
-    //       // isScrollingOptOut={true}
-    //       overscanRowCount={overscanRowCount}
-    //       onScroll={
-    //         onScroll &&
-    //         (params =>
-    //           onScroll({ ...params, scrollLeft: this.props.scrollLeft || 0 }))
-    //       }
-    //     />
-    //   </div>
-    // ) : null;
 
     const leftGrid = fixedColumns ? (
       <PureGrid
@@ -160,43 +123,6 @@ export default class TableGrid extends React.PureComponent<
             onScroll({ ...params, scrollLeft: this.props.scrollLeft || 0 }))
         }
       />) : null;
-
-    // const rightGrid = (
-    //   <div
-    //     className="right-grid-wrapper"
-    //     style={{
-    //       ...this._rightGridStyle(leftGridWidth, styleRightGrid),
-    //       width: rightGridWidth,
-    //       height: height
-    //     }}
-    //   >
-    //     <Grid
-    //       columnWidth={({ index }: { index: number }) =>
-    //         columns[index + fixedColumns].width
-    //       }
-    //       rowHeight={rowHeight}
-    //       className={`scrollbar fixed-scrollbar`}
-    //       cellRenderer={this.renderCellRight}
-    //       columnCount={columns.length - fixedColumns}
-    //       // onScrollbarPresenceChange={this._onScrollbarPresenceChange}
-    //       ref={this.rightGridRef}
-    //       rowCount={rowCount}
-    //       tabIndex={null}
-    //       height={height}
-    //       width={rightGridWidth}
-    //       scrollLeft={scrollLeft}
-    //       scrollTop={scrollTop}
-    //       onScroll={onScroll}
-    //       onSectionRendered={onSectionRendered}
-    //       // isScrollingOptOut={true}
-    //       overscanColumnCount={3}
-    //       overscanRowCount={overscanRowCount}
-    //       // scrollToColumn={scrollToColumn - fixedColumnCount}
-    //       // scrollToRow={scrollToRow - fixedRowCount}
-    //       style={styleRightGrid}
-    //     />
-    //   </div>
-    // );
 
     const rightGrid =
       <PureGrid

@@ -2,13 +2,7 @@ import * as React from "react";
 import { Switch, Icon, Spin } from "antd";
 import _ from "lodash";
 import memoizeOne from "memoize-one";
-import {
-  InfiniteLoader,
-  SectionRenderedParams,
-  Index,
-  IndexRange,
-  InfiniteLoaderChildProps
-} from "react-virtualized";
+import {Index, IndexRange} from "react-virtualized";
 import { CFResponse, SubsetCFResponse, Filter, getSubsetCF, CounterFactual } from "api";
 import { Dataset, DataMeta, DataFrame, IColumn, CFSubset, CFDataFrame } from "data";
 import Panel from "components/Panel";
@@ -24,15 +18,12 @@ import {
   expandRows,
   collapseRows
 } from "./table_state";
-import StackedFeature from "../visualization/stackedFeature";
-import FeatureCF from "components/visualization/counterfactuals";
 import {
   TableColumn,
   changeColumnWidth,
-  createColumn,
   ITableProps
 } from "../Table";
-import { number2string, notEmpty } from "common/utils";
+import { number2string } from "common/utils";
 import CompactCFColumn from "components/visualization/CompactCFColumn";
 import { isColumnNumerical, Series, ICatColumn, ISeries } from '../../data/column';
 import { assert } from '../../common/utils';
@@ -60,12 +51,6 @@ const headerRowHeight = (params: { index: number }) => {
   return headerRowHeights[params.index];
 }
 
-interface ILoadableTableProps extends ITableProps {
-  isRowLoaded: (params: Index) => boolean;
-  loadMoreRows: (params: IndexRange) => Promise<any>;
-  tableRef?: (instance: Table | null) => void;
-}
-
 export interface ICompactTableProps {
   cfHeight: number;
   rowHeight: number;
@@ -91,6 +76,7 @@ export interface ICompactTableState {
   groupIndex?: number;
   columnIndex?: number;
   focusedClass?: number;
+  cache: boolean;
 }
 
 export default class CFTableView extends React.Component<
@@ -105,16 +91,12 @@ export default class CFTableView extends React.Component<
 
   private loadedCFs: (CFResponse | undefined)[] = [];
   private tableRef: Table | null = null;
-  // private loaderRef: LoadableTable | null = null;
-  // private basicColumns: CFTableColumn[];
 
   private featNames: string[];
   private predName: string;
   private targetName: string;
   constructor(props: ICompactTableProps) {
     super(props);
-    // this.isRowLoaded = this.isRowLoaded.bind(this);
-    // this.loadMoreRows = this.loadMoreRows.bind(this);
     this.renderCell = this.renderCell.bind(this);
     this.renderHeaderCell = this.renderHeaderCell.bind(this);
     this.rowHeight = this.rowHeight.bind(this);
@@ -129,8 +111,6 @@ export default class CFTableView extends React.Component<
     this.onCollapseRow = this.onCollapseRow.bind(this);
     this.onSelectColumn = this.onSelectColumn.bind(this);
     this.onUpdateFilter = this.onUpdateFilter.bind(this);
-    // this.registerTableRef = this.registerTableRef.bind(this);
-    // this.loadCF = this.loadCF.bind(this);
     this.onSwitchCF = this.onSwitchCF.bind(this);
     this.onSwichAxis = this.onSwichAxis.bind(this);
     this.onSubsetFocusOnClass = this.onSubsetFocusOnClass.bind(this);
@@ -154,6 +134,7 @@ export default class CFTableView extends React.Component<
     featCols.forEach((col, i) => col.onChangeColumnWidth = this.onChangeColumnWidth.bind(this, this.featNames[i]));
     const predCol = createVColumn(predDisc) as CatTableColumn;
     predCol.onChangeColumnWidth = this.onChangeColumnWidth.bind(this, this.predName);
+
     this.state = {
       subsets: [this.props.defaultSubset],
       focusedDFProto: focusedDF,
@@ -164,11 +145,13 @@ export default class CFTableView extends React.Component<
       showCF: true,
       drawYAxis: false,
       rows: initRowStates(focusedDF.length),
+      cache: false,
     }
   }
 
   componentDidMount() {
-    this._loadSubsetCache();
+    if (this.state.cache)
+      this._loadSubsetCache();
   }
 
   componentWillUpdate() {
@@ -218,14 +201,9 @@ export default class CFTableView extends React.Component<
     });
   });
 
-  public componentDidUpdate(prevProps: ICompactTableProps, prevState: ICompactTableState) {
-    // if (prevProps.dataset !== this.props.dataset) {
-    //   // const newState = this.changeDataFrame(
-    //   //   this.props.dataset.reorderedDataFrame
-    //   // );
-    //   // this.setState(newState);
-    // }
-    this._cacheSubsets();
+  public componentDidUpdate() {
+    if (this.state.cache)
+      this._cacheSubsets();
   }
 
   public render() {
@@ -308,10 +286,8 @@ export default class CFTableView extends React.Component<
 
   onChangeColumnWidth(columnName: string, width: number) {
     const { predCol, featCols } = this.state;
-    // const columns = [predCol, ...featCols];
     const colNames = [this.predName, ...this.featNames];
     const index = colNames.findIndex(c => c === columnName);
-    // columns.splice(index, 1, changeColumnWidth(columns[index], width));
     if (index === -1) {
       throw "Cannot find the correponding column in updating column width.";
     }
@@ -344,7 +320,6 @@ export default class CFTableView extends React.Component<
     focusedDF.onChangeFilter(columnName, filter);
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
-    console.log(focusedDF.columns);
     this.setState({ focusedDF, rows: newRows });
   }
 
@@ -354,12 +329,10 @@ export default class CFTableView extends React.Component<
     focusedDF.onChangeCFFilter(columnName, filter);
     const newIndex = focusedDF.validIndex;
     const newRows = filterRows(rows, newIndex);
-    console.log(focusedDF.columns);
     this.setState({ focusedDF, rows: newRows });
   }
 
   onHover(row: number | null, column: number | null) {
-    // console.log(`hovering ${row} ${column}`);
     const { hovered } = this.state;
     if (hovered && row === hovered[0] && column === hovered[1]) return;
     if (row === null || column === null) this.setState({ hovered: null });
@@ -369,11 +342,8 @@ export default class CFTableView extends React.Component<
   onExpandRow(row: number) {
     const { rows, focusedDF } = this.state;
     const newRows = expandRows(rows, row, row + 1, [focusedDF.index[row]]);
-    console.log(row);
     console.debug("Expand row", row, focusedDF.index[row], newRows);
-    // this.loadCF(dataFrame.index[row]).then(() =>
     this.setState({ rows: newRows })
-    // );
   }
 
   onCollapseRow(row: number) {
@@ -409,8 +379,6 @@ export default class CFTableView extends React.Component<
     const { subsets } = this.state;
     const focusedDFProto = this.initFocusedDF(subsets[groupIndex].CFDataFrames[columnIndex - 1].copy());
     const focusedDF = focusedDFProto.copy();
-    // const columns = table.columns.map(d => ({ ...d }));
-    // const dataFrame = DataFrame.fromColumns(columns);
     this.setState({ focusedDFProto, focusedDF, groupIndex, columnIndex });
   }
 
@@ -431,17 +399,11 @@ export default class CFTableView extends React.Component<
   }
 
   renderHeaderCell(props: CellProps) {
-    const { rowIndex } = props;
-    if (rowIndex === 0) return undefined;
-    return this._chartCellRenderer(props);
-  }
-
-  _chartCellRenderer(cellProps: CellProps) {
     // const { columnIndex } = cellProps;
-    const columnIndex = cellProps.columnIndex;
+    const { columnIndex, rowIndex } = props;
     const { featCols, predCol, focusedClass, focusedDF, focusedDFProto } = this.state;
-    // const column = columns[columnIndex];
-    // const { width } = column;
+    
+    if (rowIndex === 0) return undefined;
     console.debug("render chart cell");
     if (columnIndex === 0) {
       return <LabelColumn
@@ -675,7 +637,7 @@ export default class CFTableView extends React.Component<
       const cfVal = cfData[row.index];
       const originStr = typeof (originVal) === 'string' ? originVal : originVal.toFixed(column.precision);
       if (originVal === cfVal) {
-        return <div className="cell-content">
+        return <div className="cell-content" onClick={this.onCollapseRow.bind(this, rowIndex)}>
           <span>{`${originStr}`}</span>
         </div>
       }
@@ -684,7 +646,7 @@ export default class CFTableView extends React.Component<
         if (typeof (originVal) === 'number' && typeof (cfVal) === 'number') {
           color = originVal > cfVal ? "#c06f5b" : "#9dbd78";
         }
-        return <div className="cell-content">
+        return <div className="cell-content" onClick={this.onCollapseRow.bind(this, rowIndex)}>
           <div className="cell-content-container">
             <span>{`${originStr}`}</span>
             <svg viewBox="0 0 200 200" height="60%" className="cell-triangle">
@@ -745,8 +707,6 @@ export default class CFTableView extends React.Component<
   }
 
   onClickRow(idx: number) {
-    // const { updateQueryInstance } = this.props;
-    console.log(idx);
     this.onExpandRow(idx);
   }
 
@@ -769,19 +729,8 @@ export default class CFTableView extends React.Component<
     return labelColumn && this._getRowLabels(labelColumn);
   }
 
-  // isRowLoaded({ index }: Index): boolean {
-  //   // return ;
-  //   // if (this.state.showCF) {
-  //   //   // index is the indx of the cell (rowState)
-  //   //   const rowState = this.state.rows[index];
-  //   //   return Boolean(rowState.cfLoaded);
-  //   // }
-  //   return true;
-  // }
-
   onSwitchCF(showCF: boolean) {
     this.setState({ showCF });
-    // this.loaderRef?.resetLoadMoreRowsCache(true);
     this.tableRef?.recomputeGridSize();
   }
 
@@ -799,26 +748,6 @@ export default class CFTableView extends React.Component<
   onFocusOnClass(newClass?: number) {
     this.setState({ focusedClass: newClass });
   }
-
-  // async loadMoreRows(params: IndexRange) {
-  //   // return;
-  //   const startRow = this.state.rows[params.startIndex];
-  //   const endRow = this.state.rows[params.stopIndex];
-  //   console.debug(this.state.dataFrame.index);
-
-  //   let index = this.state.dataFrame.index.slice(
-  //     isExpandedRow(startRow) ? startRow.dataIndex : startRow.startIndex,
-  //     isExpandedRow(endRow) ? endRow.dataIndex : endRow.endIndex
-  //   );
-  //   console.debug(index);
-  //   const filteredIndex = index.filter(i => !this.loadedCFs[i]);
-  //   console.debug(filteredIndex);
-  //   const cfs = await this.props.getCFs({index: filteredIndex});
-  //   cfs.forEach(cf => {
-  //     this.loadedCFs[cf.index] = cf;
-  //   });
-  //   return cfs;
-  // }
 
   featureIdx2CFIdx = memoizeOne((dataFrame: DataFrame, cfMeta: DataMeta) => {
     return dataFrame.columns.map(c => cfMeta.getColumnDisc(c.name)?.index);
@@ -838,7 +767,6 @@ export default class CFTableView extends React.Component<
   public copySubset(index: number) {
     const { subsets } = this.state;
     subsets.splice(index + 1, 0, subsets[index].copy());
-    console.log(subsets);
     this.setState({ subsets });
   }
 
@@ -853,14 +781,13 @@ export default class CFTableView extends React.Component<
     const { defaultSubset } = this.props;
     const filters = subsets.map(subset => subset.filters);
     const index = defaultSubset.dataMeta.features[0].name;
-    // localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
+    localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(filters));
   }
 
   async _loadSubsetCache() {
     const { defaultSubset, getSubsetCF } = this.props;
     const index = defaultSubset.dataMeta.features[0].name;
     const cacheString = localStorage.getItem(`${index}-cfSubsets`);
-    // const cacheString = localStorage.getItem(`cfSubsets`);
     let filterMat: Filter[][] = cacheString ? JSON.parse(cacheString) : [[]];
     if (filterMat.length > 0) {
       let subsets: CFSubset[] = [];
@@ -888,6 +815,3 @@ const CornerInfo: React.FunctionComponent<ICornerInfoProps> = props => {
     </div>
   );
 };
-
-
-type CFSeries = (string | undefined)[] | (number | undefined)[];

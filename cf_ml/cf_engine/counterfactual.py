@@ -1,25 +1,25 @@
-import os
 import pandas as pd
+
 
 class CounterfactualExample:
     """A class to store counterfactual examples"""
 
     def __init__(self, data_meta, cfs=None):
-        # _original_target = data_meta["target"]
         self._target = data_meta["target"]
         self._prediction = data_meta["prediction"]
         self._features = data_meta["features"]
 
-        self._cfs = pd.DataFrame(cfs, columns=self._features+[self._target, self._prediction])
-        # self._cfs[self._target] = self._cfs.pop(_original_target)
+        self._cfs = pd.DataFrame(cfs, columns=self._features + [self._target, self._prediction])
+
     @property
     def all(self):
         return self._cfs
 
     @all.setter
     def all(self, cfs):
-        self._cfs = pd.DataFrame(cfs, columns=self._features+[self._target, self._prediction])
+        self._cfs = pd.DataFrame(cfs, columns=self._features + [self._target, self._prediction])
         self._cfs["{}_target".format(self._target)] = self._cfs.pop(self._prediction)
+
     @property
     def valid(self):
         return self._cfs[self._cfs[self._target] == self._cfs[self._prediction]]
@@ -27,7 +27,6 @@ class CounterfactualExample:
     @property
     def invalid(self):
         return self._cfs[self._cfs[self._target] != self._cfs[self._prediction]]
-    
 
     def query(self, index):
         return self._cfs.loc[index, :]
@@ -60,12 +59,11 @@ class CounterfactualExampleBySubset:
         elif isinstance(cfs, CounterfactualExample):
             pass
         else:
-            raise TypeError("Counterfactuals should be either a DataFrame or a CounterFactualExample.")
+            raise TypeError(
+                "Counterfactuals should be either a DataFrame or a CounterFactualExample.")
 
         self._subsets[feature] = cfs
 
     @property
     def subsets(self):
         return self._subsets
-
-    

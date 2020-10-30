@@ -1,0 +1,10 @@
+,name,type,decile,category,min
+0,Pregnancies,numerical,0,,0
+1,Glucose,numerical,0,,0.0
+2,BloodPressure,numerical,0,,0.0
+3,SkinThickness,numerical,0,,0.0
+4,Insulin,numerical,0,,0.0
+5,BMI,numerical,1,,0.0
+6,DiabetesPedigreeFunction,numerical,3,,0.0
+7,Age,numerical,0,,0
+8,Outcome,categorical,,negative positive,

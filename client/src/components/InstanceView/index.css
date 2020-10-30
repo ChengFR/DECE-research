@@ -3,15 +3,6 @@
     font-weight: bold;
 }
 
-div.pcp-svg-container,
-.hist-svg-container {
-    position: absolute;
-    top: 10;
-    /* height: calc(100% - 250px); */
-    height: calc(100% - 120px);
-    overflow: hidden;
-}
-
 div.instance-body-container {
     width: 100%;
     height: auto;
@@ -19,10 +10,18 @@ div.instance-body-container {
 }
 
 div.instance-vis-container {
-    position: absolute;
-    /* height: calc(100% - 250px); */
-    height: calc(100% - 120px);
+    position: relative;
+    height: calc(100% - 180px);
     overflow: scroll;
+}
+
+div.axis-container,
+div.pcp-svg-container {
+    position: absolute;
+}
+
+div.pcp-svg-container {
+    top: 10;
 }
 
 div.feature-title {

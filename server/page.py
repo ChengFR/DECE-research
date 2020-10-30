@@ -6,17 +6,21 @@ page = Blueprint('page', __name__)
 
 logger = logging.getLogger('page')
 
+
 @page.route('/')
 def hello():
     return 'Hello, World!'
+
 
 @page.route('/static/js/<path:path>')
 def send_js(path):
     return send_from_directory(safe_join(app.config['STATIC_FOLDER'], 'js'), path)
 
+
 @page.route('/static/css/<path:path>')
 def send_css(path):
     return send_from_directory(safe_join(app.config['STATIC_FOLDER'], 'css'), path)
+
 
 @page.route('/static/fonts/<path:path>')
 def send_fonts(path):

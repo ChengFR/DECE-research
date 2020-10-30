@@ -266,19 +266,16 @@ export class CompactCFColumn extends React.Component<
       if (index !== this.hoveredIndex) {
         onHoverRow && onHoverRow(index);
         this.hoveredIndex = index;
-        // console.log("hover at dataIndex ", hoveredIndex);
       }
     },
     click: (e: any) => {
       const {onClickRow, startIndex} = this.props;
-      // let index: number | null = typeof e.dataIndex === 'number' ? (e.dataIndex + startIndex) : null
       let index: number | null = (e.data as (undefined | [number, number])) ? (e.data[1] + startIndex) : null;
       console.debug("click", e);
       onClickRow && index !== null && onClickRow(index);
     },
     contextmenu: (e: any) => {
       console.debug("rightclick", e);
-      // e.preventDefault();
     }
   };
 

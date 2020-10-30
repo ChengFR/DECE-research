@@ -1,17 +1,14 @@
 import * as d3 from 'd3';
 import * as React from 'react';
 import * as _ from "lodash";
-import memoizeOne from "memoize-one";
 
-
-import { IMargin, defaultCategoricalColor, getChildOrAppend, defaultMarginBottom, defaultMarginRight, getScaleBand } from '../visualization/common';
-import Histogram, { drawGroupedHistogram, getNBinsRange } from '../visualization/histogram';
+import { IMargin, defaultCategoricalColor, getChildOrAppend, getScaleBand } from '../visualization/common';
 import { getRowLabels, FeatureColumnProps, SankeyBins } from './common';
 import { gini } from 'common/science';
 import { Icon } from 'antd';
 import { drawLink } from '../visualization/link'
-import { columnMargin, CatTableColumn, TableColumn } from 'components/Table';
-import { drawBarChart } from 'components/visualization/barchart';
+import { CatTableColumn } from 'components/Table';
+import { drawBarChart } from 'components/visualization/Barchart';
 
 export interface CatFeatColProps extends FeatureColumnProps {
     column: CatTableColumn;
@@ -274,9 +271,10 @@ export class CatHeaderFeatCol extends CatFeatCol<CatHeaderFeatColProps, CatHeade
                     height: histHeight,
                     xScale: this.getXScale(),
                     drawAxis: drawAxis,
-                    // renderShades: true,
+                    renderShades: true,
                     color: color,
                     onSelectCategories: this.onSelectCategories,
+                    selectedCategories: column.filter,
                 }
             });
 
@@ -297,8 +295,10 @@ export class CatHeaderFeatCol extends CatFeatCol<CatHeaderFeatColProps, CatHeade
                     xScale: this.getXScale(),
                     drawAxis: drawAxis,
                     direction: "down",
+                    renderShades: true,
                     color: i => color(i^1),
                     onSelectCategories: this.onSelectCFCategories,
+                    selectedCategories: CFColumn.filter,
                 }
             });
 
@@ -364,6 +364,15 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
         this.onSelectCategories = this.onSelectCategories.bind(this);
 
         this.shouldPaint = false;
+    }
+
+    public componentWillReceiveProps(nextProps: CatSubsetFeatColProps){
+        // new props
+        if (nextProps != this.props) {
+            const { selectedCategories } = nextProps;
+            this.setState({ drawSankey: false, drawTooltip: false, selectedCategories: [...selectedCategories] });
+            this.updateParams(this.props);
+        }
     }
 
     protected updateParams(props: CatSubsetFeatColProps) {
@@ -503,7 +512,7 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
         const { handleAnn, sankeyHeight } = CatSubsetFeatCol.layout;
         const node = this.svgRef.current;
         const color = this.props.color || defaultCategoricalColor;
-        if (!node || this.dataEmpty()) {
+        if (!node) {
             this.shouldPaint = false;
             return;
         }
@@ -594,7 +603,7 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
         const { drawSankey } = this.state;
         if (this.sankeyBins)
             drawLink(root, this.sankeyBins, {
-                height: 20,
+                height: CatSubsetFeatCol.layout.sankeyHeight,
                 width: width,
                 margin: margin,
                 histogramType: focusedCategory === undefined ? histogramType : 'stacked',
@@ -607,8 +616,9 @@ export class CatSubsetFeatCol extends CatFeatCol<CatSubsetFeatColProps, CatSubse
     }
 
     get binWidth() {
-        const { width, margin, histogramType } = this.props;
-        const groupWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 2;
+        const { width, margin, column, histogramType } = this.props;
+        // const groupWidth = (width - margin.left - margin.right) / (this.getTicks().length - 1) - 2;
+        const groupWidth = column.xScale!.bandwidth()
         return histogramType === 'side-by-side' ? (groupWidth / this.originData!.length - 1) : groupWidth;
     }
 

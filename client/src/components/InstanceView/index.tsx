@@ -3,8 +3,7 @@ import * as d3 from "d3";
 import { Card, Divider, Button, Icon, InputNumber, Select, Row, Col, Slider, Collapse, Switch } from "antd"
 import { Dataset, DataMeta, IColumn, isNumericalFeature, CatFeatureDisc, NumFeatureDisc } from "../../data";
 import { CounterFactual, Filter, QueryParams } from "../../api"
-import { HistSlider } from "../visualization/HistSlider"
-import { BarSlider } from '../visualization/BarSlider'
+import { HistSlider, BarSlider } from "../visualization/widgets"
 // import 
 import { drawPcp } from "../visualization/pcp"
 import { createColumn, TableColumn } from "../Table/common"
@@ -36,7 +35,7 @@ const defaultStypeProps: StyleProps = {
 }
 
 interface InstanceViewState extends QueryParams {
-    editable: boolean;
+    mainState: 'editing'|'loading'|'plotting';
     hovered: boolean[];
     featureOrder: number[];
 }
@@ -47,15 +46,13 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     private xScales: (d3.ScaleBand<string> | d3.ScaleLinear<number, number>)[];
     private yScale?: d3.ScaleLinear<number, number>;
     private columns: TableColumn[]
-    // private queryInstance?: CounterFactual;
-    // private queryResults?: CounterFactual[];
 
     constructor(props: InstanceViewProps) {
         super(props);
 
         this.state = {
             ...defaultSetting(this.props.dataset.dataMeta),
-            editable: true,
+            mainState: 'editing',
             hovered: this.props.dataset.dataMeta.features.map(d => false),
             featureOrder: _.range(this.props.CFMeta.features.length)
         };
@@ -64,15 +61,13 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         this.xScales = [];
 
         const { dataset } = this.props;
-        const { histogramHeight, histogramWidth } = this.styleProps;
+        const { histogramWidth } = this.styleProps;
 
         this.columns = dataset.dataMeta.features.map((d, i) => {
             const rawColumn = createColumn(dataset.features[i])
             rawColumn.width = histogramWidth;
             return createColumn(rawColumn);
         })
-
-        // console.log(this.columns.map(col => col.series.toArray()));
 
         this.updateNumAttributeRange = this.updateNumAttributeRange.bind(this);
         this.updateAttributeValue = this.updateAttributeValue.bind(this);
@@ -82,11 +77,13 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
         this.onMouseMove = this.onMouseMove.bind(this);
         this.onSwitchLock = this.onSwitchLock.bind(this);
         this.putFeatureToEnds = this.putFeatureToEnds.bind(this);
+
+        this.query = this.query.bind(this);
     }
     public render() {
 
-        const { queryFunction, dataset } = this.props;
-        const { editable, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target, hovered, featureOrder } = this.state;
+        const { dataset } = this.props;
+        const { mainState, attrFlex, hovered, featureOrder } = this.state;
         const { histogramHeight, histogramWidth } = this.styleProps;
         const dataMeta = dataset.dataMeta;
 
@@ -104,13 +101,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
 
         return (
             <Panel
-                // title={<div>
-                //     <span className="ant-card-head-title-text">Instance View</span>
-                //     <Button type={editable ? "link" : "link"} icon="edit" shape="circle" size="default"
-                //         ghost={editable} style={{ float: "right" }}
-                //         onClick={d => this.setState({ editable: !this.state.editable })}>
-                //     </Button>
-                // </div>}
                 title="Instance View"
                 initialWidth={280} initialHeight={700} x={5} y={5}
             >
@@ -119,8 +109,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                 {this.setting()}
                 <Divider />
                 <div className="instance-vis-container">
-                    {/* <div className="instance-body-container"> */}
-                    {/* <div className="hist-svg-container"> */}
+                    <div className="axis-container">
                     {featureOrder.map((d, i) => {
                         const column = columns[d];
                         return <div className={"feature-container"}
@@ -129,7 +118,6 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                 <span>{column.name}</span>
                                 {(attrFlex && !attrFlex[d]) ? <Icon type="lock" onClick={this.onSwitchLock.bind(this, d)} /> :
                                     hovered[d] && <Icon type="unlock" onClick={this.onSwitchLock.bind(this, d)} />}
-                                {hovered[d] && <Icon type="down" onClick={this.putFeatureToEnds.bind(this, i)} />}
                             </div>
                             {(column.type === 'numerical') ?
                                 <HistSlider
@@ -141,12 +129,13 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                     margin={margin}
                                     xScale={column.xScale}
                                     ticks={10}
-                                    editable={editable}
+                                    editable={mainState === 'editing'}
                                     drawInput={false}
                                     onValueChange={newValue => this.updateAttributeValue(d, newValue)}
                                     onRangeChange={newRange => this.updateNumAttributeRange(d, newRange)}
                                     drawRange={true}
                                     drawTick={true}
+                                    precision={column.precision}
                                 /> :
                                 <BarSlider
                                     column={column}
@@ -156,7 +145,7 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                                     style={{ float: "left", height: histogramHeight }}
                                     margin={margin}
                                     xScale={column.xScale}
-                                    editable={editable}
+                                    editable={mainState === 'editing'}
                                     drawInput={false}
                                     onValueChange={newValue => this.updateAttributeValue(d, newValue)}
                                     onUpdateCats={newValue => this.updateCatAttributeRange(d, newValue)}
@@ -165,18 +154,15 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                         </div>
 
                     })}
-                    {/* </div> */}
-                </div>
-                {!editable &&
+                    </div>
+                    {mainState === 'plotting' &&
                     <div className="pcp-svg-container">
                         <svg ref={this.svgRef} className="instance-view-svg"
                             style={{ float: "left" }}
                             width={histogramWidth}
                             height={histogramHeight * this.xScales.length} />
-                    </div>
-                }
-                {/* </div> */}
-                {/* </div> */}
+                    </div>}
+                </div>
             </Panel>
         );
     }
@@ -202,16 +188,14 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
     }
 
     setting() {
-        const { queryFunction, dataset } = this.props;
-        const { editable, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target } = this.state;
+        const { dataset } = this.props;
         const dataMeta = dataset.dataMeta;
         return <div style={{ width: "100%" }}>
             <Row>
                 <Col span={6}>
                     <span className="setting-title">#counterfactuals:</span>
                 </Col>
-                <Col span={4}>
-                </Col>
+                <Col span={4}/>
                 <Col span={12}>
                     <Slider
                         min={1}
@@ -223,10 +207,9 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
             </Row>
             <Row>
                 <Col span={6}>
-                    <span className="setting-title">#features.:</span>
+                    <span className="setting-title">#features:</span>
                 </Col>
-                <Col span={4}>
-                </Col>
+                <Col span={4}/>
                 <Col span={12}>
                     <Slider
                         min={1}
@@ -236,64 +219,18 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                     />
                 </Col>
             </Row>
-            <Row>
-                <Col span={6}>
-                    <span className="setting-title">editable</span>
-                </Col>
-                <Col span={1}>
-                </Col>
-                <Col span={12}>
-                    <Switch
-                        defaultChecked
-                        onChange={d => this.setState({ editable: !this.state.editable })}
-                    />
-                </Col>
-            </Row>
         </div>
     }
 
-    controlPannel() {
-        const { queryFunction, dataset } = this.props;
-        const { editable, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target } = this.state;
-        const dataMeta = dataset.dataMeta;
-
-        const { Panel } = Collapse;
-
-        return <div style={{ width: "100%" }}>
-            <Row>
-                <Col span={6}>
-                    <span className="target-title">Target:</span>
-                </Col>
-                <Col span={12}>
-                    {dataMeta.target && (dataMeta.target.type === 'numerical' ?
-                        <InputNumber size="default" style={{ float: "left", minWidth: 120 }} /> :
-                        <Select style={{ float: "left", minWidth: 120 }}
-                            // value = {target}
-                            onChange={v => this.setState({ target: v as string })}>
-                            {!isNumericalFeature(dataMeta.target) && dataMeta.target.categories.map((d, i) => {
-                                return (<Option key={i}>{d}</Option>)
-                            })}
-                        </Select>)
-                    }
-                </Col>
-                <Col span={6}>
-                    <Button type="primary" style={{ float: "right" }} icon="search"
-                        onClick={() => {
-                            this.setState({ editable: false });
-                            queryInstance && queryFunction({
-                                queryInstance, target,
-                                k, cfNum, attrFlex, attrRange, prototypeCf
-                            })
-                        }}></Button>
-                </Col>
-            </Row>
-        </div>
-
+    async query(param: QueryParams){
+        const {queryFunction} = this.props;
+        await queryFunction(param);
+        this.setState({ mainState: 'plotting' })
     }
 
     labelPanel() {
         const { queryFunction, dataset, queryInstanceClass, CFMeta } = this.props;
-        const { editable, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target } = this.state;
+        const { mainState, k, cfNum, attrFlex, attrRange, prototypeCf, queryInstance, target } = this.state;
         const dataMeta = dataset.dataMeta;
         const classes = (CFMeta.prediction! as CatFeatureDisc).categories;
         const layout = [8, 8, 4];
@@ -329,57 +266,39 @@ export default class InstanceView extends React.Component<InstanceViewProps, Ins
                     </div>
                 </Col>
 
-                <Col span={layout[2]}>
-                    <Button type="primary" icon="search" size="small"
+                <Col span={layout[2]}>{
+                    (mainState==='editing' || mainState==='loading') && <Button type="primary" icon="search" size="small"
+                        loading={mainState==='loading'}
                         onClick={() => {
-                            this.setState({ editable: false });
-                            queryInstance && queryFunction({
+                            this.setState({ mainState: 'loading' });
+                            this.query({
                                 queryInstance, target,
                                 k, cfNum, attrFlex, attrRange, prototypeCf
                             })
                         }}></Button>
+                    }
+                    {mainState==='plotting' && <Button type="primary" icon="edit" size="small"
+                        onClick={() => {
+                            this.setState({ mainState: 'editing' });
+                        }}></Button>
+                    }
                 </Col>
             </Row>
         </div>
     }
 
-    loadQueryCache() {
-        const { CFMeta } = this.props;
-        const index = CFMeta.features[0].name;
-        const resultString = localStorage.getItem(`${index}-queryResults`);
-        if (resultString)
-            return JSON.parse(resultString) as CounterFactual[]
-        else
-            return undefined
-        // if (queryResults)
-        //     localStorage.setItem(`${index}-cfSubsets`, JSON.stringify(queryResults));
-
-    }
-
     public componentDidMount() {
-        this.init();
         this._drawPcp();
     }
 
     public componentDidUpdate(oldProps: InstanceViewProps, oldState: InstanceViewState) {
         const { queryResults, queryInstance } = this.props;
         const { featureOrder } = this.state
-        // if (queryResults !== this.queryResults) {
-        //     // this.setState({queryResults});
-        //     // this.queryResults = queryResults;
-        //     // this.cacheQueryResults();
-        // }
-
-        // // if (this.queryInstance)
         this.xScales = featureOrder.map(d => this.columns[d].xScale);
-        const { editable } = this.state;
-        if (!editable) {
+        const { mainState } = this.state;
+        if (mainState === 'plotting') {
             this._drawPcp();
         }
-    }
-    public init() {
-        // this.setState({queryResults: this.loadQueryCache()});
-        // this.queryResults = this.loadQueryCache();
     }
 
     public _drawPcp() {
@@ -468,7 +387,6 @@ export function defaultSetting(dataMeta: DataMeta): QueryParams {
         const k: number = dataMeta.features.length;
         const cfNum: number = 12;
         const attrFlex: boolean[] = dataMeta.features.map(d => true);
-        // const filters: Filter[] = dataMeta.features.map((d, i) => ({id: i, categories: d.categories, min: d.min, max: d.max}));
         const attrRange: Filter[] = dataMeta.features.map((d, i) => isNumericalFeature(d) ?
             { name: dataMeta.features[i].name, extent: [d.extent[0], d.extent[1]] } :
             { name: dataMeta.features[i].name, categories: d.categories });

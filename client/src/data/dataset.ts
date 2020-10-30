@@ -61,9 +61,9 @@ export class DataMeta {
   // add index attribute
   public index?: FeatureDisc;
   constructor(input: DataMetaInput) {
-    this.features = input.features;
+    this.features = input.features.map(f => validateFeatureDisc(f));
     this.target = input.target?validateFeatureDisc(input.target):undefined;
-    this.prediction = input.prediction;
+    this.prediction = input.prediction?validateFeatureDisc(input.prediction):undefined;;
     this.index = input.index;
     this.name2feature = _.keyBy(this.features, (f) => f.name);
   }
@@ -106,12 +106,6 @@ export class Dataset {
   }
 
   public _reorderedDataFrame = memoize(() => {
-    // const columns = [];
-    // if (this.target) columns.push(this.target);
-    // if (this.prediction) columns.push(this.prediction);
-    // const df = DataFrame.fromColumns([...columns, ...this.features], this.index);
-    // console.debug(df);
-    // return df;
     const order = this.order;
     const columns = order.map(name => this.dataFrame.getColumnByName(name));
     const df = DataFrame.fromColumns([...columns], this.index);
