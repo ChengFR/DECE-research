@@ -1,7 +1,6 @@
 import os
-import argparse
-from flask import Flask, send_from_directory, safe_join
-from flask_cors import CORS, cross_origin
+from flask import Flask
+from flask_cors import CORS
 
 from .api import api
 from .page import page
@@ -31,7 +30,6 @@ def create_app(config=None):
         app.dataset = load_german_credit_dataset()
     else:
         raise NotImplementedError
-    
 
     # load model
     app.model = PytorchModelManager(app.dataset, model_name=app.config['MODEL'])
@@ -55,7 +53,6 @@ def create_app(config=None):
 
 
 def add_arguments_server(parser):
-
     # Dataset and target model
     parser.add_argument('--dataset', default='diabetes', type=str, help="The name of the dataset")
     parser.add_argument('--model', default='MLP', type=str, help="The name of the model")
@@ -67,8 +64,8 @@ def add_arguments_server(parser):
 
 
 def start_server(args):
-
-    app = create_app(dict(DATASET=args.dataset, MODEL=args.model, OUTPUT_DIR=OUTPUT_DIR, STATIC_FOLDER=STATIC_FOLDER))
+    app = create_app(dict(DATASET=args.dataset, MODEL=args.model, OUTPUT_DIR=OUTPUT_DIR,
+                          STATIC_FOLDER=STATIC_FOLDER))
 
     app.run(
         debug=args.debug,

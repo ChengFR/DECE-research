@@ -1,21 +1,21 @@
-import json
-import math
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler
+
 
 class Dataset:
     """A class to store and process datasets in pd.DataFrame.
 
     Args: 
-        name: str, the name of the dataset, e.g. HELOC, adult.
+        name: str, the name of the dataset, e.g. diabetes, german-credit.
         dataframe: pandas.DataFrame, raw dataset in the form of pandas.DataFrame
-        description: dict, key: column name, value: {'type': 'numerical'|'categorical', 'min': number, 'max': number, 
-            'decile': number in [0, 1, 2, 3], 'category': array-like}.
+        description: dict, key: column name, value: {'type': 'numerical'|'categorical', 
+            'min': number (optional), 'max': number (optional), 
+            'decile': precision in number (optional), 
+            'category': list of categories (optional)}.
         target_name: str, the name of the target attribute.
-        split_rate: number, #training/#all
+        split_rate: number, the ratio between the training dataset size and the whole dataset 
     """
 
     def __init__(self, name, dataframe, description, target_name, split_rate=0.8):
@@ -26,14 +26,14 @@ class Dataset:
 
         self._columns = self._description.keys()
         self._dummy_columns = self._get_all_columns(self._columns)
-        
+
         self._features = list(filter(lambda x: x != self.target, self.columns))
         self._numerical_features = list(filter(self.is_num, self._features))
         self._categorical_features = list(filter(lambda x: not self.is_num(x), self._features))
 
         self._check_dataframe()
 
-        self._feature_scaler = MinMaxScaler()
+        self._feature_scalar = MinMaxScaler()
         self._fit_normalizer()
         self._fit_one_hot_encoder()
 
@@ -47,7 +47,8 @@ class Dataset:
 
     def _check_and_clean_description(self, description):
         """Check and fill the descriptions to the dataset."""
-        clean_description = {col: {'index': i, 'type': info['type']} for i, (col, info) in enumerate(description.items())}
+        clean_description = {col: {'index': i, 'type': info['type']} for i, (col, info) in
+                             enumerate(description.items())}
 
         # check whether each column is noted as numerical or categorical
         for col, info in clean_description.items():
@@ -62,10 +63,11 @@ class Dataset:
                 clean_description[col]['max'] = info.get('max', float(self.data[col].max()))
                 decile = int(info.get('decile', 0))
                 clean_description[col]['decile'] = decile
-                clean_description[col]['scale'] = 1 if decile==0 else 0.1**decile
+                clean_description[col]['scale'] = 1 if decile == 0 else 0.1 ** decile
             # complete categories for categorical attributes
             else:
-                clean_description[col]['categories'] = info.get('category', self._data[col].unique().tolist())
+                clean_description[col]['categories'] = info.get('category',
+                                                                self._data[col].unique().tolist())
 
         return clean_description
 
@@ -73,20 +75,21 @@ class Dataset:
         """Check the stringify the categorical data in the dataframe."""
         for col in self.columns:
             if not self.is_num(col):
-                self._data[col] = self._data[col].apply(lambda x: str(x))  
-                self._description[col]['categories'] = [str(cat) for cat in self._description[col]['categories']]
+                self._data[col] = self._data[col].apply(lambda x: str(x))
+                self._description[col]['categories'] = [str(cat) for cat in
+                                                        self._description[col]['categories']]
 
     def is_num(self, column_name):
         """Check whether the type of the column is numerical."""
         return self.description[column_name]['type'] == 'numerical'
 
     def get_dummy_columns(self, column, categories=None):
-        """Get the names of the dummy columns from the original column name and categories(optional)."""
+        """Get the names of the dummy columns from the original column name and categories."""
         if self.is_num(column):
             return [column]
         if categories is None:
             categories = self.description[column]['categories']
-        return ["{}_{}".format(column, cat) for cat in categories] 
+        return ["{}_{}".format(column, cat) for cat in categories]
 
     def _get_all_columns(self, columns):
         dummy_columns = []
@@ -95,38 +98,43 @@ class Dataset:
         return dummy_columns
 
     def _fit_normalizer(self):
-        self._feature_scaler.fit(self._data[self.numerical_features])
+        self._feature_scalar.fit(self._data[self.numerical_features])
 
     def _fit_one_hot_encoder(self):
         pass
 
     def _normalize(self, data):
         data = data.copy()
-        data[self.numerical_features] = self._feature_scaler.transform(data[self.numerical_features])
+        data[self.numerical_features] = self._feature_scalar.transform(
+            data[self.numerical_features])
         return data
 
     def normalize_feature(self, feature, value):
         """Get the normalized feature value."""
-        data = pd.DataFrame(np.zeros((1, len(self.numerical_features))), columns=self.numerical_features)
+        data = pd.DataFrame(np.zeros((1, len(self.numerical_features))),
+                            columns=self.numerical_features)
         data[feature] = value
-        data[data.columns] = self._feature_scaler.transform(data)
+        data[data.columns] = self._feature_scalar.transform(data)
         return data[feature]
 
     def _denormalize(self, data):
         data = data.copy()
-        data[self.numerical_features] = self._feature_scaler.inverse_transform(data[self.numerical_features])
+        data[self.numerical_features] = self._feature_scalar.inverse_transform(
+            data[self.numerical_features])
         # Refine the numerical feauture values with valid precisions.
         for f in self.numerical_features:
-            data[f] = np.round(data[f].astype(float) / self.description[f]['scale']) * self.description[f]['scale']
+            data[f] = np.round(data[f].astype(float) / self.description[f]['scale']) * \
+                      self.description[f]['scale']
         return data
 
     def _to_dummy(self, data):
         data = data.copy()
-        cat_cols = [col for col in self.categorical_features+[self.target] if col in data.columns]
+        cat_cols = [col for col in self.categorical_features + [self.target] if
+                    col in data.columns]
         for col in cat_cols:
             for cat in self.description[col]['categories']:
-                data["{}_{}".format(col, cat)] = data[col].apply(lambda x: x==cat).astype(int)
-        
+                data["{}_{}".format(col, cat)] = data[col].apply(lambda x: x == cat).astype(int)
+
         cols = [col for col in self.dummy_columns if col in data.columns]
         return data[cols]
 
@@ -153,18 +161,17 @@ class Dataset:
         category_index = data.loc[:, dummy_col].values.argmax(axis=1)
         category_value = [cats[index] for index in category_index]
         return category_value
-    
+
     def _any2df(self, data, columns):
         if isinstance(data, dict):
             data = [data]
         return pd.DataFrame(data, columns=columns)
 
-
     def preprocess(self, data):
         """Pre-process data, including both feature values and target values."""
         data = self._any2df(data, self.columns)
         return self._normalize(self._to_dummy(data))
-    
+
     def preprocess_X(self, data):
         """Pre-process feature data."""
         data = self._any2df(data, self.features)
@@ -179,7 +186,7 @@ class Dataset:
         """Inversely process data, including both feature values and target values."""
         data = self._any2df(data, self.dummy_columns)
         return self._from_dummy(self._denormalize(data))
-    
+
     def inverse_preprocess_X(self, data):
         """Inversely process feature data."""
         data = self._any2df(data, self.dummy_features)
@@ -190,8 +197,10 @@ class Dataset:
         data = self._any2df(data, self.dummy_target)
         return self._from_dummy(pd.DataFrame(data))
 
-    def get_subset(self, index='all', filters={}, preprocess=True):
+    def get_subset(self, index='all', filters=None, preprocess=True):
         """Get a subset of data from the given indexes and constrained by the given filters."""
+        if filters is None:
+            filters = {}
         if type(index) == int:
             index = [index]
         elif type(index) == str and index == 'all':
@@ -210,7 +219,7 @@ class Dataset:
                 filtered_df = filtered_df[filtered_df[col] < info['max']]
             if 'categories' in info:
                 filtered_df = filtered_df[filtered_df[col].isin(info['categories'])]
-        
+
         if len(filtered_df) == 0:
             return None
 
@@ -227,14 +236,16 @@ class Dataset:
         for feature in self.numerical_features:
             mads[feature] = np.median(abs(data[feature].values - np.median(data[feature].values)))
         return mads
-    
+
     def get_universal_range(self):
         """Get the range of all feature values."""
-        categorical_feature_range = {cat_f: {'categories': self.description[cat_f]['categories']} for cat_f in self.categorical_features}
+        categorical_feature_range = {cat_f: {'categories': self.description[cat_f]['categories']}
+                                     for cat_f in self.categorical_features}
         numerical_feature_range = {num_f: {
             'decile': self.description[num_f]['decile'],
-            'min': int(self.description[num_f]['min']/self.description[num_f]['scale']),
-            'max': int(self.description[num_f]['max']/self.description[num_f]['scale'])+1} for num_f in self.numerical_features}
+            'min': int(self.description[num_f]['min'] / self.description[num_f]['scale']),
+            'max': int(self.description[num_f]['max'] / self.description[num_f]['scale']) + 1} for
+            num_f in self.numerical_features}
         return {**categorical_feature_range, **numerical_feature_range}
 
     @property

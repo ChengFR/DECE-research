@@ -9,7 +9,7 @@ import numpy as np
 
 from cf_ml.utils.feature_range import tokenize
 
-OUTPUT_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'output')
+OUTPUT_ROOT = os.path.join('../../', os.path.dirname(__file__), 'output')
 
 class DirectoryManager:
     """A class to save and load output files."""
