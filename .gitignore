@@ -139,5 +139,4 @@ dmypy.json
 
 # customized
 output/
-sample_data/
 notebooks/
