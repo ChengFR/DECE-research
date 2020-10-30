@@ -10,7 +10,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__
 def load_german_credit_dataset():
     description = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/description.csv'),
                               index_col='name').to_dict('index')
-    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/german_credit.csv'))
+    data_df = pd.read_csv(os.path.join(DATA_DIR, 'german-credit/german_credit.csv'), index_col=0)
     description['Job']['category'] = ['0', '1', '2', '3']
     description['Housing']['category'] = ['free', 'rent', 'own']
     description['Saving accounts']['category'] = ['unknown', 'little', 'moderate', 'rich',

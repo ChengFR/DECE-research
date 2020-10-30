@@ -21,10 +21,10 @@ class Dataset:
     def __init__(self, name, dataframe, description, target_name, split_rate=0.8):
         self._name = name
         self._data = dataframe
+        self._columns = [col for col in self._data.columns if col in description]
         self._description = self._check_and_clean_description(description)
         self._target = target_name
 
-        self._columns = self._description.keys()
         self._dummy_columns = self._get_all_columns(self._columns)
 
         self._features = list(filter(lambda x: x != self.target, self.columns))
@@ -47,9 +47,8 @@ class Dataset:
 
     def _check_and_clean_description(self, description):
         """Check and fill the descriptions to the dataset."""
-        clean_description = {col: {'index': i, 'type': info['type']} for i, (col, info) in
-                             enumerate(description.items())}
-
+        clean_description = {col: {'index': self.columns.index(col), 'type': info['type']} 
+			for col, info in description.items()}
         # check whether each column is noted as numerical or categorical
         for col, info in clean_description.items():
             if info['type'] not in ['numerical', 'categorical']:
