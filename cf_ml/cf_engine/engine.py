@@ -200,12 +200,11 @@ class CFEnginePytorch:
             reports.append(report)
 
             if verbose:
-                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iteration: {}, "
+                valid_rate = (report[self._target] == report[self._prediction]).sum() / len(report)
+                print("[{}/{}]  Epoch-{}, time cost: {:.3f}s, loss: {:.3f}, iterations: {}, "
                       "validation rate: {:.3f}".format(end_id, data_num, batch_num,
                                                        timeit.default_timer() - checkpoint,
-                                                       loss, iter,
-                                                       (report[self._target] == report[
-                                                           self._prediction]).sum() / len(report)))
+                                                       loss, iter, valid_rate))
 
         return CounterfactualExample(self._data_meta, pd.concat(reports))
 
