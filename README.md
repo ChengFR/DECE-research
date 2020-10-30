@@ -26,9 +26,9 @@ This repository contains:
 
 **STEP-1: Prepare for the environment.**
 
-Prepare for the [python](https://www.python.org/) enviroment:
+Prepare for the [python](https://www.python.org/) enviroment (python3.7 is recommended):
 
-    virtualenv $(python3.7) venv/
+    virtualenv venv/
     source venv/bin/activate
     pip install -r requirements.txt
 
