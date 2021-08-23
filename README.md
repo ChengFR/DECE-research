@@ -65,12 +65,12 @@ npm start
 **STEP-3: Visit `localhost:3000/` for the visualization.**
 
 # Cite this work
-    @ARTICLE{cheng20dece,
-    author={F. {Cheng} and Y. {Ming} and H. {Qu}},
-    journal={IEEE Transactions on Visualization and Computer Graphics}, 
-    title={DECE: Decision Explorer with Counterfactual Explanations for Machine Learning Models}, 
-    year={2020},
-    volume={},
-    number={},
-    pages={1-1},
-    doi={10.1109/TVCG.2020.3030342}}
+    @ARTICLE{9229232,
+      author={Cheng, Furui and Ming, Yao and Qu, Huamin},
+      journal={IEEE Transactions on Visualization and Computer Graphics}, 
+      title={DECE: Decision Explorer with Counterfactual Explanations for Machine Learning Models}, 
+      year={2021},
+      volume={27},
+      number={2},
+      pages={1438-1447},
+      doi={10.1109/TVCG.2020.3030342}}
